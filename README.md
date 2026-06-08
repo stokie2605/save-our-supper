@@ -10,6 +10,18 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Core Architecture & Technical Implementation
 
+## Problems Solved During Development
+
+This project was rebuilt from a cluttered early prototype into a clean Firebase-backed application. Along the way, several practical engineering problems were identified, debugged, and fixed:
+
+- **Backend schema mismatch:** Earlier versions were still trying to write old Supabase field names, which caused silent failures and `400 Bad Request` errors. The app was refactored to use the active Firestore `posts` document shape consistently.
+- **Postcode casing bug:** Lowercase postcode input such as `st7` caused geocoding failures. The listing submission pipeline now trims, normalizes spacing, and uppercases postcode/location input before lookup.
+- **Map marker rendering:** Firestore documents used slightly different longitude field names during testing. The mapper now safely supports `lon`, `lng`, and `longitude`, then outputs the normalized `lat`/`lon` shape expected by Leaflet.
+- **Leaflet marker asset issue:** Marker icons were not reliably drawing in the deployed app. The map now imports Leaflet's bundled marker assets directly so pins render correctly in Vite production builds.
+- **Modal stacking bug:** Leaflet map panes were visually clipping through the listing form modal. The modal overlay was raised above the map with a higher z-index.
+- **Seeded data visibility:** The app needed realistic regional data to prove the map and feed worked at scale. A Firebase seeding utility now generates 45 realistic local listings across Alsager, Crewe, Stoke-on-Trent/Hanley, and Kidsgrove/Talke with valid coordinates and geohashes.
+- **Live inventory accuracy:** The Stock Levels tab originally reflected an older inventory concept. It now listens to Firestore in real time, groups available posts by category, and updates as listings are seeded or claimed.
+
 ### 1. Proximity-Based Matching Via Geohashing
 
 **The Challenge:** Querying raw latitude and longitude coordinates directly across a database to calculate distances in real time can become expensive and slow as the number of listings grows.
