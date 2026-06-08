@@ -52,5 +52,34 @@ interface DonationDocument {
   expiryTimestamp: number;
   geohash: string;
   postcode: string;
+---
+
+## 🔬 Deep-Dive Technical Mechanics
+
+### 1. The Geohash Prefix Query Matcher
+Instead of performing heavy, expensive 2D geospatial distance math on every database read, the application converts latitude and longitude coordinates into static, indexed **1D string prefixes**. When searching for local inventory, the application runs a highly efficient string boundary query (`startAt` and `endAt`), matching adjacent grid blocks instantly with minimum computational overhead.
+
+```typescript
+// Architectural Query Example
+const localGeohashPrefix = "gcw2n"; // Stoke-on-Trent Region Marker
+
+const donationQuery = query(
+  collection(db, "donations"),
+  orderBy("geohash"),
+  startAt(localGeohashPrefix),
+  endAt(localGeohashPrefix + "\uf8ff") // Matches any hash starting with the prefix
+);
+Isolated Transactional State Locking
+To prevent concurrent users from claiming the same resource simultaneously (race conditions), the allocation pipeline executes exclusively within an isolated transactional batch function block. The transaction forces a read on the document's real-time state, explicitly verifies availability within the atomic boundary, and locks the document state before committing the update write-lock.
+
+TypeScript
+// Atomic Triage Example
+await runTransaction(db, async (transaction) => {
+  const donationDoc = await transaction.get(donationRef);
+  if (donationDoc.data().status !== "available") {
+    throw new Error("Allocation Conflict: Item already secured by another facility.");
+  }
+  transaction.update(donationRef, { status: "claimed", claimedBy: foodbankId });
+});
   status: "available" | "claimed" | "collected";
 }
