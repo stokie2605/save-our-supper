@@ -831,9 +831,11 @@ export default function App() {
           ) : null}
 
           {dashboardTab === 'find-food' && !loading && filteredListings.length === 0 ? (
-            <div className="bg-white border border-dashed border-slate-300 rounded-2xl text-center py-16 px-4">
-              <p className="text-slate-400 font-medium text-lg">No active food posts found.</p>
-              <p className="text-slate-400 text-sm mt-1">Your connection to Firebase Firestore is active and waiting for data!</p>
+            <div className="rounded-2xl border border-dashed border-brand-slateSoft bg-white px-5 py-14 text-center shadow-xs">
+              <p className="text-lg font-bold tracking-tight text-slate-700">No available food listings found.</p>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                No available food listings found near {profile?.primary_location || settingsLocation || defaultPostLocation.postcode} within {localSearchRadiusMiles} miles yet. Add a new listing to start, or use Seed Test Data in Settings to populate demo items.
+              </p>
             </div>
           ) : null}
 
