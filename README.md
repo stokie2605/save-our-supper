@@ -43,6 +43,8 @@ Follow-up proximity and UI wiring:
 - Feed-level system messages now use Tailwind alert styling:
   - red for transaction collisions or rejected claims
   - green for successful claim confirmation
+- Registration now asks for `Postcode / Local Area` and saves it to the Supabase `profiles.primary_location` field during account creation.
+- The feed radius is user-selectable with 2 mile, 5 mile, and 15 mile options, and changing it automatically refreshes the Firestore proximity query.
 
 ---
 

@@ -106,7 +106,13 @@ const defaultPostLocation = {
   lon: defaultHubCoordinates.lon,
 };
 
-const localSearchRadiusMiles = 15;
+const defaultSearchRadiusMiles = 15;
+
+const radiusOptions = [
+  { value: 2, label: '2 miles', description: 'Walking' },
+  { value: 5, label: '5 miles', description: 'Local' },
+  { value: 15, label: '15 miles', description: 'Wider Area' },
+];
 
 const getExpiryTimestamp = (value: string) => {
   const parsedDate = new Date(value);
@@ -178,6 +184,7 @@ export default function App() {
   const [, setProfileLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [registrationLocation, setRegistrationLocation] = useState('');
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [authError, setAuthError] = useState('');
   const [userCoordinates, setUserCoordinates] = useState({
@@ -186,6 +193,7 @@ export default function App() {
   });
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchRadiusMiles, setSearchRadiusMiles] = useState(defaultSearchRadiusMiles);
   const [filter, setFilter] = useState<FeedFilter>('all');
   const [dashboardTab, setDashboardTab] = useState<DashboardTab>('find-food');
   const [myClaims, setMyClaims] = useState<Post[]>([]);
@@ -311,7 +319,7 @@ export default function App() {
       setLoading(true);
 
       try {
-        const nearbyPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], localSearchRadiusMiles);
+        const nearbyPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], searchRadiusMiles);
 
         if (isMounted) {
           setPosts(nearbyPosts);
@@ -334,7 +342,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, [userCoordinates.lat, userCoordinates.lon]);
+  }, [searchRadiusMiles, userCoordinates.lat, userCoordinates.lon]);
 
   useEffect(() => {
     if (!session?.user?.id) {
@@ -560,13 +568,51 @@ export default function App() {
     setAuthError('');
 
     try {
-      const authAction = isCreatingAccount
-        ? supabase.auth.signUp({ email, password })
-        : supabase.auth.signInWithPassword({ email, password });
-      const { error } = await authAction;
+      if (isCreatingAccount) {
+        const cleanedLocation = registrationLocation.trim().replace(/\s+/g, ' ').toUpperCase();
 
-      if (error) {
-        throw error;
+        if (!cleanedLocation) {
+          throw new Error('Please enter your postcode or local area.');
+        }
+
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              primary_location: cleanedLocation,
+            },
+          },
+        });
+
+        if (error) {
+          throw error;
+        }
+
+        if (data.user) {
+          const { error: profileError } = await supabase.from('profiles').upsert({
+            id: data.user.id,
+            organization_name: 'Community member',
+            tier: 'grassroots_partner',
+            primary_location: cleanedLocation,
+            contact_phone: null,
+          });
+
+          if (profileError) {
+            throw profileError;
+          }
+
+          setSettingsLocation(cleanedLocation);
+          getCoordinatesFromPostcode(cleanedLocation)
+            .then(setUserCoordinates)
+            .catch((err) => console.error('Error geocoding registration location:', err));
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+        if (error) {
+          throw error;
+        }
       }
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
@@ -583,7 +629,7 @@ export default function App() {
 
     try {
       const createdCount = await seedFirebasePosts(session.user.id);
-      const refreshedPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], localSearchRadiusMiles);
+      const refreshedPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], searchRadiusMiles);
 
       setPosts(refreshedPosts);
       setSeedMessage(`Seed complete: ${createdCount} Firebase listings are now available.`);
@@ -636,6 +682,19 @@ export default function App() {
                 required
               />
             </label>
+
+            {isCreatingAccount ? (
+              <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+                Postcode / Local Area
+                <input
+                  value={registrationLocation}
+                  onChange={(event) => setRegistrationLocation(event.target.value)}
+                  placeholder="e.g. ST7 or ST4 1AA"
+                  className="rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2.5 text-slate-900 uppercase outline-none focus:border-brand-forest"
+                  required
+                />
+              </label>
+            ) : null}
 
             {authError ? <p className="text-sm font-semibold text-red-500">{authError}</p> : null}
 
@@ -801,9 +860,25 @@ export default function App() {
           </div>
 
           {dashboardTab === 'find-food' ? (
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Showing food near {profile?.primary_location || settingsLocation || defaultPostLocation.postcode} within {localSearchRadiusMiles} miles
-            </p>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Showing food near {profile?.primary_location || settingsLocation || defaultPostLocation.postcode} within {searchRadiusMiles} miles
+              </p>
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                Radius
+                <select
+                  value={searchRadiusMiles}
+                  onChange={(event) => setSearchRadiusMiles(Number(event.target.value))}
+                  className="rounded-xl border border-brand-slateSoft bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-700 shadow-xs outline-none focus:border-brand-forest"
+                >
+                  {radiusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label} ({option.description})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
           ) : null}
 
           {systemMessage ? (
@@ -834,7 +909,7 @@ export default function App() {
             <div className="rounded-2xl border border-dashed border-brand-slateSoft bg-white px-5 py-14 text-center shadow-xs">
               <p className="text-lg font-bold tracking-tight text-slate-700">No available food listings found.</p>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-                No available food listings found near {profile?.primary_location || settingsLocation || defaultPostLocation.postcode} within {localSearchRadiusMiles} miles yet. Add a new listing to start, or use Seed Test Data in Settings to populate demo items.
+                No available food listings found near {profile?.primary_location || settingsLocation || defaultPostLocation.postcode} within {searchRadiusMiles} miles yet. Add a new listing to start, or use Seed Test Data in Settings to populate demo items.
               </p>
             </div>
           ) : null}
