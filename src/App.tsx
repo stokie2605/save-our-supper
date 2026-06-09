@@ -20,26 +20,6 @@ import {
 } from './lib/posts';
 import { supabase } from './lib/supabase';
 
-// 1. Updated interface to match your exact Supabase column layout
-interface Listing {
-  id: string;
-  created_at: string;
-  title: string;
-  description: string | null;
-  category: string;
-  quantity: string;
-  location?: string | null;
-  collection_window?: string | null;
-  post_type: 'surplus' | 'need' | string;
-  urgency: string;
-  status?: string | null;
-  user_id?: string;
-  claimed_by?: string | null;
-  image_url?: string | null;
-  dietary_tags?: string[];
-  is_foodbank_suitable?: boolean;
-}
-
 // Interfaces for our newly created tables
 interface InventoryItem {
   id: string;
@@ -133,49 +113,33 @@ const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
 ];
 
 const dietaryOptions = ['Vegan', 'Vegetarian', 'Gluten-Free', 'Nut-Free'];
+const communityUpdateCategory = 'community-update';
 
-const categoryImageUrls: Record<string, string> = {
-  Bakery: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop&q=80',
-  Produce: 'https://images.unsplash.com/photo-1610348725531-843dff14692a?w=500&auto=format&fit=crop&q=80',
-  Dairy: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?w=500&auto=format&fit=crop&q=80',
-  'Meals / Prepared': 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&auto=format&fit=crop&q=80',
-  Other: 'https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=500&auto=format&fit=crop&q=80',
+const getPostcodePrefix = (postcode?: string | null) => {
+  const cleanedPostcode = (postcode ?? defaultPostLocation.postcode).trim().toUpperCase();
+  return cleanedPostcode.split(/\s+/)[0] || 'LOCAL';
 };
 
-const getListingImageUrl = (listing: Listing) => {
-  if (listing.image_url) {
-    return listing.image_url;
+const isCitizenPost = (post: Post) => post.category?.toLowerCase() === communityUpdateCategory;
+
+const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+const getDistanceLabel = (post: Post, coordinates: { lat: number; lon: number }) => {
+  if (!Number.isFinite(post.lat) || !Number.isFinite(post.lon)) {
+    return 'nearby';
   }
 
-  return categoryImageUrls[listing.category] ?? categoryImageUrls.Other;
-};
+  const earthRadiusMiles = 3958.8;
+  const latDistance = toRadians(post.lat - coordinates.lat);
+  const lonDistance = toRadians(post.lon - coordinates.lon);
+  const startLat = toRadians(coordinates.lat);
+  const endLat = toRadians(post.lat);
+  const haversine =
+    Math.sin(latDistance / 2) ** 2 +
+    Math.cos(startLat) * Math.cos(endLat) * Math.sin(lonDistance / 2) ** 2;
+  const miles = earthRadiusMiles * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 
-const getUrgencyBadgeClass = (urgency: string) => {
-  const normalizedUrgency = urgency.toLowerCase();
-
-  if (normalizedUrgency === 'high') {
-    return 'bg-orange-50 text-orange-800 border border-orange-200';
-  }
-
-  if (normalizedUrgency === 'medium') {
-    return 'bg-amber-50 text-amber-800 border border-amber-200';
-  }
-
-  return 'bg-slate-100 text-slate-700 border border-brand-slateSoft';
-};
-
-const getStatusBadgeClass = (status?: string | null) => {
-  const normalizedStatus = (status ?? 'available').toLowerCase();
-
-  if (normalizedStatus === 'pending') {
-    return 'bg-amber-50 text-amber-800 border border-amber-200';
-  }
-
-  if (normalizedStatus === 'claimed') {
-    return 'bg-slate-100 text-slate-700 border border-brand-slateSoft';
-  }
-
-  return 'text-brand-forest bg-brand-cream';
+  return `${miles < 10 ? miles.toFixed(1) : Math.round(miles)} miles away`;
 };
 
 export default function App() {
@@ -201,6 +165,8 @@ export default function App() {
   const [userPostsLoading, setUserPostsLoading] = useState(false);
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
   const [systemMessage, setSystemMessage] = useState<SystemMessage>(null);
+  const [communityPostText, setCommunityPostText] = useState('');
+  const [isSharingCommunityPost, setIsSharingCommunityPost] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formState, setFormState] = useState<ListingFormState>(emptyListingForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -413,27 +379,6 @@ export default function App() {
     return true;
   });
 
-  const filteredListings: Listing[] = filteredPosts.map((post) => ({
-    id: post.id,
-    created_at: post.created_at,
-    title: post.title,
-    description: post.description,
-    category: post.category ?? 'Food',
-    quantity: post.quantity,
-    location: post.postcode?.trim() || 'Location TBC',
-    collection_window: new Date(post.expiry_time).toLocaleString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    }),
-    post_type: 'surplus',
-    urgency: post.urgency ?? 'medium',
-    status: post.status === 'available' ? 'available' : 'pending',
-    user_id: post.donor_id,
-    claimed_by: post.receiver_id,
-  }));
-
   const updateFormField = <Field extends keyof ListingFormState>(field: Field, value: ListingFormState[Field]) => {
     setFormState((current) => ({ ...current, [field]: value }));
   };
@@ -495,6 +440,56 @@ export default function App() {
     setIsModalOpen(false);
   };
 
+  const handleShareCommunityPost = async () => {
+    if (!session?.user?.id) {
+      setSystemMessage({ type: 'error', text: 'Please sign in before sharing a community update.' });
+      return;
+    }
+
+    const trimmedText = communityPostText.trim();
+
+    if (!trimmedText) {
+      setSystemMessage({ type: 'error', text: 'Write a short update before sharing it with neighbors.' });
+      return;
+    }
+
+    const locationLabel = (profile?.primary_location || settingsLocation || defaultPostLocation.postcode)
+      .trim()
+      .replace(/\s+/g, ' ')
+      .toUpperCase();
+    const expiry = new Date();
+    expiry.setDate(expiry.getDate() + 7);
+    setIsSharingCommunityPost(true);
+    setSystemMessage(null);
+
+    try {
+      const coordinates = await getCoordinatesFromPostcode(locationLabel);
+      const createdPost = await createPost({
+        title: 'Neighbor update',
+        description: trimmedText,
+        quantity: 'Community update',
+        expiry_time: expiry.toISOString(),
+        postcode: locationLabel || defaultPostLocation.postcode,
+        lat: coordinates.lat,
+        lon: coordinates.lon,
+        donor_id: session.user.id,
+        category: communityUpdateCategory,
+        urgency: 'low',
+      });
+
+      setPosts((current) => [createdPost, ...current]);
+      setMyListings((current) => [createdPost, ...current]);
+      setCommunityPostText('');
+      setSystemMessage({ type: 'success', text: 'Your update is now live on the local community board.' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Community update could not be shared.';
+      console.error('Detailed Community Post Error:', message);
+      setSystemMessage({ type: 'error', text: message });
+    } finally {
+      setIsSharingCommunityPost(false);
+    }
+  };
+
   const handleClaimListing = async (itemId: string) => {
     setLoadingPostId(itemId);
     setSystemMessage(null);
@@ -515,13 +510,13 @@ export default function App() {
       }
 
       setPosts((current) => current.filter((post) => post.id !== itemId));
-      setSystemMessage({ type: 'success', text: 'Food post claimed successfully and removed from the available feed.' });
+      setSystemMessage({ type: 'success', text: 'Interest registered. The hub update has been removed from the open board.' });
     } catch (err) {
       const error = err as { message?: string; details?: string; hint?: string };
       console.error('Detailed Claim Error:', error.message, error.details, error.hint);
       setSystemMessage({
         type: 'error',
-        text: error.message ?? 'This food post could not be claimed. Please refresh and try another listing.',
+        text: error.message ?? 'Interest could not be registered. Please refresh and try another update.',
       });
     } finally {
       setLoadingPostId(null);
@@ -729,6 +724,7 @@ export default function App() {
   const deficitItems = inventory
     .filter(item => Math.round((item.current_quantity / item.target_capacity) * 100) <= 20)
     .map(item => item.item_name);
+  const activeLocationLabel = profile?.primary_location || settingsLocation || defaultPostLocation.postcode;
 
   return (
     <AppShell
@@ -860,24 +856,57 @@ export default function App() {
           </div>
 
           {dashboardTab === 'find-food' ? (
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Showing food near {profile?.primary_location || settingsLocation || defaultPostLocation.postcode} within {searchRadiusMiles} miles
-              </p>
-              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                Radius
-                <select
-                  value={searchRadiusMiles}
-                  onChange={(event) => setSearchRadiusMiles(Number(event.target.value))}
-                  className="rounded-xl border border-brand-slateSoft bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-700 shadow-xs outline-none focus:border-brand-forest"
-                >
-                  {radiusOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label} ({option.description})
-                    </option>
-                  ))}
-                </select>
+            <div className="mb-5 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-brand-forest">Local community board</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Showing posts near <span className="font-semibold text-slate-700">{activeLocationLabel}</span> within {searchRadiusMiles} miles.
+                  </p>
+                </div>
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:min-w-56">
+                  Radius
+                  <select
+                    value={searchRadiusMiles}
+                    onChange={(event) => setSearchRadiusMiles(Number(event.target.value))}
+                    className="rounded-lg border border-brand-slateSoft bg-white px-2.5 py-1.5 text-sm font-semibold normal-case tracking-normal text-slate-700 shadow-xs outline-none focus:border-brand-forest"
+                  >
+                    {radiusOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label} ({option.description})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          ) : null}
+
+          {dashboardTab === 'find-food' ? (
+            <div className="mb-5 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
+              <label className="grid gap-2">
+                <span className="text-sm font-bold text-brand-forest">Share a local update</span>
+                <textarea
+                  value={communityPostText}
+                  onChange={(event) => setCommunityPostText(event.target.value)}
+                  rows={3}
+                  placeholder="Let neighbors know about a local collection, a community need, or a helpful food support update."
+                  className="min-h-24 resize-none rounded-2xl border border-brand-slateSoft bg-brand-cream px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-forest"
+                />
               </label>
+              <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Posting near {getPostcodePrefix(activeLocationLabel)}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleShareCommunityPost}
+                  disabled={isSharingCommunityPost}
+                  className="rounded-xl bg-brand-forest px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSharingCommunityPost ? 'Sharing...' : 'Share with Neighbors'}
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -905,93 +934,81 @@ export default function App() {
             <div className="text-center py-12 text-slate-400 font-medium">Loading live feed...</div>
           ) : null}
 
-          {dashboardTab === 'find-food' && !loading && filteredListings.length === 0 ? (
+          {dashboardTab === 'find-food' && !loading && filteredPosts.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-brand-slateSoft bg-white px-5 py-14 text-center shadow-xs">
-              <p className="text-lg font-bold tracking-tight text-slate-700">No available food listings found.</p>
+              <p className="text-lg font-bold tracking-tight text-slate-700">No local board posts found.</p>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
-                No available food listings found near {profile?.primary_location || settingsLocation || defaultPostLocation.postcode} within {searchRadiusMiles} miles yet. Add a new listing to start, or use Seed Test Data in Settings to populate demo items.
+                No community board posts found near {activeLocationLabel} within {searchRadiusMiles} miles yet. Share a neighbor update above, or use Seed Test Data in Settings to populate demo items.
               </p>
             </div>
           ) : null}
 
-          {dashboardTab === 'find-food' && !loading && filteredListings.length > 0 ? (
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredListings.map((item) => (
-                <div key={item.id} className="bg-white border border-brand-slateSoft rounded-2xl p-6 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between">
-                  <div>
-                    <img
-                      src={getListingImageUrl(item)}
-                      alt={`${item.category} food placeholder`}
-                      className="mb-5 h-40 w-full rounded-2xl object-cover border border-brand-slateSoft bg-brand-cream"
-                      loading="lazy"
-                    />
+          {dashboardTab === 'find-food' && !loading && filteredPosts.length > 0 ? (
+            <div className="grid gap-4">
+              {filteredPosts.map((item) => {
+                const citizenPost = isCitizenPost(item);
+                const postcodePrefix = getPostcodePrefix(item.postcode);
+                const distanceLabel = getDistanceLabel(item, userCoordinates);
 
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md ${
-                        item.post_type.toLowerCase() === 'surplus'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-blue-50 text-blue-700 border border-blue-200'
-                      }`}>
-                        {item.post_type}
-                      </span>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${getUrgencyBadgeClass(item.urgency)}`}>
-                        {item.urgency}
-                      </span>
+                return (
+                <article key={item.id} className={`rounded-2xl border p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${
+                  citizenPost ? 'border-brand-slateSoft bg-white' : 'border-emerald-300 bg-white ring-1 ring-emerald-50'
+                }`}>
+                  <div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      {citizenPost ? (
+                        <span className="inline-flex rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
+                          Neighbor Update
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-800">
+                          Official Hub Update
+                        </span>
+                      )}
+                      <div className="flex shrink-0 flex-wrap gap-2 text-xs font-semibold text-slate-500 sm:justify-end">
+                        <span className="rounded-full border border-brand-slateSoft bg-slate-50 px-3 py-1">
+                          {postcodePrefix}
+                        </span>
+                        <span className="rounded-full border border-brand-slateSoft bg-slate-50 px-3 py-1">
+                          {distanceLabel}
+                        </span>
+                      </div>
                     </div>
 
-                    <h3 className="text-slate-900 font-bold text-xl tracking-tight leading-tight">{item.title}</h3>
+                    <h3 className="mt-3 text-slate-900 font-bold text-xl tracking-tight leading-tight">
+                      {citizenPost ? item.description || item.title : item.title}
+                    </h3>
 
-                    {item.description && (
+                    {!citizenPost && item.description && (
                       <p className="text-sm text-slate-500 mt-2 line-clamp-2">{item.description}</p>
                     )}
 
-                    {item.dietary_tags && item.dietary_tags.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {item.dietary_tags.map((tag) => (
-                          <span key={`${item.id}-${tag}`} className="text-[10px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {item.is_foodbank_suitable ? (
-                      <div className="mt-3 inline-flex text-xs font-bold text-brand-forest bg-emerald-50/50 border border-brand-slateSoft rounded-lg px-2 py-1">
-                        ✓ Food Bank Choice
-                      </div>
-                    ) : null}
-
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full bg-brand-cream px-3 py-1 font-semibold text-brand-forest">
-                        {item.category}
-                      </span>
-                      <span className="rounded-full bg-slate-50 px-3 py-1 font-semibold text-slate-700 border border-brand-slateSoft">
-                        {item.quantity}
-                      </span>
-                      {item.location ? (
-                        <span className="rounded-full bg-slate-50 px-3 py-1 font-semibold text-slate-700 border border-brand-slateSoft">
-                          {item.location}
-                        </span>
-                      ) : null}
-                    </div>
                   </div>
 
                   <div className="mt-5 border-t border-slate-100 pt-4">
                     <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
-                      <span className="font-medium">{item.collection_window ?? 'Collection details to follow'}</span>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded uppercase tracking-wide ${getStatusBadgeClass(item.status)}`}>
+                      <span className="font-medium">
+                        Open until{' '}
+                        {new Date(item.expiry_time).toLocaleString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      <span className="rounded bg-brand-cream px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand-forest">
                         {item.status ?? 'available'}
                       </span>
                     </div>
                     <div>
-                      {(item.status ?? 'available').toLowerCase() === 'available' && item.post_type.toLowerCase() === 'surplus' ? (
+                      {!citizenPost && item.status === 'available' ? (
                         <button
                           type="button"
                           onClick={() => handleClaimListing(item.id)}
                           disabled={loadingPostId === item.id}
                           className="w-full mt-4 bg-brand-amber hover:bg-[#cc7a00] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs hover:shadow-sm active:scale-[0.98] transition-all text-center block text-sm disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {loadingPostId === item.id ? 'Securing...' : 'Claim'}
+                          {loadingPostId === item.id ? 'Registering...' : 'I Can Help'}
                         </button>
                       ) : null}
                       {(item.status ?? '').toLowerCase() === 'pending' ? (
@@ -1000,13 +1017,14 @@ export default function App() {
                           disabled
                           className="w-full mt-4 bg-slate-100 text-slate-500 font-semibold py-2.5 px-4 rounded-xl shadow-xs cursor-not-allowed text-center block text-sm"
                         >
-                          Claim Pending...
+                          Interest Registered
                         </button>
                       ) : null}
                     </div>
                   </div>
-                </div>
-              ))}
+                </article>
+                );
+              })}
             </div>
           ) : null}
 

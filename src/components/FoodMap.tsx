@@ -46,7 +46,7 @@ export function FoodMap({ posts, userCoordinates, onReservePost }: FoodMapProps)
             <Popup>
               <div className="min-w-48">
                 <h3 className="text-base font-bold text-brand-forest">{post.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">Quantity: {post.quantity}</p>
+                <p className="mt-1 text-sm text-slate-600">Area: {post.postcode}</p>
                 <p className="text-sm text-slate-600">
                   Expires:{' '}
                   {new Date(post.expiry_time).toLocaleString('en-GB', {
@@ -61,7 +61,7 @@ export function FoodMap({ posts, userCoordinates, onReservePost }: FoodMapProps)
                   onClick={() => onReservePost(post.id)}
                   className="mt-3 w-full rounded-xl bg-brand-amber px-3 py-2 text-sm font-semibold text-white"
                 >
-                  Claim Supper
+                  I Can Help
                 </button>
               </div>
             </Popup>
