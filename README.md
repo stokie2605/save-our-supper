@@ -35,6 +35,15 @@ Latest transaction commit:
 1fc0967 Add atomic Firestore claim transactions
 ```
 
+Follow-up proximity and UI wiring:
+
+- Added `fetchLocalPostsByGeohash(geohashPrefix)` for direct Firestore geohash-prefix fetching against the `posts` collection.
+- The helper queries lowercase `status == "available"` posts and bounds results with `startAt(prefix)` / `endAt(prefix + "\uf8ff")`.
+- The claim UI now tracks the active `loadingPostId`, disables the clicked claim button, and shows `Securing...` while the transaction is running.
+- Feed-level system messages now use Tailwind alert styling:
+  - red for transaction collisions or rejected claims
+  - green for successful claim confirmation
+
 ---
 
 ## Core Architecture & Technical Implementation

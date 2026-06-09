@@ -7,6 +7,8 @@ import {
   orderBy,
   query,
   runTransaction,
+  endAt,
+  startAt,
   where,
   writeBatch,
   type DocumentData,
@@ -340,6 +342,35 @@ export async function fetchFirebaseStockLevels(): Promise<FirebaseStockLevel[]> 
   const snapshot = await getDocs(query(postsCollection, where('status', '==', 'available')));
   return buildStockLevelsFromSnapshots(snapshot);
 }
+
+export async function fetchLocalPostsByGeohash(geohashPrefix: string): Promise<Post[]> {
+  const cleanedPrefix = geohashPrefix.trim().toLowerCase();
+
+  if (!cleanedPrefix) {
+    return [];
+  }
+
+  const localPostsQuery = query(
+    postsCollection,
+    where('status', '==', 'available'),
+    orderBy('geohash'),
+    startAt(cleanedPrefix),
+    endAt(`${cleanedPrefix}\uf8ff`),
+  );
+
+  try {
+    const querySnapshot = await getDocs(localPostsQuery);
+
+    return querySnapshot.docs
+      .map(mapFirebasePost)
+      .filter(isActiveAvailablePost)
+      .sort((a, b) => a.expiry_time.localeCompare(b.expiry_time));
+  } catch (error) {
+    console.error('Error querying proximity posts via geohash:', error);
+    throw error;
+  }
+}
+
 export async function fetchFirebaseNearbyPosts(
   centerCoordinates: [number, number],
   radiusInMiles: number,

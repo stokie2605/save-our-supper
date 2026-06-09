@@ -72,6 +72,7 @@ interface UserProfile {
 type FeedFilter = 'all' | 'surplus' | 'need' | 'my-posts' | 'my-claims';
 type ActiveView = 'feed' | 'inventory' | 'referrals' | 'settings';
 type DashboardTab = 'find-food' | 'my-claims' | 'my-listings';
+type SystemMessage = { type: 'success' | 'error'; text: string } | null;
 
 interface ListingFormState {
   title: string;
@@ -188,7 +189,8 @@ export default function App() {
   const [myClaims, setMyClaims] = useState<Post[]>([]);
   const [myListings, setMyListings] = useState<Post[]>([]);
   const [userPostsLoading, setUserPostsLoading] = useState(false);
-  const [claimError, setClaimError] = useState('');
+  const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
+  const [systemMessage, setSystemMessage] = useState<SystemMessage>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formState, setFormState] = useState<ListingFormState>(emptyListingForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -484,7 +486,8 @@ export default function App() {
   };
 
   const handleClaimListing = async (itemId: string) => {
-    setClaimError('');
+    setLoadingPostId(itemId);
+    setSystemMessage(null);
 
     try {
       await claimSupper(itemId, session.user.id);
@@ -502,10 +505,16 @@ export default function App() {
       }
 
       setPosts((current) => current.filter((post) => post.id !== itemId));
+      setSystemMessage({ type: 'success', text: 'Food post claimed successfully and removed from the available feed.' });
     } catch (err) {
       const error = err as { message?: string; details?: string; hint?: string };
       console.error('Detailed Claim Error:', error.message, error.details, error.hint);
-      setClaimError(error.message ?? 'This food post could not be claimed. Please refresh and try another listing.');
+      setSystemMessage({
+        type: 'error',
+        text: error.message ?? 'This food post could not be claimed. Please refresh and try another listing.',
+      });
+    } finally {
+      setLoadingPostId(null);
     }
   };
 
@@ -789,9 +798,15 @@ export default function App() {
             ))}
           </div>
 
-          {claimError ? (
-            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
-              {claimError}
+          {systemMessage ? (
+            <div
+              className={`mb-6 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                systemMessage.type === 'error'
+                  ? 'border-red-200 bg-red-50 text-red-700'
+                  : 'border-green-200 bg-green-50 text-green-700'
+              }`}
+            >
+              {systemMessage.text}
             </div>
           ) : null}
 
@@ -888,9 +903,10 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => handleClaimListing(item.id)}
-                          className="w-full mt-4 bg-brand-amber hover:bg-[#cc7a00] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs hover:shadow-sm active:scale-[0.98] transition-all text-center block text-sm"
+                          disabled={loadingPostId === item.id}
+                          className="w-full mt-4 bg-brand-amber hover:bg-[#cc7a00] text-white font-semibold py-2.5 px-4 rounded-xl shadow-xs hover:shadow-sm active:scale-[0.98] transition-all text-center block text-sm disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Claim
+                          {loadingPostId === item.id ? 'Securing...' : 'Claim'}
                         </button>
                       ) : null}
                       {(item.status ?? '').toLowerCase() === 'pending' ? (
