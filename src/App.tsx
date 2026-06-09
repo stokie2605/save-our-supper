@@ -188,6 +188,7 @@ export default function App() {
   const [myClaims, setMyClaims] = useState<Post[]>([]);
   const [myListings, setMyListings] = useState<Post[]>([]);
   const [userPostsLoading, setUserPostsLoading] = useState(false);
+  const [claimError, setClaimError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formState, setFormState] = useState<ListingFormState>(emptyListingForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -483,6 +484,8 @@ export default function App() {
   };
 
   const handleClaimListing = async (itemId: string) => {
+    setClaimError('');
+
     try {
       await claimSupper(itemId, session.user.id);
       const claimedPost = posts.find((post) => post.id === itemId);
@@ -502,6 +505,7 @@ export default function App() {
     } catch (err) {
       const error = err as { message?: string; details?: string; hint?: string };
       console.error('Detailed Claim Error:', error.message, error.details, error.hint);
+      setClaimError(error.message ?? 'This food post could not be claimed. Please refresh and try another listing.');
     }
   };
 
@@ -784,6 +788,12 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {claimError ? (
+            <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+              {claimError}
+            </div>
+          ) : null}
 
           {dashboardTab === 'find-food' ? (
             <FoodMap

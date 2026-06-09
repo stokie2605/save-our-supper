@@ -21,6 +21,7 @@ This project was rebuilt from a cluttered early prototype into a clean Firebase-
 - **Modal stacking bug:** Leaflet map panes were visually clipping through the listing form modal. The modal overlay was raised above the map with a higher z-index.
 - **Seeded data visibility:** The app needed realistic regional data to prove the map and feed worked at scale. A Firebase seeding utility now generates 45 realistic local listings across Alsager, Crewe, Stoke-on-Trent/Hanley, and Kidsgrove/Talke with valid coordinates and geohashes.
 - **Live inventory accuracy:** The Stock Levels tab originally reflected an older inventory concept. It now listens to Firestore in real time, groups available posts by category, and updates as listings are seeded or claimed.
+- **Double-claim race condition:** The original claim path used a direct document update, which was not strong enough for two users claiming the same listing at the same time. The claim flow now uses a Firestore transaction and was validated with a concurrent two-user simulation where one claim succeeded and the other was rejected.
 
 ### 1. Proximity-Based Matching Via Geohashing
 
@@ -36,9 +37,9 @@ The listing flow sanitizes UK postcode input, supports district/outcode lookups 
 
 The Stock Levels view is powered by Firestore live snapshot listeners. It reads available posts from the `posts` collection, groups them by category, and sums their listed quantities so seeded, added, or claimed posts update the dashboard dynamically.
 
-### 4. Interactive Claim Flow
+### 4. Atomic Transaction Claim Flow
 
-Users can claim available listings directly from the feed or map popup. The app updates the relevant Firestore document by marking it as `claimed` and attaching the current user's `receiver_id`, then immediately updates local UI state so claimed items leave the available feed.
+Users can claim available listings directly from the feed or map popup. The claim path now runs inside a Firestore `runTransaction` block, which reads the live document state before writing. If another user has already claimed the same post, the transaction rejects the second request with a clear conflict message. When a claim succeeds, the app marks the post as `claimed`, attaches the current user's `receiver_id`, and immediately updates local UI state so claimed items leave the available feed.
 
 ---
 
@@ -103,12 +104,26 @@ const snapshots = await Promise.all(
 );
 ```
 
-### Firestore Claim Update
+### Firestore Transaction Claim Lock
 
 ```typescript
-await updateDoc(doc(db, "posts", postId), {
-  status: "claimed",
-  receiver_id: userId,
+await runTransaction(db, async (transaction) => {
+  const postRef = doc(db, "posts", postId);
+  const postSnapshot = await transaction.get(postRef);
+
+  if (!postSnapshot.exists()) {
+    throw new Error("This food post no longer exists.");
+  }
+
+  if (postSnapshot.data().status !== "available") {
+    throw new Error("This food post has already been claimed by another user.");
+  }
+
+  transaction.update(postRef, {
+    status: "claimed",
+    receiver_id: userId,
+    claimed_at: new Date().toISOString(),
+  });
 });
 ```
 

@@ -6,7 +6,7 @@ import {
   onSnapshot,
   orderBy,
   query,
-  updateDoc,
+  runTransaction,
   where,
   writeBatch,
   type DocumentData,
@@ -60,6 +60,17 @@ type SeedCluster = {
   count: number;
   center: [number, number];
   postcodes: string[];
+};
+
+export type FirebaseClaimRaceResult = {
+  postId: string;
+  winnerCount: number;
+  rejectedCount: number;
+  results: Array<{
+    userId: string;
+    success: boolean;
+    message: string;
+  }>;
 };
 
 const postsCollection = collection(db, 'posts');
@@ -378,8 +389,63 @@ export async function fetchFirebasePostsByDonor(userId: string): Promise<Post[]>
 }
 
 export async function claimFirebaseSupper(postId: string, userId: string): Promise<void> {
-  await updateDoc(doc(db, 'posts', postId), {
-    status: 'claimed',
-    receiver_id: userId,
+  const postRef = doc(db, 'posts', postId);
+
+  await runTransaction(db, async (transaction) => {
+    const postSnapshot = await transaction.get(postRef);
+
+    if (!postSnapshot.exists()) {
+      throw new Error('This food post no longer exists.');
+    }
+
+    const post = postSnapshot.data() as FirebasePostDocument;
+
+    if (post.status !== 'available') {
+      throw new Error('This food post has already been claimed by another user.');
+    }
+
+    transaction.update(postRef, {
+      status: 'claimed',
+      receiver_id: userId,
+      claimed_at: new Date().toISOString(),
+    });
   });
+}
+
+export async function simulateFirebaseClaimRace(): Promise<FirebaseClaimRaceResult> {
+  const testPost = await createFirebasePost({
+    title: 'Race condition test parcel',
+    description: 'Temporary transaction test listing for concurrent claim validation.',
+    quantity: '1 parcel',
+    expiry_time: getFutureIso(8),
+    postcode: 'ST7 2AA',
+    lat: 53.096,
+    lon: -2.306,
+    donor_id: 'transaction-test-donor',
+    category: 'bakery',
+    urgency: 'high',
+  });
+
+  const contenders = ['race-user-alpha', 'race-user-beta'];
+  const settledResults = await Promise.allSettled(
+    contenders.map((userId) => claimFirebaseSupper(testPost.id, userId)),
+  );
+
+  const results = settledResults.map((result, index) => ({
+    userId: contenders[index],
+    success: result.status === 'fulfilled',
+    message:
+      result.status === 'fulfilled'
+        ? 'Claim accepted.'
+        : result.reason instanceof Error
+          ? result.reason.message
+          : 'Claim rejected.',
+  }));
+
+  return {
+    postId: testPost.id,
+    winnerCount: results.filter((result) => result.success).length,
+    rejectedCount: results.filter((result) => !result.success).length,
+    results,
+  };
 }
