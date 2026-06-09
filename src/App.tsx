@@ -106,6 +106,8 @@ const defaultPostLocation = {
   lon: defaultHubCoordinates.lon,
 };
 
+const localSearchRadiusMiles = 15;
+
 const getExpiryTimestamp = (value: string) => {
   const parsedDate = new Date(value);
 
@@ -309,7 +311,7 @@ export default function App() {
       setLoading(true);
 
       try {
-        const nearbyPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], 100);
+        const nearbyPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], localSearchRadiusMiles);
 
         if (isMounted) {
           setPosts(nearbyPosts);
@@ -581,7 +583,7 @@ export default function App() {
 
     try {
       const createdCount = await seedFirebasePosts(session.user.id);
-      const refreshedPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], 100);
+      const refreshedPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], localSearchRadiusMiles);
 
       setPosts(refreshedPosts);
       setSeedMessage(`Seed complete: ${createdCount} Firebase listings are now available.`);
@@ -797,6 +799,12 @@ export default function App() {
               </button>
             ))}
           </div>
+
+          {dashboardTab === 'find-food' ? (
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Showing food near {profile?.primary_location || settingsLocation || defaultPostLocation.postcode} within {localSearchRadiusMiles} miles
+            </p>
+          ) : null}
 
           {systemMessage ? (
             <div
@@ -1111,7 +1119,7 @@ export default function App() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-                Primary Distribution Hub / Sector
+                Your postcode / local area
                 <input
                   type="text"
                   value={settingsLocation}
