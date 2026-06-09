@@ -8,6 +8,35 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ---
 
+## Latest Implementation Update
+
+The claim flow has been upgraded from a direct Firestore document update to an atomic transaction lock.
+
+Completed work:
+
+- Replaced the previous `updateDoc` claim path with Firestore `runTransaction`.
+- The transaction now reads the live `posts/{postId}` document before writing.
+- If the post no longer exists, the claim is rejected with a clear error.
+- If the post status is no longer `available`, the claim is rejected to prevent double-claiming.
+- If the post is available, the transaction writes:
+  - `status: "claimed"`
+  - `receiver_id`
+  - `claimed_at`
+- The React feed now displays a clear warning message when a claim conflict occurs.
+- A `simulateFirebaseClaimRace()` helper was added to validate concurrent claim behavior.
+- A real Firestore race simulation was run with two users claiming the same temporary post at the same time.
+- Simulation result: exactly one claim succeeded and one was rejected.
+- The temporary simulation document was deleted after verification.
+- The update was built, deployed to Firebase Hosting, and pushed to GitHub.
+
+Latest transaction commit:
+
+```text
+1fc0967 Add atomic Firestore claim transactions
+```
+
+---
+
 ## Core Architecture & Technical Implementation
 
 ## Problems Solved During Development
