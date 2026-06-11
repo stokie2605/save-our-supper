@@ -25,6 +25,10 @@ function hasValidMarkerCoordinates(post: Post) {
   return Number.isFinite(Number(post.lat)) && Number.isFinite(Number(post.lon));
 }
 
+function isCitizenPost(post: Post) {
+  return post.board_type === 'citizen_post' || post.category === 'community-update';
+}
+
 export function FoodMap({ posts, userCoordinates, onReservePost }: FoodMapProps) {
   const markerPosts = posts.filter(hasValidMarkerCoordinates);
 
@@ -56,13 +60,15 @@ export function FoodMap({ posts, userCoordinates, onReservePost }: FoodMapProps)
                     minute: '2-digit',
                   })}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => onReservePost(post.id)}
-                  className="mt-3 w-full rounded-xl bg-brand-amber px-3 py-2 text-sm font-semibold text-white"
-                >
-                  I Can Help
-                </button>
+                {!isCitizenPost(post) ? (
+                  <button
+                    type="button"
+                    onClick={() => onReservePost(post.id)}
+                    className="mt-3 w-full rounded-xl bg-brand-amber px-3 py-2 text-sm font-semibold text-white"
+                  >
+                    I Can Help
+                  </button>
+                ) : null}
               </div>
             </Popup>
           </Marker>

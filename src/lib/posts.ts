@@ -16,6 +16,7 @@ export interface Post {
   created_at: string;
   category?: string;
   urgency?: string;
+  board_type?: 'citizen_post' | 'foodbank_broadcast';
 }
 
 type PostWithOptionalExpiresAt = Post & {

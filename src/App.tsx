@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { FoodMap } from './components/FoodMap';
 import { UserPostList } from './components/UserPostList';
@@ -120,7 +120,8 @@ const getPostcodePrefix = (postcode?: string | null) => {
   return cleanedPostcode.split(/\s+/)[0] || 'LOCAL';
 };
 
-const isCitizenPost = (post: Post) => post.category?.toLowerCase() === communityUpdateCategory;
+const isCitizenPost = (post: Post) =>
+  post.board_type === 'citizen_post' || post.category?.toLowerCase() === communityUpdateCategory;
 
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 
@@ -186,6 +187,7 @@ export default function App() {
   const [settingsSuccess, setSettingsSuccess] = useState(false);
   const [isSeedingFirebase, setIsSeedingFirebase] = useState(false);
   const [seedMessage, setSeedMessage] = useState('');
+  const feedRequestIdRef = useRef(0);
 
   // Firestore stock levels update live through subscribeFirebaseStockLevels.
   const refreshInventoryData = async () => {
@@ -282,22 +284,24 @@ export default function App() {
     let isMounted = true;
 
     async function fetchFirebaseFeed() {
+      const requestId = feedRequestIdRef.current + 1;
+      feedRequestIdRef.current = requestId;
       setLoading(true);
 
       try {
         const nearbyPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], searchRadiusMiles);
 
-        if (isMounted) {
+        if (isMounted && feedRequestIdRef.current === requestId) {
           setPosts(nearbyPosts);
         }
       } catch (err) {
         console.error('Detailed Firebase Feed Error:', err);
 
-        if (isMounted) {
+        if (isMounted && feedRequestIdRef.current === requestId) {
           setPosts([]);
         }
       } finally {
-        if (isMounted) {
+        if (isMounted && feedRequestIdRef.current === requestId) {
           setLoading(false);
         }
       }
@@ -426,6 +430,7 @@ export default function App() {
         donor_id: session.user.id,
         category: formState.category,
         urgency: formState.urgency,
+        board_type: 'foodbank_broadcast',
       });
 
       setPosts((current) => [createdPost, ...current]);
@@ -475,6 +480,7 @@ export default function App() {
         donor_id: session.user.id,
         category: communityUpdateCategory,
         urgency: 'low',
+        board_type: 'citizen_post',
       });
 
       setPosts((current) => [createdPost, ...current]);

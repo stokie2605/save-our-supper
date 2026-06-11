@@ -27,6 +27,7 @@ type FirebasePostDocument = Partial<Omit<Post, 'expiry_time' | 'lat' | 'lon' | '
   location?: string | null;
   category?: string;
   urgency?: string;
+  board_type?: Post['board_type'];
   lat?: number | string;
   latitude?: number | string;
   lon?: number | string;
@@ -45,6 +46,7 @@ export type CreateFirebasePostInput = {
   donor_id: string;
   category?: string;
   urgency?: string;
+  board_type?: Post['board_type'];
 };
 
 export type FirebaseStockLevel = {
@@ -136,8 +138,9 @@ const seedTitles = [
 const seedCategories = ['bakery', 'produce', 'dairy', 'canned goods'];
 const seedUrgencies = ['high', 'medium', 'low'];
 const seedQuantities = ['6 portions', '1 crate', '12 items', '2 carrier bags', '8 packs', '1 chilled box', '24 tins', '10 servings'];
+const defaultBoardType: NonNullable<Post['board_type']> = 'foodbank_broadcast';
 
-function mapFirebasePost(snapshot: QueryDocumentSnapshot<DocumentData>): Post {
+function mapFirebasePost(snapshot: QueryDocumentSnapshot<unknown, DocumentData>): Post {
   const data = snapshot.data() as FirebasePostDocument;
   const lat = Number(data.lat ?? data.latitude);
   const lon = Number(data.lon ?? data.lng ?? data.longitude);
@@ -159,6 +162,7 @@ function mapFirebasePost(snapshot: QueryDocumentSnapshot<DocumentData>): Post {
     created_at: data.created_at ?? new Date().toISOString(),
     category: data.category,
     urgency: data.urgency,
+    board_type: data.board_type ?? (data.category === 'community-update' ? 'citizen_post' : defaultBoardType),
   };
 }
 
@@ -201,6 +205,7 @@ export async function createFirebasePost(input: CreateFirebasePostInput): Promis
     geohash,
     category: input.category?.trim().toLowerCase() || 'general food',
     urgency: input.urgency?.trim().toLowerCase() || 'medium',
+    board_type: input.board_type ?? defaultBoardType,
     status: 'available' as const,
     donor_id: input.donor_id,
     receiver_id: null,
@@ -224,6 +229,7 @@ export async function createFirebasePost(input: CreateFirebasePostInput): Promis
     created_at: postPayload.created_at,
     category: postPayload.category,
     urgency: postPayload.urgency,
+    board_type: postPayload.board_type,
   };
 }
 
@@ -254,6 +260,7 @@ export async function seedFirebasePosts(donorId = 'seed-distribution-hub'): Prom
         lon,
         lng: lon,
         geohash: geohashForLocation([lat, lon]).slice(0, 9),
+        board_type: defaultBoardType,
         status: 'available',
         donor_id: donorId,
         receiver_id: null,
@@ -298,6 +305,10 @@ function buildStockLevelsFromSnapshots(snapshot: Awaited<ReturnType<typeof getDo
 
   snapshot.docs.forEach((documentSnapshot) => {
     const data = documentSnapshot.data() as FirebasePostDocument;
+    if (data.board_type === 'citizen_post' || data.category === 'community-update') {
+      return;
+    }
+
     const rawCategory = data.category || 'general food';
     const categoryName = titleCaseCategory(rawCategory);
     const categoryId = categoryName.toLowerCase().replace(/\s+/g, '-');
@@ -375,14 +386,44 @@ export async function fetchFirebaseNearbyPosts(
   centerCoordinates: [number, number],
   radiusInMiles: number,
 ): Promise<Post[]> {
+  if (
+    !Number.isFinite(centerCoordinates[0]) ||
+    !Number.isFinite(centerCoordinates[1]) ||
+    !Number.isFinite(radiusInMiles) ||
+    radiusInMiles <= 0
+  ) {
+    console.error('Invalid Firebase nearby post query coordinates or radius:', {
+      centerCoordinates,
+      radiusInMiles,
+    });
+    return [];
+  }
+
   const radiusInMeters = radiusInMiles * 1609.344;
   const bounds = geohashQueryBounds(centerCoordinates, radiusInMeters);
 
-  const snapshots = await Promise.all(
+  const settledSnapshots = await Promise.allSettled(
     bounds.map(([start, end]) =>
       getDocs(query(postsCollection, orderBy('geohash'), where('geohash', '>=', start), where('geohash', '<=', end))),
     ),
   );
+  const snapshots: Awaited<ReturnType<typeof getDocs>>[] = [];
+
+  settledSnapshots.forEach((result) => {
+    if (result.status === 'fulfilled') {
+      snapshots.push(result.value);
+    }
+  });
+
+  settledSnapshots.forEach((result) => {
+    if (result.status === 'rejected') {
+      console.error('Firebase geohash range query failed:', result.reason);
+    }
+  });
+
+  if (snapshots.length === 0 && settledSnapshots.length > 0) {
+    throw new Error('All Firebase geohash range queries failed.');
+  }
 
   const seenPostIds = new Set<string>();
   const nearbyPosts: Post[] = [];
@@ -455,6 +496,7 @@ export async function simulateFirebaseClaimRace(): Promise<FirebaseClaimRaceResu
     donor_id: 'transaction-test-donor',
     category: 'bakery',
     urgency: 'high',
+    board_type: defaultBoardType,
   });
 
   const contenders = ['race-user-alpha', 'race-user-beta'];
