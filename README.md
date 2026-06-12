@@ -10,6 +10,28 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Production Environment And Atomic Transaction Verification
+
+The current production environment has been cleaned and verified around one active Firebase project.
+
+Completed work:
+
+- Removed the stale `Save Our Supper v2` project clone from the Firebase Console to avoid cross-contamination between environments.
+- Confirmed the live production app is exclusively tied to the single `save-our-supper` Firebase project.
+- Verified `src/services/foodbankService.ts` manages the foodbank workflow across three primary Firestore collections:
+  - `inventory` - whole-number item balances using `current_quantity` fields.
+  - `intakes` - incoming donation transaction logs with generated receipt document IDs.
+  - `referral_vouchers` - client voucher records with manifest arrays containing `inventory_item_id`, `quantity`, and `label`.
+- Created baseline production documents manually for the `inventory` and `referral_vouchers` structures.
+- Ran an end-to-end production transaction test through the Donation Intake Portal.
+- Confirmed donation intake logs commit successfully and return unique Firestore receipt records.
+- Ran the Referral Queue collection flow against live database documents.
+- Confirmed voucher status updates to `Collected` only after the transaction succeeds.
+- Confirmed inventory stock is safely decremented during the same atomic Firestore transaction.
+- Verified the current logistics flow now connects donation intake, inventory balances, referral manifests, and parcel collection into one live operational loop.
+
+---
+
 ### Manifest-Based Inventory Deduction Transaction
 
 The food parcel completion flow now closes the operational stock loop when a voucher is marked as collected.
