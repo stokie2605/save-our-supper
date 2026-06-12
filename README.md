@@ -187,6 +187,37 @@ The Stock Levels view is powered by Firestore live snapshot listeners. It reads 
 
 Users can claim available listings directly from the feed or map popup. The claim path now runs inside a Firestore `runTransaction` block, which reads the live document state before writing. If another user has already claimed the same post, the transaction rejects the second request with a clear conflict message. When a claim succeeds, the app marks the post as `claimed`, attaches the current user's `receiver_id`, and immediately updates local UI state so claimed items leave the available feed.
 
+### 🔒 Backend Database Security Rules
+
+Administrative Firestore mutations are enforced at the database server layer through `firestore.rules`, not only through client-side UI checks.
+
+The ruleset defines an admin check using Firebase Auth token verification:
+
+```javascript
+function isAdmin() {
+  return request.auth != null
+    && request.auth.token.email == "stokie2605@gmail.com";
+}
+```
+
+The `posts` collection currently allows:
+
+- universal `read` access so the community feed and public map can load listings
+- universal `create` access so listing creation remains open during the prototype phase
+- `update` and `delete` access only when `request.auth.token.email == "stokie2605@gmail.com"`
+
+This prevents users from bypassing the React interface and directly calling Firestore update/delete operations unless their Firebase Auth token belongs to the admin account.
+
+All other Firestore document paths are default-denied:
+
+```javascript
+match /{document=**} {
+  allow read, write: if false;
+}
+```
+
+Important implementation note: because Firestore rules can only trust Firebase Auth, Supabase session state alone cannot authorize destructive Firestore writes. Any future non-admin claim or completion flow should be moved behind a Firebase-authenticated path or a server-side Firebase Cloud Function.
+
 ---
 
 ## Key File Infrastructure
@@ -196,6 +227,7 @@ Users can claim available listings directly from the feed or map popup. The clai
 - `src/components/AppShell.tsx` - Responsive app shell, header, mobile bottom navigation, and layout framing.
 - `src/components/ExpiryCountdown.tsx` - Reusable countdown badge for live listing expiry status.
 - `src/components/UserPostList.tsx` - Reusable list view for claimed and personally listed posts.
+- `firestore.rules` - Server-side Firestore access policy for public reads/creates and admin-only updates/deletes.
 - `src/lib/firebaseConfig.ts` - Firebase app and Firestore initialization.
 - `src/lib/firebasePosts.ts` - Firestore post creation, geohash nearby queries, claim updates, seeded data generation, and live stock aggregation.
 - `src/lib/posts.ts` - Shared post and coordinate types, plus postcode geocoding helpers.
