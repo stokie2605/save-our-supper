@@ -10,6 +10,34 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Firestore Field-Level Security Hardening
+
+The Firestore backend rules have been hardened so public users can still claim food posts, but cannot vandalize or rewrite listing data.
+
+Completed work:
+
+- Updated `firestore.rules` with a strict `isPublicClaimUpdate()` guard.
+- Public users can only update a post when it moves from `available` to `claimed`.
+- Public claim updates are limited to exactly these fields:
+  - `status`
+  - `receiver_id`
+  - `claimed_at`
+- Added `.diff().changedKeys().hasOnly(...)` validation so protected listing fields cannot be changed during a claim.
+- Added `.diff().changedKeys().hasAll(...)` validation so every claim must include the full claim tracking payload.
+- Kept public `read` and `create` access for the community feed and listing form.
+- Restricted deletes to the verified admin Firebase Auth email: `stokie2605@gmail.com`.
+- Added a global admin wildcard so only the verified admin token can access non-post collections or perform master database operations.
+- Deployed the updated Firestore rules live to Firebase.
+- Built the app successfully and pushed the documented security update to GitHub.
+
+Latest security commit:
+
+```text
+67c5786 Harden public claim Firestore rules
+```
+
+---
+
 The claim flow has been upgraded from a direct Firestore document update to an atomic transaction lock.
 
 Completed work:
