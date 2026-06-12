@@ -10,6 +10,31 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Referral Queue Logistics Dashboard Polish
+
+The referral queue cards have been visually upgraded from a basic voucher list into a more modern logistics dashboard surface.
+
+Completed work:
+
+- Restyled `src/components/foodbank/ReferralQueue.tsx` with a slate, teal, and emerald operations palette.
+- Added a gradient accent bar across the top of each referral card.
+- Improved typographic hierarchy:
+  - agency name is now tiny, uppercase, and widely tracked
+  - client reference is now the large bold anchor text
+  - household/family detail sits as secondary context
+- Added inline SVG iconography for:
+  - agency source
+  - family size
+  - dietary flags
+  - manifest requirements
+  - collection completion action
+- Reworked the manifest section with a soft `bg-slate-50` panel and crisp internal item rows.
+- Updated card borders and shadows with `border-slate-200`, hover lift, and softer enterprise dashboard depth.
+- Updated the `Mark as Collected` button to use dark slate by default with an emerald hover transition.
+- Preserved the existing `finalizeFoodParcelCollection(...)` transaction behavior and local success/error handling.
+
+---
+
 ### Volunteer Dashboard Layout Swap
 
 The main dashboard navigation has been updated to connect the new foodbank workflow screens to the visible interface.

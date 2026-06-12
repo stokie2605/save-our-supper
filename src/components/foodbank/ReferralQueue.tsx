@@ -7,6 +7,80 @@ type QueueMessage = {
   text: string;
 };
 
+type IconProps = {
+  className?: string;
+};
+
+function AgencyIcon({ className = 'h-4 w-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M3.75 21h16.5M5.25 21V8.25L12 3l6.75 5.25V21M9 21v-6h6v6M8.25 10.5h.008v.008H8.25V10.5Zm3.75 0h.008v.008H12V10.5Zm3.75 0h.008v.008h-.008V10.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function FamilyIcon({ className = 'h-4 w-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.25a7.5 7.5 0 0 1 15 0M18.75 9.75a2.25 2.25 0 1 1 0-4.5M21.75 20.25a5.98 5.98 0 0 0-3-5.19M5.25 9.75a2.25 2.25 0 1 0 0-4.5M2.25 20.25a5.98 5.98 0 0 1 3-5.19"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function WarningIcon({ className = 'h-4 w-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 8.25v4.5m0 3h.008v.008H12V15.75Zm-8.25 3.75h16.5L12 3.75 3.75 19.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ManifestIcon({ className = 'h-4 w-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M9 6.75h6M9 11.25h6M9 15.75h3M6.75 3.75h10.5A2.25 2.25 0 0 1 19.5 6v12A2.25 2.25 0 0 1 17.25 20.25H6.75A2.25 2.25 0 0 1 4.5 18V6a2.25 2.25 0 0 1 2.25-2.25Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="m4.5 12.75 4.5 4.5 10.5-10.5"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const mockReferralVouchers: ReferralVoucher[] = [
   {
     id: 'voucher-cheshire-family-4',
@@ -125,52 +199,70 @@ export function ReferralQueue() {
           {vouchers.map((voucher) => {
             const requirements = getManifestRequirements(voucher);
             const isLoading = loadingVoucherId === voucher.id;
+            const hasDietaryWarning = requirements.some((requirement) =>
+              /dairy|toiletries|cereal/i.test(requirement.label ?? requirement.inventory_item_id),
+            );
 
             return (
               <article
                 key={voucher.id}
-                className="flex min-w-0 flex-col justify-between rounded-3xl border border-brand-slateSoft bg-brand-cream p-4 shadow-xs sm:p-5"
+                className="group flex min-w-0 flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
               >
-                <div className="min-w-0">
+                <div className="h-2 bg-gradient-to-r from-slate-900 via-teal-600 to-emerald-400" />
+
+                <div className="min-w-0 p-4 sm:p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="break-words text-xs font-bold uppercase tracking-[0.18em] text-brand-amber">
-                        {voucher.agency_name ?? voucher.agency_id ?? 'Referral agency'}
+                      <p className="flex items-center gap-2 break-words text-[10px] font-black uppercase tracking-widest text-teal-700">
+                        <AgencyIcon className="h-4 w-4 shrink-0 text-teal-600" />
+                        <span>{voucher.agency_name ?? voucher.agency_id ?? 'Referral agency'}</span>
                       </p>
-                      <h3 className="mt-2 break-words text-xl font-black tracking-tight text-slate-950">
-                        {voucher.household_name ?? `Family size ${voucher.family_size ?? 'TBC'}`}
+                      <h3 className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950">
+                        {voucher.client_reference ?? voucher.id}
                       </h3>
+                      <p className="mt-1 break-words text-sm font-semibold text-slate-500">
+                        {voucher.household_name ?? `Family size ${voucher.family_size ?? 'TBC'}`}
+                      </p>
                     </div>
-                    <span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase text-emerald-700">
+                    <span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700">
                       {voucher.status}
                     </span>
                   </div>
 
                   <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
-                    <div className="min-w-0 rounded-2xl bg-white px-3 py-2">
-                      <dt className="text-xs font-bold uppercase text-slate-400">Client ref</dt>
-                      <dd className="break-words font-bold text-slate-800">
-                        {voucher.client_reference ?? voucher.id}
-                      </dd>
+                    <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                      <dt className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+                        <FamilyIcon className="h-4 w-4 text-teal-600" />
+                        Family size
+                      </dt>
+                      <dd className="mt-1 font-black text-slate-900">{voucher.family_size ?? 'Unknown'}</dd>
                     </div>
-                    <div className="min-w-0 rounded-2xl bg-white px-3 py-2">
-                      <dt className="text-xs font-bold uppercase text-slate-400">Family size</dt>
-                      <dd className="font-bold text-slate-800">{voucher.family_size ?? 'Unknown'}</dd>
+                    <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                      <dt className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
+                        <WarningIcon className="h-4 w-4 text-amber-500" />
+                        Dietary flags
+                      </dt>
+                      <dd className="mt-1 break-words font-black text-slate-900">
+                        {hasDietaryWarning ? 'Check parcel notes' : 'None listed'}
+                      </dd>
                     </div>
                   </dl>
 
-                  <div className="mt-5 rounded-2xl border border-white bg-white/70 p-4">
-                    <p className="text-sm font-black text-brand-forest">Manifest requirements</p>
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-800">
+                      <ManifestIcon className="h-4 w-4 text-emerald-600" />
+                      Manifest requirements
+                    </p>
                     <ul className="mt-3 space-y-2">
                       {requirements.map((requirement) => (
                         <li
                           key={`${voucher.id}-${requirement.inventory_item_id}`}
-                          className="flex min-w-0 items-start justify-between gap-3 rounded-xl bg-white px-3 py-2 text-sm"
+                          className="flex min-w-0 items-start justify-between gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2 text-sm shadow-xs"
                         >
                           <span className="break-words font-semibold text-slate-700">
                             {requirement.label ?? requirement.inventory_item_id}
                           </span>
-                          <span className="shrink-0 rounded-lg bg-slate-100 px-2 py-0.5 font-black text-brand-forest">
+                          <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-0.5 font-black text-emerald-700 ring-1 ring-emerald-100">
                             x{requirement.quantity}
                           </span>
                         </li>
@@ -183,8 +275,9 @@ export function ReferralQueue() {
                   type="button"
                   onClick={() => void handleMarkCollected(voucher.id)}
                   disabled={isLoading || loadingVoucherId !== null}
-                  className="mt-6 w-full rounded-3xl bg-brand-forest px-5 py-4 text-lg font-black text-white shadow-sm transition-all hover:bg-emerald-900 active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+                  className="mx-4 mb-4 mt-2 inline-flex items-center justify-center gap-2 rounded-3xl bg-slate-900 px-5 py-4 text-base font-black text-white shadow-sm transition-all duration-200 hover:bg-emerald-600 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 sm:mx-5 sm:mb-5"
                 >
+                  <CheckIcon className="h-5 w-5" />
                   {isLoading ? 'Finalising Collection...' : 'Mark as Collected'}
                 </button>
               </article>
