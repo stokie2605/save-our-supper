@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell';
 import { ExpiryCountdown } from './components/ExpiryCountdown';
 import { FoodMap } from './components/FoodMap';
 import { UserPostList } from './components/UserPostList';
+import AdminPanel from './components/AdminPanel'; // ⚙️ Imported our new component
 import {
   claimFirebaseSupper as claimSupper,
   completeFirebaseClaim as completeClaim,
@@ -13,8 +14,6 @@ import {
   seedFirebasePosts,
   subscribeFirebaseStockLevels,
 } from './lib/firebasePosts';
-// Supabase feed helpers are disabled while the Firebase backend switch is active.
-// import { fetchNearbyPosts, fetchPostsByDonor, fetchPostsByReceiver } from './lib/posts';
 import {
   defaultHubCoordinates,
   getCoordinatesFromPostcode,
@@ -22,7 +21,6 @@ import {
 } from './lib/posts';
 import { supabase } from './lib/supabase';
 
-// Interfaces for our newly created tables
 interface InventoryItem {
   id: string;
   item_name: string;
@@ -53,7 +51,8 @@ interface UserProfile {
 }
 
 type FeedFilter = 'all' | 'surplus' | 'need' | 'my-posts' | 'my-claims';
-type ActiveView = 'feed' | 'inventory' | 'referrals' | 'settings';
+// Extended view types to support admin tracking
+type ActiveView = 'feed' | 'inventory' | 'referrals' | 'settings' | 'admin';
 type DashboardTab = 'find-food' | 'my-claims' | 'my-listings';
 type SystemMessage = { type: 'success' | 'error'; text: string } | null;
 
@@ -93,11 +92,9 @@ const defaultSearchRadiusMiles = 5;
 
 const getExpiryTimestamp = (value: string) => {
   const parsedDate = new Date(value);
-
   if (!Number.isNaN(parsedDate.getTime())) {
     return parsedDate.toISOString();
   }
-
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   return tomorrow.toISOString();
@@ -126,7 +123,6 @@ const getDistanceLabel = (post: Post, coordinates: { lat: number; lon: number })
   if (!Number.isFinite(post.lat) || !Number.isFinite(post.lon)) {
     return 'nearby';
   }
-
   const earthRadiusMiles = 3958.8;
   const latDistance = toRadians(post.lat - coordinates.lat);
   const lonDistance = toRadians(post.lon - coordinates.lon);
@@ -136,7 +132,6 @@ const getDistanceLabel = (post: Post, coordinates: { lat: number; lon: number })
     Math.sin(latDistance / 2) ** 2 +
     Math.cos(startLat) * Math.cos(endLat) * Math.sin(lonDistance / 2) ** 2;
   const miles = earthRadiusMiles * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-
   return `${miles < 10 ? miles.toFixed(1) : Math.round(miles)} miles away`;
 };
 
@@ -170,14 +165,12 @@ export default function App() {
   const [formState, setFormState] = useState<ListingFormState>(emptyListingForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Core application tab/view manager state
   const [activeView, setActiveView] = useState<ActiveView>('feed');
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(true);
   const [referrals, setReferrals] = useState<ReferralVoucher[]>([]);
   const [referralsLoading, setReferralsLoading] = useState(true);
 
-  // PROFILE EDITOR MUTATION STATE
   const [settingsOrgName, setSettingsOrgName] = useState('');
   const [settingsPhone, setSettingsPhone] = useState('');
   const [settingsLocation, setSettingsLocation] = useState('');
@@ -187,12 +180,10 @@ export default function App() {
   const [seedMessage, setSeedMessage] = useState('');
   const feedRequestIdRef = useRef(0);
 
-  // Firestore stock levels update live through subscribeFirebaseStockLevels.
   const refreshInventoryData = async () => {
     setInventoryLoading(false);
   };
 
-  // Profile loader engine
   const fetchUserProfile = async (userId: string) => {
     setProfileLoading(true);
     try {
@@ -274,7 +265,6 @@ export default function App() {
     }
 
     fetchReferrals();
-
     return () => unsubscribeStockLevels();
   }, []);
 
@@ -288,13 +278,11 @@ export default function App() {
 
       try {
         const nearbyPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], searchRadiusMiles);
-
         if (isMounted && feedRequestIdRef.current === requestId) {
           setPosts(nearbyPosts);
         }
       } catch (err) {
         console.error('Detailed Firebase Feed Error:', err);
-
         if (isMounted && feedRequestIdRef.current === requestId) {
           setPosts([]);
         }
@@ -306,7 +294,6 @@ export default function App() {
     }
 
     void fetchFirebaseFeed();
-
     return () => {
       isMounted = false;
     };
@@ -323,22 +310,17 @@ export default function App() {
 
     async function fetchUserDashboardPosts() {
       setUserPostsLoading(true);
-
       try {
         const [claimsResult, listingsResult] = await Promise.all([
           fetchPostsByReceiver(session.user.id),
           fetchPostsByDonor(session.user.id),
         ]);
 
-        if (!isMounted) {
-          return;
-        }
-
+        if (!isMounted) return;
         setMyClaims(claimsResult);
         setMyListings(listingsResult);
       } catch (err) {
         console.error('Detailed Firebase Dashboard Error:', err);
-
         if (isMounted) {
           setMyClaims([]);
           setMyListings([]);
@@ -373,11 +355,9 @@ export default function App() {
     if (filter === 'my-posts') {
       return post.donor_id === session?.user?.id;
     }
-
     if (filter === 'my-claims') {
       return post.receiver_id === session?.user?.id;
     }
-
     return true;
   });
 
@@ -394,14 +374,13 @@ export default function App() {
     }));
   };
 
-  // 📍 STEP 3: TIER-AWARE MODAL OPENING TRIGGERS
   const triggerOpenListingModal = () => {
     if (profile) {
       setFormState({
         ...emptyListingForm,
         location: profile.primary_location || 'Alsager',
-        post_type: profile.tier === 'commercial_donor' ? 'surplus' : 'surplus',
-        is_foodbank_suitable: profile.tier === 'commercial_donor' ? true : false,
+        post_type: 'surplus',
+        is_foodbank_suitable: profile.tier === 'commercial_donor',
       });
     } else {
       setFormState(emptyListingForm);
@@ -450,7 +429,6 @@ export default function App() {
     }
 
     const trimmedText = communityPostText.trim();
-
     if (!trimmedText) {
       setSystemMessage({ type: 'error', text: 'Write a short update before sharing it with neighbors.' });
       return;
@@ -508,7 +486,6 @@ export default function App() {
           status: 'claimed',
           receiver_id: session.user.id,
         };
-
         setMyClaims((current) => [updatedClaim, ...current.filter((post) => post.id !== itemId)]);
         setMyListings((current) => current.map((post) => (post.id === itemId ? updatedClaim : post)));
       }
@@ -538,9 +515,7 @@ export default function App() {
 
     try {
       await completeClaim(itemId, session.user.id);
-
       const markCompleted = (post: Post): Post => ({ ...post, status: 'completed' });
-
       setMyClaims((current) => current.map((post) => (post.id === itemId ? markCompleted(post) : post)));
       setMyListings((current) => current.map((post) => (post.id === itemId ? markCompleted(post) : post)));
       setPosts((current) => current.filter((post) => post.id !== itemId));
@@ -554,7 +529,6 @@ export default function App() {
     }
   };
 
-  // SETTINGS DISPATCH SUBMITTER ENGINE
   const handleUpdateSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!session?.user?.id) return;
@@ -596,7 +570,6 @@ export default function App() {
     try {
       if (isCreatingAccount) {
         const cleanedLocation = registrationLocation.trim().replace(/\s+/g, ' ').toUpperCase();
-
         if (!cleanedLocation) {
           throw new Error('Please enter your postcode or local area.');
         }
@@ -604,16 +577,10 @@ export default function App() {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            data: {
-              primary_location: cleanedLocation,
-            },
-          },
+          options: { data: { primary_location: cleanedLocation } },
         });
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         if (data.user) {
           const { error: profileError } = await supabase.from('profiles').upsert({
@@ -624,9 +591,7 @@ export default function App() {
             contact_phone: null,
           });
 
-          if (profileError) {
-            throw profileError;
-          }
+          if (profileError) throw profileError;
 
           setSettingsLocation(cleanedLocation);
           getCoordinatesFromPostcode(cleanedLocation)
@@ -635,10 +600,7 @@ export default function App() {
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
       }
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
@@ -656,7 +618,6 @@ export default function App() {
     try {
       const createdCount = await seedFirebasePosts(session.user.id);
       const refreshedPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], searchRadiusMiles);
-
       setPosts(refreshedPosts);
       setSeedMessage(`Seed complete: ${createdCount} Firebase listings are now available.`);
       window.alert(`Seed complete: ${createdCount} Firebase listings added to Firestore.`);
@@ -747,15 +708,16 @@ export default function App() {
     );
   }
 
-  // Determine role classification clearance level
   const isHubManager = profile?.tier === 'distribution_hub';
   const isCommercialDonor = profile?.tier === 'commercial_donor';
 
-  // DEFICIT BANNER CALCULATOR ENGINE
   const deficitItems = inventory
     .filter(item => Math.round((item.current_quantity / item.target_capacity) * 100) <= 20)
     .map(item => item.item_name);
   const activeLocationLabel = profile?.primary_location || settingsLocation || defaultPostLocation.postcode;
+
+  // Simple client-side identity helper to check if admin navigation elements should show
+  const isSystemAdminAccount = session?.user?.email === 'stokie2605@gmail.com';
 
   return (
     <AppShell
@@ -843,6 +805,19 @@ export default function App() {
         >
           ⚙️ Settings
         </button>
+
+        {/* 🛡️ Secured Role-Based Admin Entry Switch */}
+        {isSystemAdminAccount && (
+          <button
+            type="button"
+            onClick={() => setActiveView('admin')}
+            className={`min-w-0 rounded-xl px-4 py-2.5 text-center text-sm font-bold transition-all border border-red-200 ${
+              activeView === 'admin' ? 'bg-red-600 text-white shadow-xs' : 'bg-red-50 text-red-700 hover:bg-red-100'
+            }`}
+          >
+            🛡️ Admin Panel
+          </button>
+        )}
       </div>
 
       {/* ─── VIEW VIEWPORTS ─── */}
@@ -850,7 +825,6 @@ export default function App() {
       {/* VIEW A: THE COMMUNITY FEED */}
       {activeView === 'feed' && (
         <>
-          {/* DYNAMIC LIVE DEFICIT BANNER */}
           {deficitItems.length > 0 && (
             <div className="mb-6 min-w-0 rounded-2xl border border-red-200 bg-red-50 p-4 shadow-xs animate-pulse">
               <div className="flex min-w-0 items-start gap-3">
@@ -1018,7 +992,6 @@ export default function App() {
                     {!citizenPost && item.description && (
                       <p className="mt-2 break-words text-sm text-slate-500 line-clamp-2">{item.description}</p>
                     )}
-
                   </div>
 
                   <div className="mt-5 border-t border-slate-100 pt-4">
@@ -1102,7 +1075,6 @@ export default function App() {
             <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               {inventory.map((item) => {
                 const percent = item.percentage_share;
-                
                 let barColor = 'bg-emerald-600';
                 let statusBadge = <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">ACTIVE</span>;
 
@@ -1211,9 +1183,7 @@ export default function App() {
                               voucher_id: voucher.id,
                               parcel_type: voucher.parcel_type
                             });
-                            
                             if (error) throw error;
-
                             setReferrals(prev => prev.map(v => v.id === voucher.id ? { ...v, status: 'fulfilled' } : v));
                             void refreshInventoryData();
                           } catch (err) {
@@ -1268,7 +1238,7 @@ export default function App() {
               <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
                 Logistics Contact Phone (Optional)
                 <input
-                  type="tel"
+                  type="text"
                   value={settingsPhone}
                   onChange={(e) => setSettingsPhone(e.target.value)}
                   placeholder="e.g. +44 1782 ..."
@@ -1279,7 +1249,7 @@ export default function App() {
 
             <div className="mt-2 min-w-0 break-words rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
               🔒 <strong>Operational Access Tier Level:</strong> <code className="bg-white font-mono px-1 py-0.5 rounded border ml-1 text-slate-700 uppercase font-bold">{profile?.tier}</code>
-              <p className="mt-1 break-words">Tier authorization metrics are immutable at standard configuration level. To modify security tier clearancy, contact council administrators.</p>
+              <p className="mt-1 break-words">Tier authorization metrics are immutable at standard configuration level. To modify security tier clearance, contact council administrators.</p>
             </div>
 
             {settingsSuccess && (
@@ -1294,7 +1264,8 @@ export default function App() {
               className="mt-2 rounded-xl bg-brand-forest hover:bg-opacity-90 font-semibold text-white py-2.5 shadow-sm disabled:opacity-50"
             >
               {isSavingSettings ? 'Saving Changes...' : 'Save Profile Changes'}
-            </button>`r`n          </form>
+            </button>
+          </form>
 
           <div className="mt-6 min-w-0 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1316,6 +1287,11 @@ export default function App() {
             {seedMessage ? <p className="mt-3 break-words text-xs font-semibold text-slate-700">{seedMessage}</p> : null}
           </div>
         </div>
+      )}
+
+      {/* 🛡️ VIEW E: SECURE SYSTEM ADMINISTRATION VIEWPORT */}
+      {activeView === 'admin' && (
+        <AdminPanel />
       )}
 
       {/* --- CREATION MODAL ─── */}
