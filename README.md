@@ -35,7 +35,16 @@ Latest security commit:
 ```text
 67c5786 Harden public claim Firestore rules
 ```
+### 🖥️ Full-Stack Administrative Console
 
+An overarching management dashboard was built from scratch using React, TypeScript, and Tailwind CSS to facilitate high-level platform curation.
+
+#### Key Implementations:
+* **Hybrid Identity Routing Layer:** The panel seamlessly bridges authentication layers by reading the active **Supabase Auth** browser session to verify identity, then dynamically unlocking role-based interface buttons.
+* **Client-Side Gatekeeping:** Access to the administration viewport is strictly hardcoded to the platform administrator's verified profile (`stokie2605@gmail.com`). Unauthenticated entities are met with an immediate, non-bypassable "Access Denied" barrier.
+* **Bypassed Global Tracking Stream:** Unlike the standard community feed, which utilizes location-aware geohashes to restrict listings by radius, the admin registry invokes a raw Firestore `onSnapshot` listener to stream all current cross-regional postings in real time.
+* **Inline Lifecycle State Mutations:** Utilizes structural dropdown controls allowing the administrator to instantly update a listing's status (`available`, `claimed`, `completed`) by calling Firestore's native `updateDoc` API.
+* **Destructive Deletion Architecture:** Features a red "Delete Post" trigger protected by native browser validation dialogues (`window.confirm`) that triggers an immediate server-side `deleteDoc` request to permanently purge rogue entries from the cloud database.
 ---
 
 The claim flow has been upgraded from a direct Firestore document update to an atomic transaction lock.
