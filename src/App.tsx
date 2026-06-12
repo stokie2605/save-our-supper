@@ -4,6 +4,8 @@ import { ExpiryCountdown } from './components/ExpiryCountdown';
 import { FoodMap } from './components/FoodMap';
 import { UserPostList } from './components/UserPostList';
 import AdminPanel from './components/AdminPanel'; // ⚙️ Imported our new component
+import { IntakePortal } from './components/foodbank/IntakePortal';
+import { ReferralQueue } from './components/foodbank/ReferralQueue';
 import {
   claimFirebaseSupper as claimSupper,
   completeFirebaseClaim as completeClaim,
@@ -101,13 +103,14 @@ const getExpiryTimestamp = (value: string) => {
 };
 
 const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
-  { value: 'find-food', label: 'Find Food' },
-  { value: 'my-claims', label: 'My Claims' },
-  { value: 'my-listings', label: 'My Listings' },
+  { value: 'find-food', label: 'Donations' },
+  { value: 'my-claims', label: 'Referral Queue' },
+  { value: 'my-listings', label: 'Live Inventory' },
 ];
 
 const dietaryOptions = ['Vegan', 'Vegetarian', 'Gluten-Free', 'Nut-Free'];
 const communityUpdateCategory = 'community-update';
+const showLegacyCommunityBoard = false;
 
 const getPostcodePrefix = (postcode?: string | null) => {
   const cleanedPostcode = (postcode ?? defaultPostLocation.postcode).trim().toUpperCase();
@@ -767,32 +770,43 @@ export default function App() {
       <div className="mb-6 grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-slate-100 p-1.5 sm:flex sm:flex-wrap sm:items-center">
         <button
           type="button"
-          onClick={() => setActiveView('feed')}
+          onClick={() => {
+            setActiveView('feed');
+            setDashboardTab('find-food');
+            setFilter('all');
+          }}
           className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
             activeView === 'feed' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          Community Feed
+          Donations
         </button>
         {isHubManager && (
           <>
             <button
               type="button"
-              onClick={() => setActiveView('inventory')}
+              onClick={() => {
+                setActiveView('inventory');
+                setDashboardTab('my-listings');
+              }}
               className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
                 activeView === 'inventory' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Stock Levels
+              Live Inventory
             </button>
             <button
               type="button"
-              onClick={() => setActiveView('referrals')}
+              onClick={() => {
+                setActiveView('feed');
+                setDashboardTab('my-claims');
+                setFilter('my-claims');
+              }}
               className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-                activeView === 'referrals' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeView === 'feed' && dashboardTab === 'my-claims' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Digital Referrals
+              Referral Queue
             </button>
           </>
         )}
@@ -847,7 +861,13 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setDashboardTab(option.value);
-                  setFilter(option.value === 'my-claims' ? 'my-claims' : option.value === 'my-listings' ? 'my-posts' : 'all');
+                  if (option.value === 'my-listings') {
+                    setActiveView('inventory');
+                    setFilter('my-posts');
+                    return;
+                  }
+                  setActiveView('feed');
+                  setFilter(option.value === 'my-claims' ? 'my-claims' : 'all');
                 }}
                 className={`min-w-0 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
                   dashboardTab === option.value
@@ -860,7 +880,11 @@ export default function App() {
             ))}
           </div>
 
-          {dashboardTab === 'find-food' ? (
+          {dashboardTab === 'find-food' ? <IntakePortal /> : null}
+
+          {dashboardTab === 'my-claims' ? <ReferralQueue /> : null}
+
+          {showLegacyCommunityBoard && dashboardTab === 'find-food' ? (
             <div className="mb-5 min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
               <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
@@ -891,7 +915,7 @@ export default function App() {
             </div>
           ) : null}
 
-          {dashboardTab === 'find-food' ? (
+          {showLegacyCommunityBoard && dashboardTab === 'find-food' ? (
             <div className="mb-5 min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
               <label className="grid min-w-0 gap-2">
                 <span className="text-sm font-bold text-brand-forest">Share a local update</span>
@@ -931,7 +955,7 @@ export default function App() {
             </div>
           ) : null}
 
-          {dashboardTab === 'find-food' ? (
+          {showLegacyCommunityBoard && dashboardTab === 'find-food' ? (
             <FoodMap
               posts={filteredPosts}
               userCoordinates={userCoordinates}
@@ -939,11 +963,11 @@ export default function App() {
             />
           ) : null}
 
-          {dashboardTab === 'find-food' && loading ? (
+          {showLegacyCommunityBoard && dashboardTab === 'find-food' && loading ? (
             <div className="text-center py-12 text-slate-400 font-medium">Loading live feed...</div>
           ) : null}
 
-          {dashboardTab === 'find-food' && !loading && filteredPosts.length === 0 ? (
+          {showLegacyCommunityBoard && dashboardTab === 'find-food' && !loading && filteredPosts.length === 0 ? (
             <div className="min-w-0 rounded-2xl border border-dashed border-brand-slateSoft bg-white px-4 py-14 text-center shadow-xs sm:px-5">
               <p className="break-words text-lg font-bold tracking-tight text-slate-700">No local board posts found.</p>
               <p className="mx-auto mt-2 max-w-xl break-words text-sm leading-6 text-slate-500">
@@ -952,7 +976,7 @@ export default function App() {
             </div>
           ) : null}
 
-          {dashboardTab === 'find-food' && !loading && filteredPosts.length > 0 ? (
+          {showLegacyCommunityBoard && dashboardTab === 'find-food' && !loading && filteredPosts.length > 0 ? (
             <div className="grid min-w-0 gap-4">
               {filteredPosts.map((item) => {
                 const citizenPost = isCitizenPost(item);
@@ -1037,7 +1061,7 @@ export default function App() {
             </div>
           ) : null}
 
-          {dashboardTab === 'my-claims' ? (
+          {showLegacyCommunityBoard && dashboardTab === 'my-claims' ? (
             <UserPostList
               posts={myClaims}
               loading={userPostsLoading}
@@ -1047,7 +1071,7 @@ export default function App() {
             />
           ) : null}
 
-          {dashboardTab === 'my-listings' ? (
+          {showLegacyCommunityBoard && dashboardTab === 'my-listings' ? (
             <UserPostList
               posts={myListings}
               loading={userPostsLoading}

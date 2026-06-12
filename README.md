@@ -10,6 +10,24 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Volunteer Dashboard Layout Swap
+
+The main dashboard navigation has been updated to connect the new foodbank workflow screens to the visible interface.
+
+Completed work:
+
+- Renamed the primary volunteer workflow tabs to:
+  - `Donations`
+  - `Referral Queue`
+  - `Live Inventory`
+- Wired `Donations` to render `IntakePortal`.
+- Wired `Referral Queue` to render `ReferralQueue`.
+- Wired `Live Inventory` to open the existing live stock analytics dashboard.
+- Kept the older community-board code parked behind a disabled legacy flag so it can be recovered or refactored later without interfering with the new operational flow.
+- Verified the app builds cleanly after the navigation swap.
+
+---
+
 ### Referral Queue Packing Desk
 
 A new foodbank volunteer queue component has been added for processing outgoing referral vouchers and completing parcel collection.
