@@ -11,9 +11,9 @@ export function AppShell({ children, onShowFeed, onAddPost, onShowMyActivity }: 
   const showMobileNav = onShowFeed && onAddPost && onShowMyActivity;
 
   return (
-    <div className="min-h-screen bg-brand-cream text-slate-900 font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-brand-cream text-slate-900 font-sans">
       <header className="sticky top-0 z-50 border-b border-brand-slateSoft bg-white shadow-sm">
-        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
+        <div className="mx-auto flex h-16 min-w-0 max-w-5xl items-center justify-between px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-brand-slateSoft bg-brand-cream text-sm font-bold tracking-tight text-brand-forest">
               S
@@ -29,7 +29,7 @@ export function AppShell({ children, onShowFeed, onAddPost, onShowMyActivity }: 
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 sm:px-6 pt-8 pb-24 md:pb-8">{children}</main>
+      <main className="mx-auto w-full min-w-0 max-w-5xl px-4 pt-6 pb-24 sm:px-6 sm:pt-8 md:pb-8">{children}</main>
 
       {showMobileNav ? (
         <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white border-t border-brand-slateSoft shadow-lg h-16 px-6 flex items-center justify-between">

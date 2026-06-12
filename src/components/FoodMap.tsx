@@ -33,7 +33,7 @@ export function FoodMap({ posts, userCoordinates, onReservePost }: FoodMapProps)
   const markerPosts = posts.filter(hasValidMarkerCoordinates);
 
   return (
-    <div className="mb-6 overflow-hidden rounded-2xl border border-brand-slateSoft bg-white shadow-xs">
+    <div className="mb-6 min-w-0 overflow-hidden rounded-2xl border border-brand-slateSoft bg-white shadow-xs">
       <MapContainer
         center={[userCoordinates.lat, userCoordinates.lon]}
         zoom={13}
@@ -48,10 +48,10 @@ export function FoodMap({ posts, userCoordinates, onReservePost }: FoodMapProps)
         {markerPosts.map((post) => (
           <Marker key={post.id} position={[Number(post.lat), Number(post.lon)]} icon={markerIcon}>
             <Popup>
-              <div className="min-w-48">
-                <h3 className="text-base font-bold text-brand-forest">{post.title}</h3>
-                <p className="mt-1 text-sm text-slate-600">Area: {post.postcode}</p>
-                <p className="text-sm text-slate-600">
+              <div className="w-52 max-w-[70vw] min-w-0">
+                <h3 className="break-words text-base font-bold leading-snug text-brand-forest">{post.title}</h3>
+                <p className="mt-1 break-words text-sm text-slate-600">Area: {post.postcode}</p>
+                <p className="break-words text-sm text-slate-600">
                   Expires:{' '}
                   {new Date(post.expiry_time).toLocaleString('en-GB', {
                     day: '2-digit',

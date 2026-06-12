@@ -45,6 +45,9 @@ Follow-up proximity and UI wiring:
   - green for successful claim confirmation
 - Registration now asks for `Postcode / Local Area` and saves it to the Supabase `profiles.primary_location` field during account creation.
 - The feed radius is user-selectable with 2 mile, 5 mile, and 15 mile options, and changing it automatically refreshes the Firestore proximity query.
+- Mobile dashboard layouts were tightened with safer wrapping, `min-w-0` containers, and smaller mobile spacing so long post text, postcodes, voucher IDs, and stock labels do not push cards off-screen.
+- Added a reusable `ExpiryCountdown` component that displays live time-left badges from each post's `expiry_time`.
+- The countdown badge is now shown on the main community feed cards and the My Claims/My Listings post cards, with urgent and expired states styled clearly.
 
 ---
 
@@ -62,6 +65,8 @@ This project was rebuilt from a cluttered early prototype into a clean Firebase-
 - **Seeded data visibility:** The app needed realistic regional data to prove the map and feed worked at scale. A Firebase seeding utility now generates 45 realistic local listings across Alsager, Crewe, Stoke-on-Trent/Hanley, and Kidsgrove/Talke with valid coordinates and geohashes.
 - **Live inventory accuracy:** The Stock Levels tab originally reflected an older inventory concept. It now listens to Firestore in real time, groups available posts by category, and updates as listings are seeded or claimed.
 - **Double-claim race condition:** The original claim path used a direct document update, which was not strong enough for two users claiming the same listing at the same time. The claim flow now uses a Firestore transaction and was validated with a concurrent two-user simulation where one claim succeeded and the other was rejected.
+- **Mobile text overflow:** Long community updates, organization names, postcodes, and voucher references could stretch card layouts on smaller screens. The dashboard now uses mobile-first wrapping and safer flex/grid constraints.
+- **Expiry visibility:** Listings previously showed only a static expiry timestamp. Cards now include a live countdown badge so users can quickly see how urgent a listing is.
 
 ### 1. Proximity-Based Matching Via Geohashing
 
@@ -88,6 +93,7 @@ Users can claim available listings directly from the feed or map popup. The clai
 - `src/App.tsx` - Main application shell, authentication gateway, tab views, listing form, claim handler, seed controls, and stock dashboard rendering.
 - `src/components/FoodMap.tsx` - Leaflet map rendering live Firestore posts as interactive markers.
 - `src/components/AppShell.tsx` - Responsive app shell, header, mobile bottom navigation, and layout framing.
+- `src/components/ExpiryCountdown.tsx` - Reusable countdown badge for live listing expiry status.
 - `src/components/UserPostList.tsx` - Reusable list view for claimed and personally listed posts.
 - `src/lib/firebaseConfig.ts` - Firebase app and Firestore initialization.
 - `src/lib/firebasePosts.ts` - Firestore post creation, geohash nearby queries, claim updates, seeded data generation, and live stock aggregation.

@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AppShell } from './components/AppShell';
+import { ExpiryCountdown } from './components/ExpiryCountdown';
 import { FoodMap } from './components/FoodMap';
 import { UserPostList } from './components/UserPostList';
 import {
@@ -648,15 +649,15 @@ export default function App() {
   if (!session) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-md rounded-3xl border border-brand-slateSoft bg-white p-6 shadow-sm">
-          <div className="mb-6">
+        <div className="mx-auto w-full min-w-0 max-w-md rounded-3xl border border-brand-slateSoft bg-white p-5 shadow-sm sm:p-6">
+          <div className="mb-6 min-w-0">
             <div className="mb-3 inline-flex rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
               Secure community access
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-brand-forest">
+            <h1 className="break-words text-3xl font-extrabold tracking-tight text-brand-forest">
               {isCreatingAccount ? 'Create your account' : 'Sign in'}
             </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="mt-2 break-words text-sm leading-6 text-slate-500">
               Use your email and password to access the live Save Our Supper community feed.
             </p>
           </div>
@@ -739,25 +740,25 @@ export default function App() {
       onShowMyActivity={() => { setActiveView('feed'); setDashboardTab('my-claims'); setFilter('my-claims'); }}
     >
       {/* ─── APP HEADER ─── */}
-      <div className="mb-6 rounded-3xl border border-brand-slateSoft bg-white p-6 shadow-xs">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+      <div className="mb-6 min-w-0 rounded-3xl border border-brand-slateSoft bg-white p-5 shadow-xs sm:p-6">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <div className="mb-3 inline-flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
+              <span className="max-w-full break-words rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
                 Modern Crisis Logistics Engine
               </span>
               {profile && (
-                <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                <span className="max-w-full break-words rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
                   🏢 {profile.organization_name} ({profile.tier.replace('_', ' ')})
                 </span>
               )}
             </div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-brand-forest">Save Our Supper</h1>
-            <p className="text-slate-500 mt-2 max-w-2xl leading-6">
+            <h1 className="break-words text-3xl font-extrabold tracking-tight text-brand-forest">Save Our Supper</h1>
+            <p className="mt-2 max-w-2xl break-words leading-6 text-slate-500">
               Connecting supermarkets, foodbanks, and local networks across the region to cut waste and match emergency supply demands.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <button
               type="button"
               onClick={triggerOpenListingModal}
@@ -777,11 +778,11 @@ export default function App() {
       </div>
 
       {/* ─── 📍 VISUAL TAB SWITCHER SYSTEM ─── */}
-      <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl bg-slate-100 p-1.5">
+      <div className="mb-6 grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-slate-100 p-1.5 sm:flex sm:flex-wrap sm:items-center">
         <button
           type="button"
           onClick={() => setActiveView('feed')}
-          className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all text-center ${
+          className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
             activeView === 'feed' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
@@ -792,7 +793,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveView('inventory')}
-              className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all text-center ${
+              className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
                 activeView === 'inventory' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -801,7 +802,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveView('referrals')}
-              className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all text-center ${
+              className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
                 activeView === 'referrals' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -812,7 +813,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => setActiveView('settings')}
-          className={`px-4 rounded-xl py-2.5 text-sm font-bold transition-all text-center ${
+          className={`min-w-0 rounded-xl px-4 py-2.5 text-center text-sm font-bold transition-all ${
             activeView === 'settings' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
@@ -827,12 +828,12 @@ export default function App() {
         <>
           {/* DYNAMIC LIVE DEFICIT BANNER */}
           {deficitItems.length > 0 && (
-            <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 shadow-xs animate-pulse">
-              <div className="flex items-start gap-3">
+            <div className="mb-6 min-w-0 rounded-2xl border border-red-200 bg-red-50 p-4 shadow-xs animate-pulse">
+              <div className="flex min-w-0 items-start gap-3">
                 <span className="text-xl">⚠️</span>
-                <div>
-                  <h3 className="font-bold text-red-900 text-sm md:text-base">Critical Hub Shortages Detected</h3>
-                  <p className="text-xs md:text-sm text-red-700 mt-0.5">
+                <div className="min-w-0">
+                  <h3 className="break-words text-sm font-bold text-red-900 md:text-base">Critical Hub Shortages Detected</h3>
+                  <p className="mt-0.5 break-words text-xs text-red-700 md:text-sm">
                     Our warehouse is running dangerously low on: <strong>{deficitItems.join(', ')}</strong>. 
                     Donations containing these items will be prioritized for immediate processing.
                   </p>
@@ -841,7 +842,7 @@ export default function App() {
             </div>
           )}
 
-          <div className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-1.5">
+          <div className="mb-6 grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-slate-100 p-1.5 sm:grid-cols-3">
             {dashboardTabs.map((option) => (
               <button
                 key={option.value}
@@ -850,7 +851,7 @@ export default function App() {
                   setDashboardTab(option.value);
                   setFilter(option.value === 'my-claims' ? 'my-claims' : option.value === 'my-listings' ? 'my-posts' : 'all');
                 }}
-                className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
+                className={`min-w-0 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
                   dashboardTab === option.value
                     ? 'bg-brand-forest text-white'
                     : 'bg-white text-slate-700 border border-brand-slateSoft hover:text-slate-900'
@@ -862,15 +863,15 @@ export default function App() {
           </div>
 
           {dashboardTab === 'find-food' ? (
-            <div className="mb-5 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-brand-forest">Local community board</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-500">
+            <div className="mb-5 min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
+              <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="break-words text-xs font-bold uppercase tracking-wide text-brand-forest">Local community board</p>
+                  <p className="mt-1 break-words text-sm leading-6 text-slate-500">
                     Showing posts near <span className="font-semibold text-slate-700">{activeLocationLabel}</span> within {searchRadiusMiles} miles.
                   </p>
                 </div>
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:min-w-56">
+                <label className="flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:min-w-56 sm:w-auto">
                   Radius
                   <select
                     value={searchRadiusMiles}
@@ -889,19 +890,19 @@ export default function App() {
           ) : null}
 
           {dashboardTab === 'find-food' ? (
-            <div className="mb-5 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
-              <label className="grid gap-2">
+            <div className="mb-5 min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
+              <label className="grid min-w-0 gap-2">
                 <span className="text-sm font-bold text-brand-forest">Share a local update</span>
                 <textarea
                   value={communityPostText}
                   onChange={(event) => setCommunityPostText(event.target.value)}
                   rows={3}
                   placeholder="Let neighbors know about a local collection, a community need, or a helpful food support update."
-                  className="min-h-24 resize-none rounded-2xl border border-brand-slateSoft bg-brand-cream px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-forest"
+                  className="min-h-24 w-full resize-none rounded-2xl border border-brand-slateSoft bg-brand-cream px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-brand-forest"
                 />
               </label>
               <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                <p className="break-words text-xs font-semibold uppercase tracking-wide text-slate-400">
                   Posting near {getPostcodePrefix(activeLocationLabel)}
                 </p>
                 <button
@@ -918,7 +919,7 @@ export default function App() {
 
           {systemMessage ? (
             <div
-              className={`mb-6 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+              className={`mb-6 min-w-0 break-words rounded-2xl border px-4 py-3 text-sm font-semibold ${
                 systemMessage.type === 'error'
                   ? 'border-red-200 bg-red-50 text-red-700'
                   : 'border-green-200 bg-green-50 text-green-700'
@@ -941,59 +942,60 @@ export default function App() {
           ) : null}
 
           {dashboardTab === 'find-food' && !loading && filteredPosts.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-brand-slateSoft bg-white px-5 py-14 text-center shadow-xs">
-              <p className="text-lg font-bold tracking-tight text-slate-700">No local board posts found.</p>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+            <div className="min-w-0 rounded-2xl border border-dashed border-brand-slateSoft bg-white px-4 py-14 text-center shadow-xs sm:px-5">
+              <p className="break-words text-lg font-bold tracking-tight text-slate-700">No local board posts found.</p>
+              <p className="mx-auto mt-2 max-w-xl break-words text-sm leading-6 text-slate-500">
                 No community board posts found near {activeLocationLabel} within {searchRadiusMiles} miles yet. Share a neighbor update above, or use Seed Test Data in Settings to populate demo items.
               </p>
             </div>
           ) : null}
 
           {dashboardTab === 'find-food' && !loading && filteredPosts.length > 0 ? (
-            <div className="grid gap-4">
+            <div className="grid min-w-0 gap-4">
               {filteredPosts.map((item) => {
                 const citizenPost = isCitizenPost(item);
                 const postcodePrefix = getPostcodePrefix(item.postcode);
                 const distanceLabel = getDistanceLabel(item, userCoordinates);
 
                 return (
-                <article key={item.id} className={`rounded-2xl border p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm ${
+                <article key={item.id} className={`min-w-0 rounded-2xl border p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm sm:p-5 ${
                   citizenPost ? 'border-brand-slateSoft bg-white' : 'border-emerald-300 bg-white ring-1 ring-emerald-50'
                 }`}>
-                  <div>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       {citizenPost ? (
-                        <span className="inline-flex rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
+                        <span className="inline-flex max-w-full break-words rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
                           Neighbor Update
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-800">
+                        <span className="inline-flex max-w-full break-words rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-800">
                           Official Hub Update
                         </span>
                       )}
-                      <div className="flex shrink-0 flex-wrap gap-2 text-xs font-semibold text-slate-500 sm:justify-end">
-                        <span className="rounded-full border border-brand-slateSoft bg-slate-50 px-3 py-1">
+                      <div className="flex min-w-0 flex-wrap gap-2 text-xs font-semibold text-slate-500 sm:justify-end">
+                        <span className="max-w-full break-words rounded-full border border-brand-slateSoft bg-slate-50 px-3 py-1">
                           {postcodePrefix}
                         </span>
-                        <span className="rounded-full border border-brand-slateSoft bg-slate-50 px-3 py-1">
+                        <span className="max-w-full break-words rounded-full border border-brand-slateSoft bg-slate-50 px-3 py-1">
                           {distanceLabel}
                         </span>
+                        <ExpiryCountdown expiresAt={item.expiry_time} />
                       </div>
                     </div>
 
-                    <h3 className="mt-3 text-slate-900 font-bold text-xl tracking-tight leading-tight">
+                    <h3 className="mt-3 break-words text-xl font-bold leading-tight tracking-tight text-slate-900">
                       {citizenPost ? item.description || item.title : item.title}
                     </h3>
 
                     {!citizenPost && item.description && (
-                      <p className="text-sm text-slate-500 mt-2 line-clamp-2">{item.description}</p>
+                      <p className="mt-2 break-words text-sm text-slate-500 line-clamp-2">{item.description}</p>
                     )}
 
                   </div>
 
                   <div className="mt-5 border-t border-slate-100 pt-4">
-                    <div className="flex items-center justify-between gap-3 text-xs text-slate-500">
-                      <span className="font-medium">
+                    <div className="flex min-w-0 flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="break-words font-medium">
                         Open until{' '}
                         {new Date(item.expiry_time).toLocaleString('en-GB', {
                           day: '2-digit',
@@ -1002,7 +1004,7 @@ export default function App() {
                           minute: '2-digit',
                         })}
                       </span>
-                      <span className="rounded bg-brand-cream px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand-forest">
+                      <span className="w-fit max-w-full break-words rounded bg-brand-cream px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand-forest">
                         {item.status ?? 'available'}
                       </span>
                     </div>
@@ -1054,10 +1056,10 @@ export default function App() {
 
       {/* VIEW B: WAREHOUSE STOCK LEVELS */}
       {isHubManager && activeView === 'inventory' && (
-        <div className="bg-white border border-brand-slateSoft rounded-2xl p-6 shadow-xs">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-brand-forest">Live Firestore Stock Levels</h2>
-            <p className="text-sm text-slate-500">Available Firebase listings grouped by category. Totals update as posts are seeded or claimed.</p>
+        <div className="min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs sm:p-6">
+          <div className="mb-6 min-w-0">
+            <h2 className="break-words text-2xl font-bold text-brand-forest">Live Firestore Stock Levels</h2>
+            <p className="break-words text-sm text-slate-500">Available Firebase listings grouped by category. Totals update as posts are seeded or claimed.</p>
           </div>
           
           {inventoryLoading ? (
@@ -1067,7 +1069,7 @@ export default function App() {
               No available Firebase listings to summarize yet.
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               {inventory.map((item) => {
                 const percent = Math.round((item.current_quantity / item.target_capacity) * 100);
                 
@@ -1086,19 +1088,19 @@ export default function App() {
                 }
 
                 return (
-                  <div key={item.id} className="border border-brand-slateSoft rounded-xl p-4 bg-slate-50 flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start gap-2 mb-2">
-                        <div>
-                          <h3 className="font-bold text-slate-900 text-lg">{item.item_name}</h3>
-                          <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Source: {item.location || 'Live Firestore Feed'}</p>
+                  <div key={item.id} className="flex min-w-0 flex-col justify-between rounded-xl border border-brand-slateSoft bg-slate-50 p-4">
+                    <div className="min-w-0">
+                      <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <h3 className="break-words text-lg font-bold text-slate-900">{item.item_name}</h3>
+                          <p className="break-words text-xs font-semibold uppercase tracking-wider text-slate-400">Source: {item.location || 'Live Firestore Feed'}</p>
                         </div>
                         {statusBadge}
                       </div>
 
-                      <div className="flex justify-between text-xs text-slate-600 font-medium mt-3 mb-1">
-                        <span>Available units: <strong>{item.current_quantity}</strong> across {item.listing_count ?? 0} listings</span>
-                        <span>{percent}%</span>
+                      <div className="mt-3 mb-1 flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600 sm:flex-row sm:justify-between">
+                        <span className="break-words">Available units: <strong>{item.current_quantity}</strong> across {item.listing_count ?? 0} listings</span>
+                        <span className="shrink-0">{percent}%</span>
                       </div>
                       
                       <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden border border-slate-300">
@@ -1118,10 +1120,10 @@ export default function App() {
 
       {/* VIEW C: SECURE DIGITAL REFERRALS */}
       {isHubManager && activeView === 'referrals' && (
-        <div className="bg-white border border-brand-slateSoft rounded-2xl p-6 shadow-xs">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-brand-forest">Digital Referral Desk</h2>
-            <p className="text-sm text-slate-500 mb-6">Secure interface for foodbank volunteers to verify and process authenticated agency vouchers.</p>
+        <div className="min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs sm:p-6">
+          <div className="mb-6 min-w-0">
+            <h2 className="break-words text-2xl font-bold text-brand-forest">Digital Referral Desk</h2>
+            <p className="mb-6 break-words text-sm text-slate-500">Secure interface for foodbank volunteers to verify and process authenticated agency vouchers.</p>
           </div>
           
           {referralsLoading ? (
@@ -1132,21 +1134,21 @@ export default function App() {
               <p className="text-xs mt-1">Vouchers issued by local councils or care agencies will appear here securely.</p>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               {referrals.map((voucher) => {
                 const isFulfilled = voucher.status === 'fulfilled';
                 const dateIssued = new Date(voucher.created_at).toLocaleDateString('en-GB');
 
                 return (
-                  <div key={voucher.id} className={`border rounded-xl p-4 transition-all ${
+                  <div key={voucher.id} className={`min-w-0 rounded-xl border p-4 transition-all ${
                     isFulfilled 
                       ? 'border-slate-200 bg-slate-50 opacity-70' 
                       : 'border-brand-slateSoft bg-white shadow-xs'
                   }`}>
-                    <div className="flex justify-between items-start gap-2 mb-3">
-                      <div>
+                    <div className="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Voucher ID</span>
-                        <code className="text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-mono font-bold">
+                        <code className="inline-block max-w-full break-all rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-bold text-slate-700">
                           {voucher.id.substring(0, 8)}...
                         </code>
                       </div>
@@ -1159,7 +1161,7 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="space-y-1 text-sm text-slate-700 mb-4">
+                    <div className="mb-4 min-w-0 space-y-1 break-words text-sm text-slate-700">
                       <p>👤 <strong>Client Ref:</strong> {voucher.client_reference}</p>
                       <p>🏢 <strong>Issued By:</strong> {voucher.issued_by}</p>
                       <p>📦 <strong>Parcel Type:</strong> {voucher.parcel_type}</p>
@@ -1200,10 +1202,10 @@ export default function App() {
 
       {/* VIEW D: RENDER PROFILE SETTINGS VIEWPORT PANEL */}
       {activeView === 'settings' && (
-        <div className="mx-auto max-w-xl bg-white border border-brand-slateSoft rounded-2xl p-6 shadow-xs">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-brand-forest">Organization Settings</h2>
-            <p className="text-sm text-slate-500">Manage your network identity profile, contact points, and target logistics routing hubs.</p>
+        <div className="mx-auto min-w-0 max-w-xl rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs sm:p-6">
+          <div className="mb-6 min-w-0">
+            <h2 className="break-words text-2xl font-bold text-brand-forest">Organization Settings</h2>
+            <p className="break-words text-sm text-slate-500">Manage your network identity profile, contact points, and target logistics routing hubs.</p>
           </div>
 
           <form onSubmit={handleUpdateSettings} className="grid gap-4">
@@ -1242,9 +1244,9 @@ export default function App() {
               </label>
             </div>
 
-            <div className="mt-2 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs text-slate-500">
+            <div className="mt-2 min-w-0 break-words rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
               🔒 <strong>Operational Access Tier Level:</strong> <code className="bg-white font-mono px-1 py-0.5 rounded border ml-1 text-slate-700 uppercase font-bold">{profile?.tier}</code>
-              <p className="mt-1">Tier authorization metrics are immutable at standard configuration level. To modify security tier clearancy, contact council administrators.</p>
+              <p className="mt-1 break-words">Tier authorization metrics are immutable at standard configuration level. To modify security tier clearancy, contact council administrators.</p>
             </div>
 
             {settingsSuccess && (
@@ -1261,11 +1263,11 @@ export default function App() {
               {isSavingSettings ? 'Saving Changes...' : 'Save Profile Changes'}
             </button>`r`n          </form>
 
-          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-brand-forest">Temporary Firebase Seed Tools</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
+          <div className="mt-6 min-w-0 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <h3 className="break-words text-sm font-bold text-brand-forest">Temporary Firebase Seed Tools</h3>
+                <p className="mt-1 break-words text-xs leading-5 text-slate-600">
                   Add 45 realistic test listings across the local map clusters for feed and marker testing.
                 </p>
               </div>
@@ -1278,7 +1280,7 @@ export default function App() {
                 {isSeedingFirebase ? 'Seeding...' : 'Seed Test Data'}
               </button>
             </div>
-            {seedMessage ? <p className="mt-3 text-xs font-semibold text-slate-700">{seedMessage}</p> : null}
+            {seedMessage ? <p className="mt-3 break-words text-xs font-semibold text-slate-700">{seedMessage}</p> : null}
           </div>
         </div>
       )}
