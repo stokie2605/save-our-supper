@@ -49,6 +49,21 @@ Follow-up proximity and UI wiring:
 - Added a reusable `ExpiryCountdown` component that displays live time-left badges from each post's `expiry_time`.
 - The countdown badge is now shown on the main community feed cards and the My Claims/My Listings post cards, with urgent and expired states styled clearly.
 
+Real-Time Expiry Countdowns technical notes:
+
+- The `ExpiryCountdown` component uses a React `useEffect` hook with `window.setInterval()` to refresh the displayed time-left label every 30 seconds while the card is mounted.
+- The interval is cleaned up with `window.clearInterval()` on unmount so list updates, tab switches, and feed refreshes do not leave background timers running.
+- Each render compares the post timestamp against the current browser time:
+  - `new Date(expiry_time).getTime()` provides the target expiry moment.
+  - `Date.now()` provides the live local comparison point.
+  - The difference is converted into days, hours, and minutes for compact card display.
+- Invalid or missing timestamps are handled safely with an `Expiry time unavailable` fallback rather than crashing the card.
+- The badge has three Tailwind CSS visual states:
+  - **Available / healthy:** `border-emerald-200 bg-emerald-50 text-emerald-700`
+  - **Urgent under one hour:** `border-amber-200 bg-amber-50 text-amber-700`
+  - **Expired:** `border-red-200 bg-red-50 text-red-700`
+- The countdown currently reads the active app field `expiry_time`, matching the Firestore `Post` type used by the feed and user activity lists.
+
 ---
 
 ## Core Architecture & Technical Implementation
