@@ -99,24 +99,41 @@ Volunteer Claim Matrix and completion flow technical notes:
   - the success banner confirms the collection is closed
 - No hard page reload is required; dashboard state, map visibility, and list visibility remain synchronized through state updates and subsequent Firestore reads.
 
-Stock analytics and category progress bars:
+Stock analytics and category progress bars technical notes:
 
-- The Stock Levels dashboard now reads the live Firestore `posts` stream where `status == "available"`.
-- Citizen/community update posts are excluded so the analytics represent active food listings only.
-- The Firestore aggregation groups active listings by normalized category name, such as Bakery, Produce, Dairy, Canned Goods, Meat, or Meals when those categories exist in the dataset.
-- Each category tracks:
-  - raw active listing count
-  - parsed total quantity units
-  - percentage share of all active food listings
-- Percentage share is calculated as:
+- The Stock Levels dashboard is powered by a client-side aggregation helper named `buildStockLevelsFromSnapshots(snapshot)`.
+- The aggregation reads the live Firestore `posts` collection through `onSnapshot(...)` using:
   ```typescript
-  Math.round((categoryListingCount / totalActiveListings) * 100)
+  query(postsCollection, where("status", "==", "available"))
   ```
-- The Stock Levels UI renders each category with a raw count and a Tailwind progress bar whose width is driven by the calculated percentage:
+- This means only active, claimable food listings contribute to the analytics. Claimed and completed posts are automatically excluded from the category totals.
+- The aggregation function skips non-food community updates by ignoring documents where:
+  ```typescript
+  data.board_type === "citizen_post" || data.category === "community-update"
+  ```
+- Each active food listing is normalized into a category bucket using:
+  - `category || "general food"` as the fallback label
+  - title-casing for display labels such as Bakery, Produce, Dairy, Canned Goods, Meat, and Meals
+  - a lowercase dashed category ID for stable rendering keys
+- The metrics logic calculates three values for every category:
+  - `listing_count` - raw number of active listings in that category
+  - `current_quantity` - parsed total quantity units from listing text such as `12 items` or `24 tins`
+  - `percentage_share` - the category's share of all active food listings
+- Percentage share is calculated with:
+  ```typescript
+  Math.round((stockLevel.listing_count / totalActiveListings) * 100)
+  ```
+- The final array is sorted by highest active listing count first, with category name as the secondary alphabetical sort.
+- The Stock Levels UI renders native Tailwind CSS progress bars with:
+  - a slate track: `h-2.5 w-full overflow-hidden rounded-full border border-slate-300 bg-slate-200`
+  - a dynamic fill: `h-full rounded-full transition-all duration-500`
+  - category intensity colours such as `bg-brand-forest`, `bg-amber-500`, and `bg-slate-400`
+- The progress bar width is driven by inline React style so dynamic percentages do not require generated Tailwind classes:
   ```tsx
   style={{ width: `${Math.min(percent, 100)}%` }}
   ```
-- Because the dashboard is powered by Firestore `onSnapshot`, category counts and progress bars update in real time as posts are seeded, added, claimed, or completed.
+- Each category card displays the category name, the raw active listing count, the percentage share, and the parsed total units represented in that category.
+- Because the data source is a Firestore real-time listener, the analytics and progress bars update automatically whenever listings are seeded, added, claimed, or completed.
 
 Real-Time Expiry Countdowns technical notes:
 
