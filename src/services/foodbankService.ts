@@ -34,12 +34,33 @@ function readCurrentQuantity(inventoryItem: Partial<InventoryItem>, inventoryIte
   return Number(currentQuantity);
 }
 
-function normalizeRequirements(requirements: VoucherRequirement[] | undefined) {
+function normalizeRequirements(requirements: VoucherRequirement[] | undefined, context: string) {
   if (!Array.isArray(requirements) || requirements.length === 0) {
-    throw new Error('Voucher has no item requirements to fulfil.');
+    throw new Error(`${context} has no parcel requirements to fulfil.`);
   }
 
   return requirements;
+}
+
+function aggregateRequirements(requirements: VoucherRequirement[]) {
+  const requirementMap = new Map<string, VoucherRequirement>();
+
+  requirements.forEach((requirement) => {
+    assertInventoryItemId(requirement.inventory_item_id, 'Voucher manifest requirement');
+    assertPositiveQuantity(
+      requirement.quantity,
+      `Voucher manifest quantity for ${requirement.inventory_item_id}`,
+    );
+
+    const existingRequirement = requirementMap.get(requirement.inventory_item_id);
+    requirementMap.set(requirement.inventory_item_id, {
+      ...requirement,
+      quantity: (existingRequirement?.quantity ?? 0) + requirement.quantity,
+      label: existingRequirement?.label ?? requirement.label,
+    });
+  });
+
+  return Array.from(requirementMap.values());
 }
 
 export async function processDonationIntake(intakeData: DonationIntakeData) {
@@ -116,12 +137,15 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
       throw new Error(`Voucher ${voucherId} cannot be collected because its status is ${voucher.status}.`);
     }
 
-    const requirements = normalizeRequirements(voucher.item_requirements);
+    const requirements = aggregateRequirements(
+      normalizeRequirements(
+        voucher.manifest_requirements?.length ? voucher.manifest_requirements : voucher.item_requirements,
+        `Voucher ${voucherId}`,
+      ),
+    );
+
     const inventoryUpdates = await Promise.all(
       requirements.map(async (requirement) => {
-        assertInventoryItemId(requirement.inventory_item_id, 'Voucher requirement');
-        assertPositiveQuantity(requirement.quantity, `Voucher requirement quantity for ${requirement.inventory_item_id}`);
-
         const inventoryRef = doc(db, inventoryCollectionName, requirement.inventory_item_id);
         const inventorySnapshot = await transaction.get(inventoryRef);
 
@@ -134,21 +158,21 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
         const nextQuantity = currentQuantity - requirement.quantity;
 
         if (nextQuantity < 0) {
-          throw new Error(
-            `Insufficient stock for ${requirement.inventory_item_id}. Required ${requirement.quantity}, available ${currentQuantity}.`,
-          );
+          throw new Error('Insufficient inventory stock to fulfill this parcel requirement.');
         }
 
         return {
           inventoryRef,
+          requiredQuantity: requirement.quantity,
           nextQuantity,
         };
       }),
     );
 
-    inventoryUpdates.forEach(({ inventoryRef, nextQuantity }) => {
+    inventoryUpdates.forEach(({ inventoryRef, requiredQuantity, nextQuantity }) => {
       transaction.update(inventoryRef, {
         current_quantity: nextQuantity,
+        last_deduction_quantity: requiredQuantity,
         last_updated: collectedAt,
       });
     });
@@ -156,6 +180,7 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
     transaction.update(voucherRef, {
       status: 'Collected',
       collected_at: collectedAt,
+      fulfilled_manifest_requirements: requirements,
     });
   });
 }

@@ -10,6 +10,27 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Manifest-Based Inventory Deduction Transaction
+
+The food parcel completion flow now closes the operational stock loop when a voucher is marked as collected.
+
+Completed work:
+
+- Updated `finalizeFoodParcelCollection(voucherId)` in `src/services/foodbankService.ts`.
+- The transaction now reads the referral voucher and uses `manifest_requirements` as the source of truth for the parcel contents.
+- Older voucher records remain supported through the existing `item_requirements` fallback.
+- Manifest entries are validated and aggregated before inventory writes, so duplicate item IDs are combined into one safe deduction.
+- For every required parcel item, the transaction reads the matching `inventory/{inventory_item_id}` document.
+- The transaction validates each inventory document has a numeric `current_quantity`.
+- If any required inventory document is missing, the transaction aborts before updating the voucher.
+- If stock is too low for any parcel item, the transaction aborts with:
+  `Insufficient inventory stock to fulfill this parcel requirement.`
+- Successful completion decrements `current_quantity`, stamps `last_updated`, records `last_deduction_quantity`, and flips the voucher status to `Collected`.
+- The voucher also stores `fulfilled_manifest_requirements` for audit/history.
+- All voucher reads, stock checks, inventory deductions, and voucher status updates happen inside one Firestore `runTransaction`.
+
+---
+
 ### Production Admin Source And Navigation Cleanup
 
 Follow-up production review found two remaining paths that could still confuse the dashboard.
