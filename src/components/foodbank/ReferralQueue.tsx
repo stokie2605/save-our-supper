@@ -81,15 +81,48 @@ function CheckIcon({ className = 'h-5 w-5' }: IconProps) {
   );
 }
 
+function PhoneIcon({ className = 'h-4 w-4' }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M8.25 6.75c.48 4.18 3.82 7.52 8 8l2.25-2.25a1.5 1.5 0 0 1 1.55-.36l2.28.76a1.5 1.5 0 0 1 1.02 1.42v3.18A2.25 2.25 0 0 1 21 19.75C11.75 19.75 4.25 12.25 4.25 3A2.25 2.25 0 0 1 6.5.75h3.18A1.5 1.5 0 0 1 11.1 1.77l.76 2.28a1.5 1.5 0 0 1-.36 1.55L9.25 7.85Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const mockReferralVouchers: ReferralVoucher[] = [
   {
     id: 'voucher-cheshire-family-4',
     agency_id: 'cheshire-east-council',
     agency_name: 'Cheshire East Council',
     client_reference: 'CEC-FAM-1042',
+    client_name: 'A. Thompson',
+    client_phone: '07123 456 104',
     family_size: 4,
     household_name: 'Family of 4',
+    status: 'Pending Contact',
+  },
+  {
+    id: 'voucher-stoke-single-1',
+    agency_id: 'stoke-community-referral',
+    agency_name: 'Stoke Community Referral Team',
+    client_reference: 'SCRT-2188',
+    client_name: 'M. Riley',
+    client_phone: '07984 221 887',
+    family_size: 1,
+    household_name: 'Single adult',
     status: 'Packing',
+    manifest_requirements: [
+      { inventory_item_id: 'tinned_goods', quantity: 6, label: 'Tinned goods' },
+      { inventory_item_id: 'cereal', quantity: 2, label: 'Breakfast cereal' },
+      { inventory_item_id: 'dairy_uht', quantity: 4, label: 'UHT milk' },
+      { inventory_item_id: 'grains', quantity: 3, label: 'Rice or pasta' },
+    ],
     item_requirements: [
       { inventory_item_id: 'tinned_goods', quantity: 6, label: 'Tinned goods' },
       { inventory_item_id: 'cereal', quantity: 2, label: 'Breakfast cereal' },
@@ -98,27 +131,20 @@ const mockReferralVouchers: ReferralVoucher[] = [
     ],
   },
   {
-    id: 'voucher-stoke-single-1',
-    agency_id: 'stoke-community-referral',
-    agency_name: 'Stoke Community Referral Team',
-    client_reference: 'SCRT-2188',
-    family_size: 1,
-    household_name: 'Single adult',
-    status: 'Packing',
-    item_requirements: [
-      { inventory_item_id: 'tinned_goods', quantity: 3, label: 'Tinned goods' },
-      { inventory_item_id: 'toiletries', quantity: 1, label: 'Toiletries pack' },
-      { inventory_item_id: 'grains', quantity: 1, label: 'Pasta or rice' },
-    ],
-  },
-  {
     id: 'voucher-school-family-3',
     agency_id: 'local-school-support',
     agency_name: 'Local School Family Support',
     client_reference: 'LSFS-3307',
+    client_name: 'S. Ahmed',
+    client_phone: '07771 330 703',
     family_size: 3,
     household_name: 'Family of 3',
     status: 'Packing',
+    manifest_requirements: [
+      { inventory_item_id: 'cereal', quantity: 2, label: 'Breakfast cereal' },
+      { inventory_item_id: 'dairy_uht', quantity: 3, label: 'UHT milk' },
+      { inventory_item_id: 'tinned_goods', quantity: 5, label: 'Tinned goods' },
+    ],
     item_requirements: [
       { inventory_item_id: 'cereal', quantity: 2, label: 'Breakfast cereal' },
       { inventory_item_id: 'dairy_uht', quantity: 3, label: 'UHT milk' },
@@ -128,7 +154,7 @@ const mockReferralVouchers: ReferralVoucher[] = [
 ];
 
 function getManifestRequirements(voucher: ReferralVoucher): VoucherRequirement[] {
-  return voucher.manifest_requirements?.length ? voucher.manifest_requirements : voucher.item_requirements;
+  return voucher.manifest_requirements?.length ? voucher.manifest_requirements : voucher.item_requirements ?? [];
 }
 
 export function ReferralQueue() {
@@ -199,6 +225,8 @@ export function ReferralQueue() {
           {vouchers.map((voucher) => {
             const requirements = getManifestRequirements(voucher);
             const isLoading = loadingVoucherId === voucher.id;
+            const isPendingContact = voucher.status === 'Pending Contact';
+            const isPacking = voucher.status === 'Packing';
             const hasDietaryWarning = requirements.some((requirement) =>
               /dairy|toiletries|cereal/i.test(requirement.label ?? requirement.inventory_item_id),
             );
@@ -224,7 +252,13 @@ export function ReferralQueue() {
                         {voucher.household_name ?? `Family size ${voucher.family_size ?? 'TBC'}`}
                       </p>
                     </div>
-                    <span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-700">
+                    <span
+                      className={`w-fit rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${
+                        isPendingContact
+                          ? 'border-amber-200 bg-amber-50 text-amber-700'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
                       {voucher.status}
                     </span>
                   </div>
@@ -239,47 +273,87 @@ export function ReferralQueue() {
                     </div>
                     <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
                       <dt className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-slate-400">
-                        <WarningIcon className="h-4 w-4 text-amber-500" />
-                        Dietary flags
+                        {isPendingContact ? (
+                          <PhoneIcon className="h-4 w-4 text-amber-500" />
+                        ) : (
+                          <WarningIcon className="h-4 w-4 text-amber-500" />
+                        )}
+                        {isPendingContact ? 'Client phone' : 'Dietary flags'}
                       </dt>
                       <dd className="mt-1 break-words font-black text-slate-900">
-                        {hasDietaryWarning ? 'Check parcel notes' : 'None listed'}
+                        {isPendingContact
+                          ? voucher.client_phone ?? 'Phone TBC'
+                          : hasDietaryWarning
+                            ? 'Check parcel notes'
+                            : 'None listed'}
                       </dd>
                     </div>
                   </dl>
 
-                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-800">
-                      <ManifestIcon className="h-4 w-4 text-emerald-600" />
-                      Manifest requirements
-                    </p>
-                    <ul className="mt-3 space-y-2">
-                      {requirements.map((requirement) => (
-                        <li
-                          key={`${voucher.id}-${requirement.inventory_item_id}`}
-                          className="flex min-w-0 items-start justify-between gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2 text-sm shadow-xs"
-                        >
-                          <span className="break-words font-semibold text-slate-700">
-                            {requirement.label ?? requirement.inventory_item_id}
-                          </span>
-                          <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-0.5 font-black text-emerald-700 ring-1 ring-emerald-100">
-                            x{requirement.quantity}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  {isPendingContact ? (
+                    <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-amber-800">
+                        <PhoneIcon className="h-4 w-4 text-amber-600" />
+                        Client consultation required
+                      </p>
+                      <div className="mt-3 grid gap-3 rounded-xl bg-white/80 p-3 text-sm">
+                        <div className="min-w-0">
+                          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Client name</p>
+                          <p className="break-words font-black text-slate-950">{voucher.client_name ?? 'Client TBC'}</p>
+                        </div>
+                        <p className="break-words text-slate-600">
+                          Contact the client before packing. Build the parcel from household need, dietary needs, and current stock.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {isPacking ? (
+                    <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-slate-800">
+                        <ManifestIcon className="h-4 w-4 text-emerald-600" />
+                        Manifest requirements
+                      </p>
+                      <ul className="mt-3 space-y-2">
+                        {requirements.map((requirement) => (
+                          <li
+                            key={`${voucher.id}-${requirement.inventory_item_id}`}
+                            className="flex min-w-0 items-start justify-between gap-3 rounded-xl border border-slate-100 bg-white px-3 py-2 text-sm shadow-xs"
+                          >
+                            <span className="break-words font-semibold text-slate-700">
+                              {requirement.label ?? requirement.inventory_item_id}
+                            </span>
+                            <span className="shrink-0 rounded-lg bg-emerald-50 px-2 py-0.5 font-black text-emerald-700 ring-1 ring-emerald-100">
+                              x{requirement.quantity}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => void handleMarkCollected(voucher.id)}
-                  disabled={isLoading || loadingVoucherId !== null}
-                  className="mx-4 mb-4 mt-2 inline-flex items-center justify-center gap-2 rounded-3xl bg-slate-900 px-5 py-4 text-base font-black text-white shadow-sm transition-all duration-200 hover:bg-emerald-600 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 sm:mx-5 sm:mb-5"
-                >
-                  <CheckIcon className="h-5 w-5" />
-                  {isLoading ? 'Finalising Collection...' : 'Mark as Collected'}
-                </button>
+                {isPendingContact ? (
+                  <button
+                    type="button"
+                    className="mx-4 mb-4 mt-2 inline-flex items-center justify-center gap-2 rounded-3xl bg-amber-600 px-5 py-4 text-base font-black text-white shadow-sm transition-all duration-200 hover:bg-amber-700 hover:shadow-md active:scale-[0.99] sm:mx-5 sm:mb-5"
+                  >
+                    <PhoneIcon className="h-5 w-5" />
+                    Consult Client & Build Parcel
+                  </button>
+                ) : null}
+
+                {isPacking ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleMarkCollected(voucher.id)}
+                    disabled={isLoading || loadingVoucherId !== null}
+                    className="mx-4 mb-4 mt-2 inline-flex items-center justify-center gap-2 rounded-3xl bg-slate-900 px-5 py-4 text-base font-black text-white shadow-sm transition-all duration-200 hover:bg-emerald-600 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 sm:mx-5 sm:mb-5"
+                  >
+                    <CheckIcon className="h-5 w-5" />
+                    {isLoading ? 'Finalising Collection...' : 'Mark as Collected'}
+                  </button>
+                ) : null}
               </article>
             );
           })}

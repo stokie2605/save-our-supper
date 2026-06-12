@@ -10,6 +10,32 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Referral Voucher Workflow Correction
+
+The referral queue architecture has been corrected to match real foodbank practice: agencies issue authorization vouchers, not packing manifests. Foodbank volunteers must contact the client before building the parcel.
+
+Completed work:
+
+- Updated `ReferralVoucher` in `src/types/foodbank.ts`.
+- Voucher status now supports:
+  - `Pending Contact`
+  - `Packing`
+  - `Collected`
+- Added client consultation fields:
+  - `client_name`
+  - `client_phone`
+- Made item/manifest requirements optional so pending vouchers can exist before a parcel is agreed.
+- Updated `src/components/foodbank/ReferralQueue.tsx` mock data with both workflow states:
+  - one `Pending Contact` authorization voucher
+  - packing vouchers with manifests
+- `Pending Contact` cards now hide the manifest entirely.
+- `Pending Contact` cards show client name and phone details instead.
+- The pending action is now an amber `Consult Client & Build Parcel` button.
+- `Packing` cards continue to show manifest requirements and the dark slate `Mark as Collected` transaction button.
+- Preserved the enterprise slate, teal, and emerald styling system and inline SVG iconography.
+
+---
+
 ### Intake Portal And Dashboard Theme Upgrade
 
 The volunteer dashboard styling has been unified around the newer enterprise logistics theme.
