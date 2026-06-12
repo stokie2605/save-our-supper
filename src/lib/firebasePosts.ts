@@ -53,6 +53,7 @@ export type FirebaseStockLevel = {
   id: string;
   item_name: string;
   current_quantity: number;
+  percentage_share: number;
   target_capacity: number;
   location: string;
   last_updated: string;
@@ -303,12 +304,15 @@ function parseQuantityTotal(quantity: unknown) {
 function buildStockLevelsFromSnapshots(snapshot: Awaited<ReturnType<typeof getDocs>>): FirebaseStockLevel[] {
   const categoryMap = new Map<string, FirebaseStockLevel>();
   const lastUpdated = new Date().toISOString();
+  let totalActiveListings = 0;
 
   snapshot.docs.forEach((documentSnapshot) => {
     const data = documentSnapshot.data() as FirebasePostDocument;
     if (data.board_type === 'citizen_post' || data.category === 'community-update') {
       return;
     }
+
+    totalActiveListings += 1;
 
     const rawCategory = data.category || 'general food';
     const categoryName = titleCaseCategory(rawCategory);
@@ -327,6 +331,7 @@ function buildStockLevelsFromSnapshots(snapshot: Awaited<ReturnType<typeof getDo
       id: categoryId,
       item_name: categoryName,
       current_quantity: quantityTotal,
+      percentage_share: 0,
       target_capacity: Math.max(50, quantityTotal),
       location: 'Live Firestore Feed',
       last_updated: lastUpdated,
@@ -334,7 +339,13 @@ function buildStockLevelsFromSnapshots(snapshot: Awaited<ReturnType<typeof getDo
     });
   });
 
-  return Array.from(categoryMap.values()).sort((a, b) => a.item_name.localeCompare(b.item_name));
+  return Array.from(categoryMap.values())
+    .map((stockLevel) => ({
+      ...stockLevel,
+      percentage_share:
+        totalActiveListings > 0 ? Math.round((stockLevel.listing_count / totalActiveListings) * 100) : 0,
+    }))
+    .sort((a, b) => b.listing_count - a.listing_count || a.item_name.localeCompare(b.item_name));
 }
 
 export function subscribeFirebaseStockLevels(

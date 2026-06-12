@@ -99,6 +99,25 @@ Volunteer Claim Matrix and completion flow technical notes:
   - the success banner confirms the collection is closed
 - No hard page reload is required; dashboard state, map visibility, and list visibility remain synchronized through state updates and subsequent Firestore reads.
 
+Stock analytics and category progress bars:
+
+- The Stock Levels dashboard now reads the live Firestore `posts` stream where `status == "available"`.
+- Citizen/community update posts are excluded so the analytics represent active food listings only.
+- The Firestore aggregation groups active listings by normalized category name, such as Bakery, Produce, Dairy, Canned Goods, Meat, or Meals when those categories exist in the dataset.
+- Each category tracks:
+  - raw active listing count
+  - parsed total quantity units
+  - percentage share of all active food listings
+- Percentage share is calculated as:
+  ```typescript
+  Math.round((categoryListingCount / totalActiveListings) * 100)
+  ```
+- The Stock Levels UI renders each category with a raw count and a Tailwind progress bar whose width is driven by the calculated percentage:
+  ```tsx
+  style={{ width: `${Math.min(percent, 100)}%` }}
+  ```
+- Because the dashboard is powered by Firestore `onSnapshot`, category counts and progress bars update in real time as posts are seeded, added, claimed, or completed.
+
 Real-Time Expiry Countdowns technical notes:
 
 - The `ExpiryCountdown` component uses a React `useEffect` hook with `window.setInterval()` to refresh the displayed time-left label every 30 seconds while the card is mounted.

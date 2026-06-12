@@ -27,6 +27,7 @@ interface InventoryItem {
   id: string;
   item_name: string;
   current_quantity: number;
+  percentage_share: number;
   target_capacity: number;
   location: string;
   last_updated: string;
@@ -1100,20 +1101,20 @@ export default function App() {
           ) : (
             <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               {inventory.map((item) => {
-                const percent = Math.round((item.current_quantity / item.target_capacity) * 100);
+                const percent = item.percentage_share;
                 
                 let barColor = 'bg-emerald-600';
-                let statusBadge = <span className="bg-emerald-50 text-emerald-800 text-xs px-2.5 py-0.5 rounded-md font-bold border border-emerald-200">OPTIMAL</span>;
+                let statusBadge = <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">ACTIVE</span>;
 
-                if (percent <= 20) {
-                  barColor = 'bg-red-600';
-                  statusBadge = <span className="bg-red-50 text-red-800 text-xs px-2.5 py-0.5 rounded-md font-bold border border-red-200 animate-pulse">CRITICAL DEFICIT</span>;
-                } else if (percent >= 100) {
-                  barColor = 'bg-purple-600';
-                  statusBadge = <span className="bg-purple-50 text-purple-800 text-xs px-2.5 py-0.5 rounded-md font-bold border border-purple-200">MAX CAPACITY</span>;
-                } else if (percent <= 50) {
+                if (percent >= 50) {
+                  barColor = 'bg-brand-forest';
+                  statusBadge = <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">TOP CATEGORY</span>;
+                } else if (percent >= 25) {
                   barColor = 'bg-amber-500';
-                  statusBadge = <span className="bg-amber-50 text-amber-800 text-xs px-2.5 py-0.5 rounded-md font-bold border border-brand-amber text-brand-amber bg-opacity-10">LOW STOCK</span>;
+                  statusBadge = <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800">HIGH SHARE</span>;
+                } else if (percent <= 10) {
+                  barColor = 'bg-slate-400';
+                  statusBadge = <span className="rounded-md border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-bold text-slate-500">LOW SHARE</span>;
                 }
 
                 return (
@@ -1122,22 +1123,25 @@ export default function App() {
                       <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
                           <h3 className="break-words text-lg font-bold text-slate-900">{item.item_name}</h3>
-                          <p className="break-words text-xs font-semibold uppercase tracking-wider text-slate-400">Source: {item.location || 'Live Firestore Feed'}</p>
+                          <p className="break-words text-xs font-semibold uppercase tracking-wider text-slate-400">Live available listings</p>
                         </div>
                         {statusBadge}
                       </div>
 
                       <div className="mt-3 mb-1 flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600 sm:flex-row sm:justify-between">
-                        <span className="break-words">Available units: <strong>{item.current_quantity}</strong> across {item.listing_count ?? 0} listings</span>
+                        <span className="break-words">Active listings: <strong>{item.listing_count ?? 0}</strong> category posts</span>
                         <span className="shrink-0">{percent}%</span>
                       </div>
                       
-                      <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden border border-slate-300">
+                      <div className="h-2.5 w-full overflow-hidden rounded-full border border-slate-300 bg-slate-200">
                         <div 
-                          className={`h-full rounded-full transition-all duration-500 ${barColor}`} 
+                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
                           style={{ width: `${Math.min(percent, 100)}%` }}
                         />
                       </div>
+                      <p className="mt-2 break-words text-[11px] font-medium text-slate-500">
+                        {item.current_quantity} parsed total units represented in this category.
+                      </p>
                     </div>
                   </div>
                 );
