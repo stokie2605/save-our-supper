@@ -10,6 +10,29 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Production Dashboard Consistency Fixes
+
+Several dashboard inconsistencies found during production review have been corrected.
+
+Completed work:
+
+- Confirmed the active RBAC admin panel reads from the Firestore `users` collection.
+- Updated the admin user table to show separate columns for:
+  - User ID (UID)
+  - Email Address
+  - Current Role
+  - Role Action
+- Removed the redundant second navigation row inside the main feed area so the app now has one clean top navigation bar.
+- Tightened the active state for `Donations` so it no longer appears active while `Referral Queue` is selected.
+- Updated referral voucher card accent bars so `Pending Contact` vouchers use an amber-to-orange gradient.
+- Corrected the `SCRT-2188` single-adult mock manifest to:
+  - Tinned goods x2
+  - UHT milk x1
+  - Rice or pasta x1
+- Verified the production build after these dashboard corrections.
+
+---
+
 ### AuthGuard Loading State Fix
 
 The protected route guard has been updated so it no longer falls straight into an access-denied state while session and Firestore role data are still resolving.

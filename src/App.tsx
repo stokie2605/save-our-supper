@@ -104,12 +104,6 @@ const getExpiryTimestamp = (value: string) => {
   return tomorrow.toISOString();
 };
 
-const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
-  { value: 'find-food', label: 'Donations' },
-  { value: 'my-claims', label: 'Referral Queue' },
-  { value: 'my-listings', label: 'Live Inventory' },
-];
-
 const dietaryOptions = ['Vegan', 'Vegetarian', 'Gluten-Free', 'Nut-Free'];
 const communityUpdateCategory = 'community-update';
 const showLegacyCommunityBoard = false;
@@ -785,7 +779,7 @@ export default function App() {
             setFilter('all');
           }}
           className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-            activeView === 'feed'
+            activeView === 'feed' && dashboardTab === 'find-food'
               ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
               : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
           }`}
@@ -870,32 +864,6 @@ export default function App() {
               </div>
             </div>
           )}
-
-          <div className="mb-6 grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-slate-100 p-1.5 sm:grid-cols-3">
-            {dashboardTabs.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  setDashboardTab(option.value);
-                  if (option.value === 'my-listings') {
-                    setActiveView('inventory');
-                    setFilter('my-posts');
-                    return;
-                  }
-                  setActiveView('feed');
-                  setFilter(option.value === 'my-claims' ? 'my-claims' : 'all');
-                }}
-                className={`min-w-0 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
-                  dashboardTab === option.value
-                    ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
-                    : 'border border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:text-emerald-700'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
 
           {dashboardTab === 'find-food' ? (
             <AuthGuard

@@ -112,7 +112,8 @@ export function AdminPanel() {
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-widest text-slate-500">
                 <tr>
-                  <th className="px-5 py-4">Email</th>
+                  <th className="px-5 py-4">User ID (UID)</th>
+                  <th className="px-5 py-4">Email Address</th>
                   <th className="px-5 py-4">Current Role</th>
                   <th className="px-5 py-4 text-right">Role Action</th>
                 </tr>
@@ -120,13 +121,13 @@ export function AdminPanel() {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {loading ? (
                   <tr>
-                    <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={3}>
+                    <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={4}>
                       Loading Firestore user roles...
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={3}>
+                    <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={4}>
                       No users found in the Firestore users collection.
                     </td>
                   </tr>
@@ -134,8 +135,10 @@ export function AdminPanel() {
                   users.map((user) => (
                     <tr key={user.uid} className="transition-colors hover:bg-slate-50">
                       <td className="min-w-0 px-5 py-4">
+                        <p className="break-all font-mono text-xs font-bold text-slate-500">{user.uid}</p>
+                      </td>
+                      <td className="min-w-0 px-5 py-4">
                         <p className="break-words font-black text-slate-950">{user.email}</p>
-                        <p className="mt-1 break-all font-mono text-xs text-slate-400">{user.uid}</p>
                       </td>
                       <td className="px-5 py-4">
                         <span

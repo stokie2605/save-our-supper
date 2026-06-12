@@ -118,16 +118,14 @@ const mockReferralVouchers: ReferralVoucher[] = [
     household_name: 'Single adult',
     status: 'Packing',
     manifest_requirements: [
-      { inventory_item_id: 'tinned_goods', quantity: 6, label: 'Tinned goods' },
-      { inventory_item_id: 'cereal', quantity: 2, label: 'Breakfast cereal' },
-      { inventory_item_id: 'dairy_uht', quantity: 4, label: 'UHT milk' },
-      { inventory_item_id: 'grains', quantity: 3, label: 'Rice or pasta' },
+      { inventory_item_id: 'tinned_goods', quantity: 2, label: 'Tinned goods' },
+      { inventory_item_id: 'dairy_uht', quantity: 1, label: 'UHT milk' },
+      { inventory_item_id: 'grains', quantity: 1, label: 'Rice or pasta' },
     ],
     item_requirements: [
-      { inventory_item_id: 'tinned_goods', quantity: 6, label: 'Tinned goods' },
-      { inventory_item_id: 'cereal', quantity: 2, label: 'Breakfast cereal' },
-      { inventory_item_id: 'dairy_uht', quantity: 4, label: 'UHT milk' },
-      { inventory_item_id: 'grains', quantity: 3, label: 'Rice or pasta' },
+      { inventory_item_id: 'tinned_goods', quantity: 2, label: 'Tinned goods' },
+      { inventory_item_id: 'dairy_uht', quantity: 1, label: 'UHT milk' },
+      { inventory_item_id: 'grains', quantity: 1, label: 'Rice or pasta' },
     ],
   },
   {
@@ -236,7 +234,11 @@ export function ReferralQueue() {
                 key={voucher.id}
                 className="group flex min-w-0 flex-col justify-between overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:shadow-xl"
               >
-                <div className="h-2 bg-gradient-to-r from-slate-900 via-teal-600 to-emerald-400" />
+                <div
+                  className={`h-2 bg-gradient-to-r ${
+                    isPendingContact ? 'from-amber-500 to-orange-500' : 'from-slate-900 via-teal-600 to-emerald-400'
+                  }`}
+                />
 
                 <div className="min-w-0 p-4 sm:p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
