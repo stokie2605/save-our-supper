@@ -323,6 +323,7 @@ Latest security commit:
 ```text
 67c5786 Harden public claim Firestore rules
 ```
+
 ### Full-Stack User Administration Console
 
 The active administration dashboard now focuses on role management rather than legacy post deletion.
@@ -340,7 +341,10 @@ Key implementations:
 - Administrators can update a user's role to `user`, `volunteer`, or `admin`.
 - The old `Delete Post` action and post-management table have been removed from the active admin flow.
 - Protected foodbank operations are wrapped with `AuthGuard`, which verifies the user's Firestore profile role before rendering volunteer/admin screens.
+
 ---
+
+### Atomic Firestore Claim Transactions
 
 The claim flow has been upgraded from a direct Firestore document update to an atomic transaction lock.
 
@@ -380,7 +384,8 @@ Follow-up proximity and UI wiring:
 - Mobile dashboard layouts were tightened with safer wrapping, `min-w-0` containers, and smaller mobile spacing so long post text, postcodes, voucher IDs, and stock labels do not push cards off-screen.
 - Added a reusable `ExpiryCountdown` component that displays live time-left badges from each post's `expiry_time`.
 - The countdown badge is now shown on the main community feed cards and the My Claims/My Listings post cards, with urgent and expired states styled clearly.
-Dynamic Radius Slider technical notes:
+
+### Dynamic Radius Slider Technical Notes
 
 - The old fixed radius dropdown was replaced with a responsive Tailwind CSS range input:
   - `type="range"`
@@ -398,7 +403,7 @@ Dynamic Radius Slider technical notes:
 - The nearby feed `useEffect` depends on `searchRadiusMiles`, `userCoordinates.lat`, and `userCoordinates.lon`, which means dragging the slider automatically re-runs the Firebase query loop without a page refresh.
 - When the radius changes, the same refreshed `posts` state powers both the Leaflet marker pins and the community board list cards, keeping map and feed results synchronized.
 
-Volunteer Claim Matrix and completion flow technical notes:
+### Volunteer Claim Matrix And Completion Flow
 
 - Firestore food posts now follow a strict 3-stage status matrix:
   - `available` - visible on the public map and community feed, claimable by a signed-in user.
@@ -431,7 +436,7 @@ Volunteer Claim Matrix and completion flow technical notes:
   - the success banner confirms the collection is closed
 - No hard page reload is required; dashboard state, map visibility, and list visibility remain synchronized through state updates and subsequent Firestore reads.
 
-Stock analytics and category progress bars technical notes:
+### Stock Analytics And Category Progress Bars
 
 - The Stock Levels dashboard is powered by a client-side aggregation helper named `buildStockLevelsFromSnapshots(snapshot)`.
 - The aggregation reads the live Firestore `posts` collection through `onSnapshot(...)` using:
@@ -467,7 +472,7 @@ Stock analytics and category progress bars technical notes:
 - Each category card displays the category name, the raw active listing count, the percentage share, and the parsed total units represented in that category.
 - Because the data source is a Firestore real-time listener, the analytics and progress bars update automatically whenever listings are seeded, added, claimed, or completed.
 
-Real-Time Expiry Countdowns technical notes:
+### Real-Time Expiry Countdowns Technical Notes
 
 - The `ExpiryCountdown` component uses a React `useEffect` hook with `window.setInterval()` to refresh the displayed time-left label every 30 seconds while the card is mounted.
 - The interval is cleaned up with `window.clearInterval()` on unmount so list updates, tab switches, and feed refreshes do not leave background timers running.
@@ -519,7 +524,7 @@ The Stock Levels view is powered by Firestore live snapshot listeners. It reads 
 
 Users can claim available listings directly from the feed or map popup. The claim path now runs inside a Firestore `runTransaction` block, which reads the live document state before writing. If another user has already claimed the same post, the transaction rejects the second request with a clear conflict message. When a claim succeeds, the app marks the post as `claimed`, attaches the current user's `receiver_id`, and immediately updates local UI state so claimed items leave the available feed.
 
-### 🔒 Backend Database Security Rules
+### Backend Database Security Rules
 
 Firestore access is protected by `firestore.rules` using a layered field-level security model. The app keeps the community feed open for reading and posting, but locks public updates down to one exact action: claiming an available food post.
 
