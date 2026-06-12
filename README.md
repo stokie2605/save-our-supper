@@ -66,19 +66,38 @@ Dynamic Radius Slider technical notes:
 - The nearby feed `useEffect` depends on `searchRadiusMiles`, `userCoordinates.lat`, and `userCoordinates.lon`, which means dragging the slider automatically re-runs the Firebase query loop without a page refresh.
 - When the radius changes, the same refreshed `posts` state powers both the Leaflet marker pins and the community board list cards, keeping map and feed results synchronized.
 
-Volunteer Claim Matrix and completion flow:
+Volunteer Claim Matrix and completion flow technical notes:
 
-- Firestore post status now follows the active lifecycle: `available` -> `claimed` -> `completed`.
-- Public map/feed rendering continues to show only active `available` posts, so completed records stay in the database for audit history without appearing as open food.
-- Claimed items appear in the user's My Claims tab through `receiver_id` matching.
-- My Claims cards now show a `Mark as Collected` action for posts with `status: "claimed"`.
-- Clicking the action runs `completeFirebaseClaim(postId, userId)`, a Firestore transaction that:
-  - confirms the post still exists
-  - confirms the current user is the `receiver_id`
-  - confirms the post is still `claimed`
-  - writes `status: "completed"`
-  - writes `completed_at`
-- After completion, local React state updates immediately so the card changes status without a hard page reload.
+- Firestore food posts now follow a strict 3-stage status matrix:
+  - `available` - visible on the public map and community feed, claimable by a signed-in user.
+  - `claimed` - removed from the public availability view and shown inside the receiver's My Claims dashboard.
+  - `completed` - closed after collection and retained in Firestore as historical/audit data.
+- The public map and feed are dynamically isolated from closed work:
+  - `fetchFirebaseNearbyPosts(...)` only returns active posts that pass `status === "available"`.
+  - The Leaflet marker list is powered by that same filtered `posts` state.
+  - Completed documents never render as public map pins or open feed cards.
+- The My Claims view is isolated by ownership:
+  - `fetchFirebasePostsByReceiver(userId)` loads posts where `receiver_id` matches the current user.
+  - Cards with `status: "claimed"` display the `Mark as Collected` button.
+- Clicking `Mark as Collected` runs the completion write through `completeFirebaseClaim(postId, userId)`.
+- The completion write uses a Firestore transaction update rather than a loose direct write. The transaction:
+  - reads `posts/{postId}` first
+  - verifies the document still exists
+  - verifies the current user is the stored `receiver_id`
+  - verifies the current status is still `claimed`
+  - applies the update payload:
+    ```typescript
+    {
+      status: "completed",
+      completed_at: new Date().toISOString(),
+    }
+    ```
+- This mirrors the same payload shape a direct `updateDoc(postRef, ...)` operation would write, but keeps the safety of the existing transactional read-before-write guard.
+- After the Firestore write succeeds, React updates local state immediately:
+  - the matching My Claims card changes to `completed`
+  - any matching open feed entry is removed from `posts`
+  - the success banner confirms the collection is closed
+- No hard page reload is required; dashboard state, map visibility, and list visibility remain synchronized through state updates and subsequent Firestore reads.
 
 Real-Time Expiry Countdowns technical notes:
 
