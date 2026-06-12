@@ -751,7 +751,7 @@ export default function App() {
             <button
               type="button"
               onClick={triggerOpenListingModal}
-              className="hidden md:flex bg-brand-amber text-white font-semibold rounded-xl px-4 py-2.5 shadow-sm"
+              className="hidden rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-600 hover:shadow-md md:flex"
             >
               Add a Listing
             </button>
@@ -776,7 +776,9 @@ export default function App() {
             setFilter('all');
           }}
           className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-            activeView === 'feed' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            activeView === 'feed'
+              ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
+              : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
           }`}
         >
           Donations
@@ -790,7 +792,9 @@ export default function App() {
                 setDashboardTab('my-listings');
               }}
               className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-                activeView === 'inventory' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeView === 'inventory'
+                  ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
+                  : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
               }`}
             >
               Live Inventory
@@ -803,7 +807,9 @@ export default function App() {
                 setFilter('my-claims');
               }}
               className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-                activeView === 'feed' && dashboardTab === 'my-claims' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                activeView === 'feed' && dashboardTab === 'my-claims'
+                  ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
+                  : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
               }`}
             >
               Referral Queue
@@ -814,7 +820,9 @@ export default function App() {
           type="button"
           onClick={() => setActiveView('settings')}
           className={`min-w-0 rounded-xl px-4 py-2.5 text-center text-sm font-bold transition-all ${
-            activeView === 'settings' ? 'bg-white text-brand-forest shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            activeView === 'settings'
+              ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
+              : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
           }`}
         >
           ⚙️ Settings
@@ -871,8 +879,8 @@ export default function App() {
                 }}
                 className={`min-w-0 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
                   dashboardTab === option.value
-                    ? 'bg-brand-forest text-white'
-                    : 'bg-white text-slate-700 border border-brand-slateSoft hover:text-slate-900'
+                    ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
+                    : 'border border-slate-200 bg-white text-slate-700 hover:border-emerald-200 hover:text-emerald-700'
                 }`}
               >
                 {option.label}
@@ -1083,10 +1091,11 @@ export default function App() {
 
       {/* VIEW B: WAREHOUSE STOCK LEVELS */}
       {isHubManager && activeView === 'inventory' && (
-        <div className="min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs sm:p-6">
+        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="mb-6 min-w-0">
-            <h2 className="break-words text-2xl font-bold text-brand-forest">Live Firestore Stock Levels</h2>
-            <p className="break-words text-sm text-slate-500">Available Firebase listings grouped by category. Totals update as posts are seeded or claimed.</p>
+            <p className="text-xs font-black uppercase tracking-widest text-teal-700">Live inventory</p>
+            <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">Live Firestore Stock Levels</h2>
+            <p className="mt-1 break-words text-sm text-slate-500">Available Firebase listings grouped by category. Totals update as posts are seeded or claimed.</p>
           </div>
           
           {inventoryLoading ? (
@@ -1099,37 +1108,38 @@ export default function App() {
             <div className="grid min-w-0 gap-4 sm:grid-cols-2">
               {inventory.map((item) => {
                 const percent = item.percentage_share;
-                let barColor = 'bg-emerald-600';
-                let statusBadge = <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">ACTIVE</span>;
+                let barColor = 'bg-gradient-to-r from-teal-500 to-emerald-500';
+                let statusBadge = <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-emerald-800">ACTIVE</span>;
 
                 if (percent >= 50) {
-                  barColor = 'bg-brand-forest';
-                  statusBadge = <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-800">TOP CATEGORY</span>;
+                  barColor = 'bg-gradient-to-r from-slate-900 via-teal-600 to-emerald-400';
+                  statusBadge = <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-emerald-800">TOP CATEGORY</span>;
                 } else if (percent >= 25) {
-                  barColor = 'bg-amber-500';
-                  statusBadge = <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-800">HIGH SHARE</span>;
+                  barColor = 'bg-gradient-to-r from-teal-500 to-emerald-500';
+                  statusBadge = <span className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-teal-800">HIGH SHARE</span>;
                 } else if (percent <= 10) {
-                  barColor = 'bg-slate-400';
-                  statusBadge = <span className="rounded-md border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-bold text-slate-500">LOW SHARE</span>;
+                  barColor = 'bg-gradient-to-r from-slate-400 to-slate-500';
+                  statusBadge = <span className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-slate-500">LOW SHARE</span>;
                 }
 
                 return (
-                  <div key={item.id} className="flex min-w-0 flex-col justify-between rounded-xl border border-brand-slateSoft bg-slate-50 p-4">
+                  <div key={item.id} className="flex min-w-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
                     <div className="min-w-0">
                       <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0">
-                          <h3 className="break-words text-lg font-bold text-slate-900">{item.item_name}</h3>
-                          <p className="break-words text-xs font-semibold uppercase tracking-wider text-slate-400">Live available listings</p>
+                          <p className="break-words text-[10px] font-black uppercase tracking-widest text-teal-700">Stock category</p>
+                          <h3 className="mt-1 break-words text-lg font-black uppercase tracking-wide text-slate-950">{item.item_name}</h3>
+                          <p className="mt-1 break-words text-xs font-semibold uppercase tracking-wider text-slate-400">Live available listings</p>
                         </div>
                         {statusBadge}
                       </div>
 
-                      <div className="mt-3 mb-1 flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600 sm:flex-row sm:justify-between">
+                      <div className="mt-4 mb-2 flex min-w-0 flex-col gap-1 text-xs font-semibold text-slate-600 sm:flex-row sm:justify-between">
                         <span className="break-words">Active listings: <strong>{item.listing_count ?? 0}</strong> category posts</span>
-                        <span className="shrink-0">{percent}%</span>
+                        <span className="shrink-0 font-black text-slate-900">{percent}%</span>
                       </div>
                       
-                      <div className="h-2.5 w-full overflow-hidden rounded-full border border-slate-300 bg-slate-200">
+                      <div className="h-3 w-full overflow-hidden rounded-full border border-slate-200 bg-slate-100">
                         <div 
                           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
                           style={{ width: `${Math.min(percent, 100)}%` }}

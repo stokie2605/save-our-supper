@@ -10,6 +10,20 @@ type IntakeCategory = {
 
 type ItemsReceivedState = Record<string, number>;
 
+function LogDonationIcon({ className = 'h-5 w-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M9 12.75 11.25 15 15 9.75M4.5 6.75A2.25 2.25 0 0 1 6.75 4.5h10.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25V6.75Z"
+        stroke="currentColor"
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 const sourceTypes = ['Supermarket', 'Walk-in', 'Cafe / Restaurant', 'Community Drive', 'Other'];
 
 const intakeCategories: IntakeCategory[] = [
@@ -88,11 +102,13 @@ export function IntakePortal() {
   };
 
   return (
-    <section className="rounded-3xl border border-brand-slateSoft bg-white p-4 shadow-sm sm:p-6">
-      <div className="mb-6 flex flex-col gap-3 border-b border-brand-slateSoft pb-5 md:flex-row md:items-end md:justify-between">
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="h-2 bg-gradient-to-r from-emerald-400 to-teal-500" />
+      <div className="p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-amber">Foodbank intake</p>
-          <h2 className="mt-2 break-words text-2xl font-bold tracking-tight text-brand-forest sm:text-3xl">
+          <p className="text-xs font-black uppercase tracking-widest text-teal-700">Foodbank intake</p>
+          <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
             Donation Intake Portal
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
@@ -111,7 +127,7 @@ export function IntakePortal() {
           <select
             value={sourceType}
             onChange={(event) => setSourceType(event.target.value)}
-            className="mt-2 w-full rounded-2xl border border-brand-slateSoft bg-brand-cream px-4 py-3 text-base font-semibold text-slate-900 outline-none focus:border-brand-forest focus:ring-2 focus:ring-brand-forest/20"
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           >
             {sourceTypes.map((type) => (
               <option key={type} value={type}>
@@ -127,7 +143,7 @@ export function IntakePortal() {
             value={sourceName}
             onChange={(event) => setSourceName(event.target.value)}
             placeholder="e.g. Local Tesco, Hanley cafe, walk-in donor"
-            className="mt-2 w-full rounded-2xl border border-brand-slateSoft bg-brand-cream px-4 py-3 text-base font-semibold text-slate-900 outline-none placeholder:text-slate-400 focus:border-brand-forest focus:ring-2 focus:ring-brand-forest/20"
+            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           />
         </label>
       </div>
@@ -139,23 +155,23 @@ export function IntakePortal() {
           return (
             <article
               key={category.id}
-              className="flex min-h-52 min-w-0 flex-col justify-between rounded-3xl border border-brand-slateSoft bg-brand-cream p-4 shadow-xs"
+              className="flex min-h-52 min-w-0 flex-col justify-between rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:bg-white hover:shadow-lg"
             >
               <div className="min-w-0">
-                <h3 className="break-words text-lg font-black tracking-tight text-slate-950">{category.label}</h3>
-                <p className="mt-1 break-words text-sm leading-5 text-slate-500">{category.helper}</p>
+                <h3 className="break-words text-xs font-black uppercase tracking-widest text-slate-900">{category.label}</h3>
+                <p className="mt-2 break-words text-sm leading-5 text-slate-500">{category.helper}</p>
               </div>
 
               <div className="mt-5">
-                <div className="mb-4 rounded-2xl bg-white px-4 py-3 text-center shadow-xs">
-                  <span className="text-5xl font-black tabular-nums text-brand-forest">{count}</span>
+                <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center shadow-xs">
+                  <span className="text-5xl font-black tabular-nums text-slate-950">{count}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-center gap-4">
                   <button
                     type="button"
                     onClick={() => updateCount(category.id, -1)}
                     disabled={count === 0 || isSubmitting}
-                    className="rounded-2xl border border-brand-slateSoft bg-white py-4 text-3xl font-black text-slate-700 shadow-xs transition-all hover:bg-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid h-12 w-12 place-items-center rounded-full border border-slate-300 bg-white text-2xl font-black text-slate-700 shadow-xs transition-all hover:-translate-y-0.5 hover:bg-slate-50 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label={`Decrease ${category.label}`}
                   >
                     -
@@ -164,7 +180,7 @@ export function IntakePortal() {
                     type="button"
                     onClick={() => updateCount(category.id, 1)}
                     disabled={isSubmitting}
-                    className="rounded-2xl bg-brand-forest py-4 text-3xl font-black text-white shadow-sm transition-all hover:bg-emerald-900 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="grid h-12 w-12 place-items-center rounded-full bg-slate-900 text-2xl font-black text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-md active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={`Increase ${category.label}`}
                   >
                     +
@@ -192,10 +208,12 @@ export function IntakePortal() {
         type="button"
         onClick={handleSubmit}
         disabled={isSubmitting || totalItems === 0}
-        className="mt-6 w-full rounded-3xl bg-brand-amber px-6 py-5 text-xl font-black text-white shadow-sm transition-all hover:bg-[#cc7a00] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
+        className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-3xl bg-slate-900 px-6 py-5 text-xl font-black text-white shadow-sm transition-all hover:bg-emerald-600 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
       >
+        <LogDonationIcon />
         {isSubmitting ? 'Logging Donation...' : 'Log Donation'}
       </button>
+      </div>
     </section>
   );
 }

@@ -10,6 +10,27 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Intake Portal And Dashboard Theme Upgrade
+
+The volunteer dashboard styling has been unified around the newer enterprise logistics theme.
+
+Completed work:
+
+- Upgraded `src/components/foodbank/IntakePortal.tsx` to match the Referral Queue visual language.
+- Added a top emerald-to-teal gradient accent bar to the intake portal.
+- Reworked intake form inputs with `border-slate-200` and emerald focus rings.
+- Replaced chunky increment/decrement blocks with sleeker circular controls:
+  - white slate-bordered decrement buttons
+  - dark slate increment buttons with emerald hover
+- Added hover lift and softer shadows to intake category cards.
+- Updated the `Log Donation` button to dark slate with emerald hover and inline SVG action iconography.
+- Updated the main dashboard navigation in `src/App.tsx` with sharper active tab styling using emerald border/text accents.
+- Replaced the orange `Add a Listing` button with a dark slate button that transitions to emerald.
+- Restyled Live Inventory cards with `border-slate-200`, strict uppercase hierarchy, and emerald/teal gradient progress bars.
+- Verified the production build after the full theme pass.
+
+---
+
 ### Referral Queue Logistics Dashboard Polish
 
 The referral queue cards have been visually upgraded from a basic voucher list into a more modern logistics dashboard surface.
