@@ -3,7 +3,6 @@ import { AppShell } from './components/AppShell';
 import { ExpiryCountdown } from './components/ExpiryCountdown';
 import { FoodMap } from './components/FoodMap';
 import { UserPostList } from './components/UserPostList';
-import AdminPanel from './components/AdminPanel'; // ⚙️ Imported our new component
 import { AdminPanel as RoleAdminPanel } from './components/admin/AdminPanel';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { IntakePortal } from './components/foodbank/IntakePortal';
@@ -726,11 +725,7 @@ export default function App() {
   };
 
   return (
-    <AppShell
-      onShowFeed={() => { setActiveView('feed'); setDashboardTab('find-food'); setFilter('all'); }}
-      onAddPost={triggerOpenListingModal}
-      onShowMyActivity={() => { setActiveView('feed'); setDashboardTab('my-claims'); setFilter('my-claims'); }}
-    >
+    <AppShell>
       {/* ─── APP HEADER ─── */}
       <div className="mb-6 min-w-0 rounded-3xl border border-brand-slateSoft bg-white p-5 shadow-xs sm:p-6">
         <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -1326,7 +1321,7 @@ export default function App() {
           allowedRoles={adminAccessRoles}
           onAccessDenied={redirectToPublicFeed}
         >
-          {showLegacyCommunityBoard ? <AdminPanel /> : <RoleAdminPanel />}
+          <RoleAdminPanel />
         </AuthGuard>
       )}
 

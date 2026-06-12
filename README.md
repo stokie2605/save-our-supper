@@ -10,6 +10,21 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Production Admin Source And Navigation Cleanup
+
+Follow-up production review found two remaining paths that could still confuse the dashboard.
+
+Completed work:
+
+- Removed the legacy post-management admin render path from `src/App.tsx`.
+- Converted the old `src/components/AdminPanel.tsx` file into a re-export of the active `src/components/admin/AdminPanel.tsx` user-role panel.
+- Verified the only remaining Firestore `posts` collection reference is the normal feed service, not the admin UI.
+- Removed the `AppShell` callback props from the main app shell usage so the extra mobile Feed/Add Post/My Activity navigation no longer appears.
+- Verified there are no remaining `dashboardTabs` references for the removed secondary sub-navigation row.
+- Confirmed the production build still passes after the cleanup.
+
+---
+
 ### Production Dashboard Consistency Fixes
 
 Several dashboard inconsistencies found during production review have been corrected.
