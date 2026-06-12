@@ -87,13 +87,7 @@ const defaultPostLocation = {
   lon: defaultHubCoordinates.lon,
 };
 
-const defaultSearchRadiusMiles = 15;
-
-const radiusOptions = [
-  { value: 2, label: '2 miles', description: 'Walking' },
-  { value: 5, label: '5 miles', description: 'Local' },
-  { value: 15, label: '15 miles', description: 'Wider Area' },
-];
+const defaultSearchRadiusMiles = 5;
 
 const getExpiryTimestamp = (value: string) => {
   const parsedDate = new Date(value);
@@ -871,19 +865,23 @@ export default function App() {
                     Showing posts near <span className="font-semibold text-slate-700">{activeLocationLabel}</span> within {searchRadiusMiles} miles.
                   </p>
                 </div>
-                <label className="flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500 sm:min-w-56 sm:w-auto">
-                  Radius
-                  <select
+                <label className="grid w-full min-w-0 gap-2 rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-3 text-xs font-bold uppercase tracking-wide text-slate-500 sm:min-w-72 sm:w-auto">
+                  <span className="flex items-center justify-between gap-3">
+                    Search Radius
+                    <span className="rounded-full bg-white px-2.5 py-1 text-sm font-bold normal-case tracking-normal text-brand-forest shadow-xs">
+                      {searchRadiusMiles} {searchRadiusMiles === 1 ? 'mile' : 'miles'}
+                    </span>
+                  </span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="25"
+                    step="1"
                     value={searchRadiusMiles}
                     onChange={(event) => setSearchRadiusMiles(Number(event.target.value))}
-                    className="rounded-lg border border-brand-slateSoft bg-white px-2.5 py-1.5 text-sm font-semibold normal-case tracking-normal text-slate-700 shadow-xs outline-none focus:border-brand-forest"
-                  >
-                    {radiusOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label} ({option.description})
-                      </option>
-                    ))}
-                  </select>
+                    className="h-2 w-full cursor-pointer accent-brand-forest"
+                    aria-label={`Search radius: ${searchRadiusMiles} miles`}
+                  />
                 </label>
               </div>
             </div>

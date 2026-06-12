@@ -79,6 +79,7 @@ export type FirebaseClaimRaceResult = {
 
 const postsCollection = collection(db, 'posts');
 const fallbackPostcode = 'Location TBC';
+const milesToKilometers = 1.60934;
 
 const seedClusters: SeedCluster[] = [
   { name: 'Alsager', count: 10, center: [53.096, -2.306], postcodes: ['ST7 2AA', 'ST7 2BS', 'ST7 2DH', 'ST7 2EW'] },
@@ -399,7 +400,8 @@ export async function fetchFirebaseNearbyPosts(
     return [];
   }
 
-  const radiusInMeters = radiusInMiles * 1609.344;
+  const radiusInKilometers = radiusInMiles * milesToKilometers;
+  const radiusInMeters = radiusInKilometers * 1000;
   const bounds = geohashQueryBounds(centerCoordinates, radiusInMeters);
 
   const settledSnapshots = await Promise.allSettled(
@@ -436,7 +438,7 @@ export async function fetchFirebaseNearbyPosts(
 
       const post = mapFirebasePost(documentSnapshot);
       const distanceInKm = distanceBetween(centerCoordinates, [post.lat, post.lon]);
-      const distanceInMiles = distanceInKm / 1.609344;
+      const distanceInMiles = distanceInKm / milesToKilometers;
 
       if (distanceInMiles <= radiusInMiles && isActiveAvailablePost(post)) {
         seenPostIds.add(documentSnapshot.id);

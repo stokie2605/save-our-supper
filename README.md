@@ -48,6 +48,9 @@ Follow-up proximity and UI wiring:
 - Mobile dashboard layouts were tightened with safer wrapping, `min-w-0` containers, and smaller mobile spacing so long post text, postcodes, voucher IDs, and stock labels do not push cards off-screen.
 - Added a reusable `ExpiryCountdown` component that displays live time-left badges from each post's `expiry_time`.
 - The countdown badge is now shown on the main community feed cards and the My Claims/My Listings post cards, with urgent and expired states styled clearly.
+- Replaced the fixed radius dropdown with a dynamic 1-25 mile Tailwind range slider defaulting to 5 miles.
+- Moving the slider updates the React `searchRadiusMiles` state, which automatically refreshes the Firestore nearby-post query, map markers, and feed list.
+- The Firebase proximity helper now explicitly converts miles to kilometres, then meters, before passing the radius into `geohashQueryBounds`.
 
 Real-Time Expiry Countdowns technical notes:
 
