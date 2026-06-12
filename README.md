@@ -10,6 +10,29 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Foodbank Intake Portal
+
+A new tablet-friendly intake screen has been added for volunteers logging incoming donations quickly at the foodbank desk.
+
+Completed work:
+
+- Added `src/components/foodbank/IntakePortal.tsx`.
+- Built a high-contrast Tailwind interface with a source type dropdown and source name input.
+- Added large touch-friendly increment and decrement controls for five core stock categories:
+  - `tinned_goods`
+  - `dairy_uht`
+  - `toiletries`
+  - `cereal`
+  - `grains`
+- The portal tracks local `itemsReceived` state and calculates the queued item total live.
+- The `Log Donation` action maps category counts into `DonationIntakeItem[]` records and calls `processDonationIntake(...)`.
+- Loading states disable controls during transaction processing.
+- Success and error messages are shown inline after submission.
+- On success, the form clears ready for the next donation.
+- The foodbank intake types now support `source_type` and `source_name` so receipt logs can preserve where stock came from.
+
+---
+
 ### Foodbank Inventory Transaction Service
 
 A new service layer has been added for foodbank stock operations that must be safe under concurrent use.

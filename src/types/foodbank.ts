@@ -14,6 +14,8 @@ export type DonationIntakeItem = {
 
 export type DonationIntakeData = {
   donor_id: string;
+  source_type?: string;
+  source_name?: string;
   donor_name?: string;
   received_by?: string;
   notes?: string;
