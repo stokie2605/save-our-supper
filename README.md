@@ -10,6 +10,27 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Foodbank Inventory Transaction Service
+
+A new service layer has been added for foodbank stock operations that must be safe under concurrent use.
+
+Completed work:
+
+- Added `src/types/foodbank.ts` with shared TypeScript interfaces for:
+  - inventory items
+  - donation intake payloads
+  - referral vouchers
+  - voucher stock requirements
+- Added `src/services/foodbankService.ts` with two isolated Firestore transaction functions:
+  - `processDonationIntake(intakeData)`
+  - `finalizeFoodParcelCollection(voucherId)`
+- `processDonationIntake(...)` reads existing inventory documents inside a Firestore `runTransaction`, increments `current_quantity`, updates `last_updated`, and writes a receipt document to the `intakes` collection.
+- `finalizeFoodParcelCollection(...)` reads the referral voucher inside a Firestore `runTransaction`, verifies the voucher status is exactly `Packing`, checks all required inventory documents, prevents stock from dropping below zero, decrements inventory, and updates the voucher status to `Collected`.
+- Both service functions include explicit validation for missing IDs, invalid quantities, missing Firestore documents, invalid stock values, and understocked parcel requirements.
+- The service is currently isolated from the UI so it can be wired into the foodbank dashboard deliberately in the next step.
+
+---
+
 ### Firestore Field-Level Security Hardening
 
 The Firestore backend rules have been hardened so public users can still claim food posts, but cannot vandalize or rewrite listing data.
