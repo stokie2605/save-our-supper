@@ -10,7 +10,7 @@ export interface Post {
   postcode: string;
   lat: number;
   lon: number;
-  status: 'available' | 'reserved' | 'claimed' | 'collected';
+  status: 'available' | 'claimed' | 'completed';
   donor_id: string;
   receiver_id: string | null;
   created_at: string;

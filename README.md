@@ -66,6 +66,20 @@ Dynamic Radius Slider technical notes:
 - The nearby feed `useEffect` depends on `searchRadiusMiles`, `userCoordinates.lat`, and `userCoordinates.lon`, which means dragging the slider automatically re-runs the Firebase query loop without a page refresh.
 - When the radius changes, the same refreshed `posts` state powers both the Leaflet marker pins and the community board list cards, keeping map and feed results synchronized.
 
+Volunteer Claim Matrix and completion flow:
+
+- Firestore post status now follows the active lifecycle: `available` -> `claimed` -> `completed`.
+- Public map/feed rendering continues to show only active `available` posts, so completed records stay in the database for audit history without appearing as open food.
+- Claimed items appear in the user's My Claims tab through `receiver_id` matching.
+- My Claims cards now show a `Mark as Collected` action for posts with `status: "claimed"`.
+- Clicking the action runs `completeFirebaseClaim(postId, userId)`, a Firestore transaction that:
+  - confirms the post still exists
+  - confirms the current user is the `receiver_id`
+  - confirms the post is still `claimed`
+  - writes `status: "completed"`
+  - writes `completed_at`
+- After completion, local React state updates immediately so the card changes status without a hard page reload.
+
 Real-Time Expiry Countdowns technical notes:
 
 - The `ExpiryCountdown` component uses a React `useEffect` hook with `window.setInterval()` to refresh the displayed time-left label every 30 seconds while the card is mounted.
@@ -148,7 +162,7 @@ interface Post {
   lon: number;
   lng?: number;
   geohash: string;
-  status: "available" | "claimed" | "collected";
+  status: "available" | "claimed" | "completed";
   donor_id: string;
   receiver_id: string | null;
   category?: string;

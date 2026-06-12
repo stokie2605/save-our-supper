@@ -5,6 +5,7 @@ import { FoodMap } from './components/FoodMap';
 import { UserPostList } from './components/UserPostList';
 import {
   claimFirebaseSupper as claimSupper,
+  completeFirebaseClaim as completeClaim,
   createFirebasePost as createPost,
   fetchFirebaseNearbyPosts as fetchNearbyPosts,
   fetchFirebasePostsByDonor as fetchPostsByDonor,
@@ -160,6 +161,7 @@ export default function App() {
   const [myListings, setMyListings] = useState<Post[]>([]);
   const [userPostsLoading, setUserPostsLoading] = useState(false);
   const [loadingPostId, setLoadingPostId] = useState<string | null>(null);
+  const [completingPostId, setCompletingPostId] = useState<string | null>(null);
   const [systemMessage, setSystemMessage] = useState<SystemMessage>(null);
   const [communityPostText, setCommunityPostText] = useState('');
   const [isSharingCommunityPost, setIsSharingCommunityPost] = useState(false);
@@ -521,6 +523,33 @@ export default function App() {
       });
     } finally {
       setLoadingPostId(null);
+    }
+  };
+
+  const handleMarkClaimCollected = async (itemId: string) => {
+    if (!session?.user?.id) {
+      setSystemMessage({ type: 'error', text: 'Please sign in before completing a claimed post.' });
+      return;
+    }
+
+    setCompletingPostId(itemId);
+    setSystemMessage(null);
+
+    try {
+      await completeClaim(itemId, session.user.id);
+
+      const markCompleted = (post: Post): Post => ({ ...post, status: 'completed' });
+
+      setMyClaims((current) => current.map((post) => (post.id === itemId ? markCompleted(post) : post)));
+      setMyListings((current) => current.map((post) => (post.id === itemId ? markCompleted(post) : post)));
+      setPosts((current) => current.filter((post) => post.id !== itemId));
+      setSystemMessage({ type: 'success', text: 'Collection completed. The post is now closed.' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Claim could not be marked as collected.';
+      console.error('Detailed Completion Error:', message);
+      setSystemMessage({ type: 'error', text: message });
+    } finally {
+      setCompletingPostId(null);
     }
   };
 
@@ -1039,6 +1068,8 @@ export default function App() {
               posts={myClaims}
               loading={userPostsLoading}
               emptyMessage="You have not claimed any food posts yet."
+              completingPostId={completingPostId}
+              onMarkCollected={handleMarkClaimCollected}
             />
           ) : null}
 

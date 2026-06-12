@@ -2,12 +2,20 @@ import type { Post } from '../lib/posts';
 import { ExpiryCountdown } from './ExpiryCountdown';
 
 interface UserPostListProps {
+  completingPostId?: string | null;
   emptyMessage: string;
   loading: boolean;
+  onMarkCollected?: (postId: string) => void;
   posts: Post[];
 }
 
-export function UserPostList({ emptyMessage, loading, posts }: UserPostListProps) {
+export function UserPostList({
+  completingPostId = null,
+  emptyMessage,
+  loading,
+  onMarkCollected,
+  posts,
+}: UserPostListProps) {
   if (loading) {
     return <div className="text-center py-12 text-slate-400 font-medium">Loading posts...</div>;
   }
@@ -51,6 +59,16 @@ export function UserPostList({ emptyMessage, loading, posts }: UserPostListProps
                 minute: '2-digit',
               })}
             </p>
+            {onMarkCollected && post.status === 'claimed' ? (
+              <button
+                type="button"
+                onClick={() => onMarkCollected(post.id)}
+                disabled={completingPostId === post.id}
+                className="mt-3 w-full rounded-xl bg-brand-forest px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+              >
+                {completingPostId === post.id ? 'Updating...' : 'Mark as Collected'}
+              </button>
+            ) : null}
           </div>
         </article>
       ))}

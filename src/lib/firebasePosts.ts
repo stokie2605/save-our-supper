@@ -486,6 +486,33 @@ export async function claimFirebaseSupper(postId: string, userId: string): Promi
   });
 }
 
+export async function completeFirebaseClaim(postId: string, userId: string): Promise<void> {
+  const postRef = doc(db, 'posts', postId);
+
+  await runTransaction(db, async (transaction) => {
+    const postSnapshot = await transaction.get(postRef);
+
+    if (!postSnapshot.exists()) {
+      throw new Error('This claimed food post no longer exists.');
+    }
+
+    const post = postSnapshot.data() as FirebasePostDocument;
+
+    if (post.receiver_id !== userId) {
+      throw new Error('Only the claiming user can mark this food post as collected.');
+    }
+
+    if (post.status !== 'claimed') {
+      throw new Error('Only claimed food posts can be marked as collected.');
+    }
+
+    transaction.update(postRef, {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+    });
+  });
+}
+
 export async function simulateFirebaseClaimRace(): Promise<FirebaseClaimRaceResult> {
   const testPost = await createFirebasePost({
     title: 'Race condition test parcel',
