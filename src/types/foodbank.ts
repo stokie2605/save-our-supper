@@ -31,9 +31,14 @@ export type VoucherRequirement = {
 export type ReferralVoucher = {
   id: string;
   status: 'Pending' | 'Packing' | 'Collected' | 'Cancelled';
+  agency_id?: string;
+  agency_name?: string;
+  client_reference?: string;
+  family_size?: number;
   receiver_id?: string;
   household_name?: string;
   item_requirements: VoucherRequirement[];
+  manifest_requirements?: VoucherRequirement[];
   collected_at?: string;
 };
 

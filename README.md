@@ -10,6 +10,29 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Referral Queue Packing Desk
+
+A new foodbank volunteer queue component has been added for processing outgoing referral vouchers and completing parcel collection.
+
+Completed work:
+
+- Added `src/components/foodbank/ReferralQueue.tsx`.
+- Created a clean high-contrast voucher card layout for packing desk use.
+- Added local mock voucher state until the live Firestore referral listener is connected.
+- Each voucher card displays:
+  - agency name
+  - client reference
+  - household / family size
+  - current status
+  - a clear manifest list of required parcel items
+- Added a large `Mark as Collected` button to each voucher card.
+- The collection action calls `finalizeFoodParcelCollection(voucherId)`, which uses the existing Firestore transaction service.
+- On successful collection, the voucher is removed from the local queue immediately.
+- Error handling surfaces transaction failures such as missing vouchers, invalid voucher status, missing inventory items, or insufficient stock.
+- The `ReferralVoucher` type now supports display metadata including `agency_name`, `client_reference`, `family_size`, and optional `manifest_requirements`.
+
+---
+
 ### Foodbank Intake Portal
 
 A new tablet-friendly intake screen has been added for volunteers logging incoming donations quickly at the foodbank desk.
