@@ -10,6 +10,40 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### RBAC Guard And User Administration Panel
+
+Role-based access control has been added at the React/Firestore integration layer for foodbank operations screens.
+
+Completed work:
+
+- Added `src/types/user.ts` with a shared `UserProfile` type:
+  - `uid`
+  - `email`
+  - `role: "user" | "volunteer" | "admin"`
+- Added `src/components/auth/AuthGuard.tsx`.
+- `AuthGuard` reads the current user's document from the Firestore `users` collection and checks whether their role is allowed.
+- Users without `volunteer` or `admin` access see an enterprise-styled access denied state before being returned toward the public area.
+- Wrapped the protected foodbank workflow screens in `AuthGuard`:
+  - `IntakePortal`
+  - `ReferralQueue`
+  - Admin management panel
+- Added `src/components/admin/AdminPanel.tsx`.
+- The new admin panel reads all documents from the Firestore `users` collection.
+- Users are displayed in a clean slate/teal/emerald data table with:
+  - email
+  - uid
+  - current role badge
+  - role change dropdown
+- Admins can update a user's role to:
+  - `user`
+  - `volunteer`
+  - `admin`
+- The old post-management admin panel remains parked behind the disabled legacy flag while the new RBAC panel becomes the active admin view.
+
+Implementation note: this is the client-side and Firestore document integration layer. Full server-enforced RBAC requires Firestore security rules to trust Firebase Auth tokens. The current app still uses Supabase session identity for login, so production hardening should include aligning auth providers or moving privileged mutations behind a server function.
+
+---
+
 ### Referral Voucher Workflow Correction
 
 The referral queue architecture has been corrected to match real foodbank practice: agencies issue authorization vouchers, not packing manifests. Foodbank volunteers must contact the client before building the parcel.

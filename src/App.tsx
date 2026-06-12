@@ -4,6 +4,8 @@ import { ExpiryCountdown } from './components/ExpiryCountdown';
 import { FoodMap } from './components/FoodMap';
 import { UserPostList } from './components/UserPostList';
 import AdminPanel from './components/AdminPanel'; // ⚙️ Imported our new component
+import { AdminPanel as RoleAdminPanel } from './components/admin/AdminPanel';
+import { AuthGuard } from './components/auth/AuthGuard';
 import { IntakePortal } from './components/foodbank/IntakePortal';
 import { ReferralQueue } from './components/foodbank/ReferralQueue';
 import {
@@ -111,6 +113,8 @@ const dashboardTabs: Array<{ value: DashboardTab; label: string }> = [
 const dietaryOptions = ['Vegan', 'Vegetarian', 'Gluten-Free', 'Nut-Free'];
 const communityUpdateCategory = 'community-update';
 const showLegacyCommunityBoard = false;
+const foodbankAccessRoles = ['volunteer', 'admin'] as const;
+const adminAccessRoles = ['admin'] as const;
 
 const getPostcodePrefix = (postcode?: string | null) => {
   const cleanedPostcode = (postcode ?? defaultPostLocation.postcode).trim().toUpperCase();
@@ -721,6 +725,11 @@ export default function App() {
 
   // Simple client-side identity helper to check if admin navigation elements should show
   const isSystemAdminAccount = session?.user?.email === 'stokie2605@gmail.com';
+  const redirectToPublicFeed = () => {
+    setActiveView('feed');
+    setDashboardTab('find-food');
+    setFilter('all');
+  };
 
   return (
     <AppShell
@@ -888,9 +897,27 @@ export default function App() {
             ))}
           </div>
 
-          {dashboardTab === 'find-food' ? <IntakePortal /> : null}
+          {dashboardTab === 'find-food' ? (
+            <AuthGuard
+              uid={session?.user?.id}
+              fallbackEmail={session?.user?.email}
+              allowedRoles={foodbankAccessRoles}
+              onAccessDenied={redirectToPublicFeed}
+            >
+              <IntakePortal />
+            </AuthGuard>
+          ) : null}
 
-          {dashboardTab === 'my-claims' ? <ReferralQueue /> : null}
+          {dashboardTab === 'my-claims' ? (
+            <AuthGuard
+              uid={session?.user?.id}
+              fallbackEmail={session?.user?.email}
+              allowedRoles={foodbankAccessRoles}
+              onAccessDenied={redirectToPublicFeed}
+            >
+              <ReferralQueue />
+            </AuthGuard>
+          ) : null}
 
           {showLegacyCommunityBoard && dashboardTab === 'find-food' ? (
             <div className="mb-5 min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs">
@@ -1325,7 +1352,14 @@ export default function App() {
 
       {/* 🛡️ VIEW E: SECURE SYSTEM ADMINISTRATION VIEWPORT */}
       {activeView === 'admin' && (
-        <AdminPanel />
+        <AuthGuard
+          uid={session?.user?.id}
+          fallbackEmail={session?.user?.email}
+          allowedRoles={adminAccessRoles}
+          onAccessDenied={redirectToPublicFeed}
+        >
+          {showLegacyCommunityBoard ? <AdminPanel /> : <RoleAdminPanel />}
+        </AuthGuard>
       )}
 
       {/* --- CREATION MODAL ─── */}
