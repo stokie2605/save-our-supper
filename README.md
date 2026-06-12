@@ -189,9 +189,9 @@ Users can claim available listings directly from the feed or map popup. The clai
 
 ### 🔒 Backend Database Security Rules
 
-Administrative Firestore mutations are enforced at the database server layer through `firestore.rules`, not only through client-side UI checks.
+Firestore access is protected by `firestore.rules` using a layered field-level security model. The app keeps the community feed open for reading and posting, but locks public updates down to one exact action: claiming an available food post.
 
-The ruleset defines an admin check using Firebase Auth token verification:
+The ruleset defines an administrator check using Firebase Auth token verification:
 
 ```javascript
 function isAdmin() {
@@ -200,23 +200,49 @@ function isAdmin() {
 }
 ```
 
-The `posts` collection currently allows:
-
-- universal `read` access so the community feed and public map can load listings
-- universal `create` access so listing creation remains open during the prototype phase
-- `update` and `delete` access only when `request.auth.token.email == "stokie2605@gmail.com"`
-
-This prevents users from bypassing the React interface and directly calling Firestore update/delete operations unless their Firebase Auth token belongs to the admin account.
-
-All other Firestore document paths are default-denied:
+The public claim guard only permits a transition from `available` to `claimed`, and only permits these three fields to change:
 
 ```javascript
-match /{document=**} {
-  allow read, write: if false;
+function isPublicClaimUpdate() {
+  return resource.data.status == "available"
+    && request.resource.data.status == "claimed"
+    && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+      "status",
+      "receiver_id",
+      "claimed_at"
+    ])
+    && request.resource.data.diff(resource.data).changedKeys().hasAll([
+      "status",
+      "receiver_id",
+      "claimed_at"
+    ]);
 }
 ```
 
-Important implementation note: because Firestore rules can only trust Firebase Auth, Supabase session state alone cannot authorize destructive Firestore writes. Any future non-admin claim or completion flow should be moved behind a Firebase-authenticated path or a server-side Firebase Cloud Function.
+The `posts` collection allows:
+
+- universal `read` access so the public map and community feed can load listings
+- universal `create` access so users can add food posts during the prototype phase
+- public `update` access only for the exact claim transition from `available` to `claimed`
+- admin `update` and `delete` access for the verified Firebase Auth account `stokie2605@gmail.com`
+
+The `.diff().changedKeys()` validation prevents public users from modifying protected listing data while claiming an item. A normal user cannot alter a post's title, category, postcode, coordinates, geohash, donor ID, expiry timestamp, description, or any other non-claim field. They can only set:
+
+- `status`
+- `receiver_id`
+- `claimed_at`
+
+All other Firestore document paths are controlled by the global admin wildcard:
+
+```javascript
+match /{document=**} {
+  allow read, write: if isAdmin();
+}
+```
+
+This means non-post collections and destructive database operations remain locked to the administrator token, while the public food-sharing claim loop still works safely.
+
+Important implementation note: under this precise ruleset, public users can claim an available post, but they cannot delete posts or perform broad edits. Any future non-admin completion flow beyond the claim fields should be implemented with a similarly narrow rules guard or moved behind a Firebase Cloud Function.
 
 ---
 

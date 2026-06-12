@@ -7,14 +7,34 @@ service cloud.firestore {
         && request.auth.token.email == "stokie2605@gmail.com";
     }
 
+    function isPublicClaimUpdate() {
+      return resource.data.status == "available"
+        && request.resource.data.status == "claimed"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "receiver_id",
+          "claimed_at"
+        ])
+        && request.resource.data.diff(resource.data).changedKeys().hasAll([
+          "status",
+          "receiver_id",
+          "claimed_at"
+        ])
+        && request.resource.data.receiver_id is string
+        && request.resource.data.receiver_id.size() > 0
+        && request.resource.data.claimed_at is string
+        && request.resource.data.claimed_at.size() > 0;
+    }
+
     match /posts/{postId} {
       allow read: if true;
       allow create: if true;
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || isPublicClaimUpdate();
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isAdmin();
     }
   }
 }
