@@ -48,9 +48,23 @@ Follow-up proximity and UI wiring:
 - Mobile dashboard layouts were tightened with safer wrapping, `min-w-0` containers, and smaller mobile spacing so long post text, postcodes, voucher IDs, and stock labels do not push cards off-screen.
 - Added a reusable `ExpiryCountdown` component that displays live time-left badges from each post's `expiry_time`.
 - The countdown badge is now shown on the main community feed cards and the My Claims/My Listings post cards, with urgent and expired states styled clearly.
-- Replaced the fixed radius dropdown with a dynamic 1-25 mile Tailwind range slider defaulting to 5 miles.
-- Moving the slider updates the React `searchRadiusMiles` state, which automatically refreshes the Firestore nearby-post query, map markers, and feed list.
-- The Firebase proximity helper now explicitly converts miles to kilometres, then meters, before passing the radius into `geohashQueryBounds`.
+Dynamic Radius Slider technical notes:
+
+- The old fixed radius dropdown was replaced with a responsive Tailwind CSS range input:
+  - `type="range"`
+  - minimum: `1` mile
+  - maximum: `25` miles
+  - step size: `1` mile
+  - default state: `5` miles
+- The control is rendered inside the main feed location panel and shows the active label clearly as `Search Radius: X miles`.
+- The selected value is stored in React state as `searchRadiusMiles`, so the UI label, map markers, and list feed all share the same source of truth.
+- The Firestore proximity helper receives the selected radius in miles, then converts it mathematically before querying GeoFire:
+  - `radiusInKilometers = radiusInMiles * 1.60934`
+  - `radiusInMeters = radiusInKilometers * 1000`
+  - `geohashQueryBounds(centerCoordinates, radiusInMeters)` generates the Firestore geohash range queries.
+- After Firestore returns candidate documents from the geohash ranges, each post is distance-checked again with `distanceBetween(...)` and converted back to miles before rendering, preventing edge-of-boundary false positives.
+- The nearby feed `useEffect` depends on `searchRadiusMiles`, `userCoordinates.lat`, and `userCoordinates.lon`, which means dragging the slider automatically re-runs the Firebase query loop without a page refresh.
+- When the radius changes, the same refreshed `posts` state powers both the Leaflet marker pins and the community board list cards, keeping map and feed results synchronized.
 
 Real-Time Expiry Countdowns technical notes:
 
