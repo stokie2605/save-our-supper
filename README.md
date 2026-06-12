@@ -135,7 +135,7 @@ Completed work:
   - `user`
   - `volunteer`
   - `admin`
-- The old post-management admin panel remains parked behind the disabled legacy flag while the new RBAC panel becomes the active admin view.
+- The old post-management admin panel has been removed from the active render path so the RBAC user-management panel is the only admin view.
 
 Implementation note: this is the client-side and Firestore document integration layer. Full server-enforced RBAC requires Firestore security rules to trust Firebase Auth tokens. The current app still uses Supabase session identity for login, so production hardening should include aligning auth providers or moving privileged mutations behind a server function.
 
@@ -323,16 +323,23 @@ Latest security commit:
 ```text
 67c5786 Harden public claim Firestore rules
 ```
-### 🖥️ Full-Stack Administrative Console
+### Full-Stack User Administration Console
 
-An overarching management dashboard was built from scratch using React, TypeScript, and Tailwind CSS to facilitate high-level platform curation.
+The active administration dashboard now focuses on role management rather than legacy post deletion.
 
-#### Key Implementations:
-* **Hybrid Identity Routing Layer:** The panel seamlessly bridges authentication layers by reading the active **Supabase Auth** browser session to verify identity, then dynamically unlocking role-based interface buttons.
-* **Client-Side Gatekeeping:** Access to the administration viewport is strictly hardcoded to the platform administrator's verified profile (`stokie2605@gmail.com`). Unauthenticated entities are met with an immediate, non-bypassable "Access Denied" barrier.
-* **Bypassed Global Tracking Stream:** Unlike the standard community feed, which utilizes location-aware geohashes to restrict listings by radius, the admin registry invokes a raw Firestore `onSnapshot` listener to stream all current cross-regional postings in real time.
-* **Inline Lifecycle State Mutations:** Utilizes structural dropdown controls allowing the administrator to instantly update a listing's status (`available`, `claimed`, `completed`) by calling Firestore's native `updateDoc` API.
-* **Destructive Deletion Architecture:** Features a red "Delete Post" trigger protected by native browser validation dialogues (`window.confirm`) that triggers an immediate server-side `deleteDoc` request to permanently purge rogue entries from the cloud database.
+Key implementations:
+
+- The active admin panel is `src/components/admin/AdminPanel.tsx`.
+- The compatibility file `src/components/AdminPanel.tsx` re-exports the active admin panel to prevent stale imports.
+- The panel reads from the Firestore `users` collection rather than the `posts` collection.
+- The table displays:
+  - User ID (UID)
+  - Email Address
+  - Current Role
+  - Role Action
+- Administrators can update a user's role to `user`, `volunteer`, or `admin`.
+- The old `Delete Post` action and post-management table have been removed from the active admin flow.
+- Protected foodbank operations are wrapped with `AuthGuard`, which verifies the user's Firestore profile role before rendering volunteer/admin screens.
 ---
 
 The claim flow has been upgraded from a direct Firestore document update to an atomic transaction lock.
