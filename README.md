@@ -10,6 +10,22 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### AuthGuard Loading State Fix
+
+The protected route guard has been updated so it no longer falls straight into an access-denied state while session and Firestore role data are still resolving.
+
+Completed work:
+
+- Updated `src/components/auth/AuthGuard.tsx`.
+- The guard now stays in a `checking` state while the user id is still settling.
+- Added a slate/emerald loading spinner with a `Verifying credentials...` message.
+- Firestore role normalization is now more forgiving by trimming and lowercasing stored role strings.
+- Access denied is only rendered after the Firestore user document lookup has resolved and the role has been evaluated.
+
+Important backend note: because the app is still using Supabase Auth while Firestore rules trust Firebase Auth, Firestore may still block reads from the `users` collection unless rules are explicitly adjusted or auth providers are aligned.
+
+---
+
 ### RBAC Guard And User Administration Panel
 
 Role-based access control has been added at the React/Firestore integration layer for foodbank operations screens.

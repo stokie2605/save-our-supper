@@ -12,7 +12,7 @@ type AuthGuardProps = {
 };
 
 type GuardState =
-  | { status: 'checking'; profile: null; error: null }
+  | { status: 'checking'; profile: null; error: null; message: string }
   | { status: 'allowed'; profile: UserProfile; error: null }
   | { status: 'denied'; profile: UserProfile | null; error: string | null };
 
@@ -24,7 +24,7 @@ function normalizeUserProfile(uid: string, data: unknown, fallbackEmail?: string
   }
 
   const profileData = data as Partial<UserProfile>;
-  const role = profileData.role;
+  const role = typeof profileData.role === 'string' ? profileData.role.trim().toLowerCase() : null;
 
   if (role !== 'user' && role !== 'volunteer' && role !== 'admin') {
     return null;
@@ -48,6 +48,7 @@ export function AuthGuard({
     status: 'checking',
     profile: null,
     error: null,
+    message: 'Verifying credentials...',
   });
 
   useEffect(() => {
@@ -56,14 +57,20 @@ export function AuthGuard({
     async function checkUserRole() {
       if (!uid) {
         setGuardState({
-          status: 'denied',
+          status: 'checking',
           profile: null,
-          error: 'No active user session was found.',
+          error: null,
+          message: 'Waiting for your secure session...',
         });
         return;
       }
 
-      setGuardState({ status: 'checking', profile: null, error: null });
+      setGuardState({
+        status: 'checking',
+        profile: null,
+        error: null,
+        message: 'Verifying credentials...',
+      });
 
       try {
         const userSnapshot = await getDoc(doc(db, 'users', uid));
@@ -109,8 +116,10 @@ export function AuthGuard({
   if (guardState.status === 'checking') {
     return (
       <div className="rounded-3xl border border-slate-200 bg-white px-5 py-10 text-center shadow-sm">
+        <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-500" />
         <p className="text-xs font-black uppercase tracking-widest text-teal-700">Checking access</p>
-        <p className="mt-2 text-sm font-semibold text-slate-500">Verifying your foodbank operations role...</p>
+        <p className="mt-2 text-sm font-semibold text-slate-500">{guardState.message}</p>
+        <p className="mt-1 text-xs font-medium text-slate-400">Waiting for Firestore role verification to finish.</p>
       </div>
     );
   }
