@@ -35,7 +35,8 @@ function assertInventoryItemId(
 }
 
 function normalizeInventoryDocumentId(inventoryItemId: string) {
-  return inventoryItemId.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const sanitizedId = inventoryItemId.trim().toLowerCase().replace(/ /g, '_').replace(/-+/g, '_');
+  return sanitizedId;
 }
 
 function readCurrentQuantity(inventoryItem: Partial<InventoryItem>, inventoryItemId: string) {
