@@ -7,6 +7,7 @@ import { AdminPanel as RoleAdminPanel } from './components/admin/AdminPanel';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { IntakePortal } from './components/foodbank/IntakePortal';
 import ReferralQueue from './components/foodbank/ReferralQueue';
+import LiveInventory from './components/foodbank/LiveInventory';
 import {
   claimFirebaseSupper as claimSupper,
   completeFirebaseClaim as completeClaim,
@@ -15,7 +16,6 @@ import {
   fetchFirebasePostsByDonor as fetchPostsByDonor,
   fetchFirebasePostsByReceiver as fetchPostsByReceiver,
   seedFirebasePosts,
-  subscribeFirebaseStockLevels,
 } from './lib/firebasePosts';
 import {
   defaultHubCoordinates,
@@ -23,17 +23,6 @@ import {
   type Post,
 } from './lib/posts';
 import { supabase } from './lib/supabase';
-
-interface InventoryItem {
-  id: string;
-  item_name: string;
-  current_quantity: number;
-  percentage_share: number;
-  target_capacity: number;
-  location: string;
-  last_updated: string;
-  listing_count?: number;
-}
 
 interface ReferralVoucher {
   id: string;
@@ -54,7 +43,6 @@ interface UserProfile {
 }
 
 type FeedFilter = 'all' | 'surplus' | 'need' | 'my-posts' | 'my-claims';
-// Extended view types to support admin tracking
 type ActiveView = 'feed' | 'inventory' | 'referrals' | 'settings' | 'admin';
 type DashboardTab = 'find-food' | 'my-claims' | 'my-listings';
 type SystemMessage = { type: 'success' | 'error'; text: string } | null;
@@ -166,8 +154,6 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeView, setActiveView] = useState<ActiveView>('feed');
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [inventoryLoading, setInventoryLoading] = useState(true);
   const [referrals, setReferrals] = useState<ReferralVoucher[]>([]);
   const [referralsLoading, setReferralsLoading] = useState(true);
 
@@ -179,10 +165,6 @@ export default function App() {
   const [isSeedingFirebase, setIsSeedingFirebase] = useState(false);
   const [seedMessage, setSeedMessage] = useState('');
   const feedRequestIdRef = useRef(0);
-
-  const refreshInventoryData = async () => {
-    setInventoryLoading(false);
-  };
 
   const fetchUserProfile = async (userId: string) => {
     setProfileLoading(true);
@@ -236,18 +218,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const unsubscribeStockLevels = subscribeFirebaseStockLevels(
-      (stockLevels) => {
-        setInventory(stockLevels);
-        setInventoryLoading(false);
-      },
-      (error) => {
-        console.error('Error syncing Firebase stock levels:', error);
-        setInventory([]);
-        setInventoryLoading(false);
-      },
-    );
-
     async function fetchReferrals() {
       try {
         const { data, error } = await supabase
@@ -265,7 +235,6 @@ export default function App() {
     }
 
     fetchReferrals();
-    return () => unsubscribeStockLevels();
   }, []);
 
   useEffect(() => {
@@ -710,13 +679,8 @@ export default function App() {
 
   const isHubManager = profile?.tier === 'distribution_hub';
   const isCommercialDonor = profile?.tier === 'commercial_donor';
-
-  const deficitItems = inventory
-    .filter(item => Math.round((item.current_quantity / item.target_capacity) * 100) <= 20)
-    .map(item => item.item_name);
   const activeLocationLabel = profile?.primary_location || settingsLocation || defaultPostLocation.postcode;
 
-  // Simple client-side identity helper to check if admin navigation elements should show
   const isSystemAdminAccount = session?.user?.email === 'stokie2605@gmail.com';
   const redirectToPublicFeed = () => {
     setActiveView('feed');
@@ -826,7 +790,6 @@ export default function App() {
           ⚙️ Settings
         </button>
 
-        {/* 🛡️ Secured Role-Based Admin Entry Switch */}
         {isSystemAdminAccount && (
           <button
             type="button"
@@ -845,21 +808,6 @@ export default function App() {
       {/* VIEW A: THE COMMUNITY FEED */}
       {activeView === 'feed' && (
         <>
-          {deficitItems.length > 0 && (
-            <div className="mb-6 min-w-0 rounded-2xl border border-red-200 bg-red-50 p-4 shadow-xs animate-pulse">
-              <div className="flex min-w-0 items-start gap-3">
-                <span className="text-xl">⚠️</span>
-                <div className="min-w-0">
-                  <h3 className="break-words text-sm font-bold text-red-900 md:text-base">Critical Hub Shortages Detected</h3>
-                  <p className="mt-0.5 break-words text-xs text-red-700 md:text-sm">
-                    Our warehouse is running dangerously low on: <strong>{deficitItems.join(', ')}</strong>. 
-                    Donations containing these items will be prioritized for immediate processing.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {dashboardTab === 'find-food' ? (
             <AuthGuard
               uid={session?.user?.id}
@@ -1080,72 +1028,7 @@ export default function App() {
       )}
 
       {/* VIEW B: WAREHOUSE STOCK LEVELS */}
-      {isHubManager && activeView === 'inventory' && (
-        <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-          <div className="mb-6 min-w-0">
-            <p className="text-xs font-black uppercase tracking-widest text-teal-700">Live inventory</p>
-            <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">Live Firestore Stock Levels</h2>
-            <p className="mt-1 break-words text-sm text-slate-500">Available Firebase listings grouped by category. Totals update as posts are seeded or claimed.</p>
-          </div>
-          
-          {inventoryLoading ? (
-            <div className="text-center py-12 text-slate-400 font-medium">Loading live Firebase stock levels...</div>
-          ) : inventory.length === 0 ? (
-            <div className="bg-white border border-dashed border-slate-300 rounded-2xl text-center py-12 px-4 text-slate-400">
-              No available Firebase listings to summarize yet.
-            </div>
-          ) : (
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-              {inventory.map((item) => {
-                const percent = item.percentage_share;
-                let barColor = 'bg-gradient-to-r from-teal-500 to-emerald-500';
-                let statusBadge = <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-emerald-800">ACTIVE</span>;
-
-                if (percent >= 50) {
-                  barColor = 'bg-gradient-to-r from-slate-900 via-teal-600 to-emerald-400';
-                  statusBadge = <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-emerald-800">TOP CATEGORY</span>;
-                } else if (percent >= 25) {
-                  barColor = 'bg-gradient-to-r from-teal-500 to-emerald-500';
-                  statusBadge = <span className="rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-teal-800">HIGH SHARE</span>;
-                } else if (percent <= 10) {
-                  barColor = 'bg-gradient-to-r from-slate-400 to-slate-500';
-                  statusBadge = <span className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-black uppercase tracking-wide text-slate-500">LOW SHARE</span>;
-                }
-
-                return (
-                  <div key={item.id} className="flex min-w-0 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 shadow-xs transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
-                    <div className="min-w-0">
-                      <div className="mb-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="min-w-0">
-                          <p className="break-words text-[10px] font-black uppercase tracking-widest text-teal-700">Stock category</p>
-                          <h3 className="mt-1 break-words text-lg font-black uppercase tracking-wide text-slate-950">{item.item_name}</h3>
-                          <p className="mt-1 break-words text-xs font-semibold uppercase tracking-wider text-slate-400">Live available listings</p>
-                        </div>
-                        {statusBadge}
-                      </div>
-
-                      <div className="mt-4 mb-2 flex min-w-0 flex-col gap-1 text-xs font-semibold text-slate-600 sm:flex-row sm:justify-between">
-                        <span className="break-words">Active listings: <strong>{item.listing_count ?? 0}</strong> category posts</span>
-                        <span className="shrink-0 font-black text-slate-900">{percent}%</span>
-                      </div>
-                      
-                      <div className="h-3 w-full overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-                          style={{ width: `${Math.min(percent, 100)}%` }}
-                        />
-                      </div>
-                      <p className="mt-2 break-words text-[11px] font-medium text-slate-500">
-                        {item.current_quantity} parsed total units represented in this category.
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {isHubManager && activeView === 'inventory' && <LiveInventory />}
 
       {/* VIEW C: SECURE DIGITAL REFERRALS */}
       {isHubManager && activeView === 'referrals' && (
@@ -1209,7 +1092,6 @@ export default function App() {
                             });
                             if (error) throw error;
                             setReferrals(prev => prev.map(v => v.id === voucher.id ? { ...v, status: 'fulfilled' } : v));
-                            void refreshInventoryData();
                           } catch (err) {
                             console.error('Error fulfilling voucher with live deduction:', err);
                           }
