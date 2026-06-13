@@ -10,7 +10,14 @@ import type {
 
 const inventoryCollectionName = 'inventory';
 const intakesCollectionName = 'intakes';
+const donationReceiptsCollectionName = 'donations_receipts';
 const vouchersCollectionName = 'referral_vouchers';
+
+type InventoryRequirementInput = {
+  inventory_item_id?: string;
+  quantity: number;
+  label?: string;
+};
 
 function assertPositiveQuantity(quantity: number, context: string) {
   if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -18,7 +25,10 @@ function assertPositiveQuantity(quantity: number, context: string) {
   }
 }
 
-function assertInventoryItemId(inventoryItemId: string | undefined, context: string) {
+function assertInventoryItemId(
+  inventoryItemId: string | undefined,
+  context: string,
+): asserts inventoryItemId is string {
   if (!inventoryItemId?.trim()) {
     throw new Error(`${context} is missing an inventory item ID.`);
   }
@@ -46,14 +56,15 @@ function normalizeRequirements(requirements: VoucherRequirement[] | undefined, c
   return requirements;
 }
 
-function aggregateRequirements(requirements: VoucherRequirement[]) {
+function aggregateRequirements(requirements: InventoryRequirementInput[], context: string) {
   const requirementMap = new Map<string, VoucherRequirement>();
 
   requirements.forEach((requirement) => {
-    assertInventoryItemId(requirement.inventory_item_id, 'Voucher manifest requirement');
-    const inventoryItemId = normalizeInventoryDocumentId(requirement.inventory_item_id);
+    const rawInventoryItemId = requirement.inventory_item_id;
+    assertInventoryItemId(rawInventoryItemId, context);
+    const inventoryItemId = normalizeInventoryDocumentId(rawInventoryItemId);
     const quantity = Math.trunc(Number(requirement.quantity));
-    assertPositiveQuantity(quantity, `Voucher manifest quantity for ${inventoryItemId}`);
+    assertPositiveQuantity(quantity, `${context} quantity for ${inventoryItemId}`);
 
     const existingRequirement = requirementMap.get(inventoryItemId);
     requirementMap.set(inventoryItemId, {
@@ -74,13 +85,12 @@ export async function processDonationIntake(intakeData: DonationIntakeData) {
 
   const processedAt = new Date().toISOString();
   const intakeRef = doc(collection(db, intakesCollectionName));
+  const donationReceiptRef = doc(db, donationReceiptsCollectionName, intakeRef.id);
+  const normalizedItems = aggregateRequirements(intakeData.items, 'Donation intake item');
 
   await runTransaction(db, async (transaction) => {
-    const inventoryUpdates = await Promise.all(
-      intakeData.items.map(async (item) => {
-        assertInventoryItemId(item.inventory_item_id, 'Donation intake item');
-        assertPositiveQuantity(item.quantity, `Donation intake quantity for ${item.inventory_item_id}`);
-
+    const inventoryIncrements = await Promise.all(
+      normalizedItems.map(async (item) => {
         const inventoryRef = doc(db, inventoryCollectionName, item.inventory_item_id);
         const inventorySnapshot = await transaction.get(inventoryRef);
 
@@ -88,30 +98,34 @@ export async function processDonationIntake(intakeData: DonationIntakeData) {
           throw new Error(`Inventory item ${item.inventory_item_id} does not exist.`);
         }
 
-        const inventoryItem = inventorySnapshot.data() as Partial<InventoryItem>;
-        const currentQuantity = readCurrentQuantity(inventoryItem, item.inventory_item_id);
-
         return {
           inventoryRef,
-          nextQuantity: currentQuantity + item.quantity,
+          receivedQuantity: item.quantity,
         };
       }),
     );
 
-    inventoryUpdates.forEach(({ inventoryRef, nextQuantity }) => {
+    inventoryIncrements.forEach(({ inventoryRef, receivedQuantity }) => {
       transaction.update(inventoryRef, {
-        current_quantity: nextQuantity,
+        current_quantity: increment(receivedQuantity),
+        last_intake_quantity: receivedQuantity,
         last_updated: processedAt,
       });
     });
 
     const receipt: DonationIntakeReceipt = {
       ...intakeData,
+      items: normalizedItems,
       created_at: serverTimestamp(),
       processed_at: processedAt,
     };
 
     transaction.set(intakeRef, receipt);
+    transaction.set(donationReceiptRef, {
+      ...receipt,
+      receipt_id: intakeRef.id,
+      source_collection: intakesCollectionName,
+    });
   });
 
   return intakeRef.id;
@@ -146,6 +160,7 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
         voucher.manifest_requirements?.length ? voucher.manifest_requirements : voucher.item_requirements,
         `Voucher ${voucherId}`,
       ),
+      'Voucher manifest requirement',
     );
 
     const inventoryDeductions = await Promise.all(
