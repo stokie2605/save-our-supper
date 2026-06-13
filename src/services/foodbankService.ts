@@ -35,7 +35,12 @@ function assertInventoryItemId(
 }
 
 function normalizeInventoryDocumentId(inventoryItemId: string) {
-  const sanitizedId = inventoryItemId.trim().toLowerCase().replace(/ /g, '_').replace(/-+/g, '_');
+  const sanitizedId = inventoryItemId
+    .trim()
+    .toLowerCase()
+    .replace(/[/]+/g, ' ')
+    .replace(/\s+/g, '_')
+    .replace(/-+/g, '_');
   return sanitizedId;
 }
 
@@ -95,22 +100,34 @@ export async function processDonationIntake(intakeData: DonationIntakeData) {
         const inventoryRef = doc(db, inventoryCollectionName, item.inventory_item_id);
         const inventorySnapshot = await transaction.get(inventoryRef);
 
-        if (!inventorySnapshot.exists()) {
-          throw new Error(`Inventory item ${item.inventory_item_id} does not exist.`);
-        }
-
         return {
           inventoryRef,
+          inventoryItemId: item.inventory_item_id,
+          label: item.label,
+          exists: inventorySnapshot.exists(),
           receivedQuantity: item.quantity,
         };
       }),
     );
 
-    inventoryIncrements.forEach(({ inventoryRef, receivedQuantity }) => {
-      transaction.update(inventoryRef, {
-        current_quantity: increment(receivedQuantity),
+    inventoryIncrements.forEach(({ inventoryRef, inventoryItemId, label, exists, receivedQuantity }) => {
+      if (exists) {
+        transaction.update(inventoryRef, {
+          current_quantity: increment(receivedQuantity),
+          last_intake_quantity: receivedQuantity,
+          last_updated: processedAt,
+        });
+        return;
+      }
+
+      transaction.set(inventoryRef, {
+        id: inventoryItemId,
+        item_name: label ?? inventoryItemId,
+        category: inventoryItemId,
+        current_quantity: receivedQuantity,
         last_intake_quantity: receivedQuantity,
         last_updated: processedAt,
+        created_at: processedAt,
       });
     });
 

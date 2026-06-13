@@ -57,6 +57,8 @@ The app now uses ten real-world food bank stock categories across the donation i
 
 The database keys remain normalized in snake_case, such as `breakfast_cereals`, `uht_milk`, and `tinned_meat`, so Firestore updates stay consistent while volunteers see plain English labels.
 
+If a category document does not exist yet in Firestore, the donation intake transaction now creates it automatically on first use. This lets a new hub start from an empty `inventory` collection and safely build its stock records as real donations are logged.
+
 ## Core Screens
 
 - `LiveInventory` shows current food bank stock levels.
