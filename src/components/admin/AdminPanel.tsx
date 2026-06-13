@@ -11,10 +11,22 @@ const roleBadgeClass: Record<UserRole, string> = {
   admin: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 };
 
-interface WarehouseItem {
+interface StockItem {
   id: string;
   label: string;
   current_quantity: number;
+}
+
+function formatDisplayLabel(value: string | undefined) {
+  return (value ?? '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function normalizeCategoryId(value: string) {
+  return value.trim().toUpperCase().replace(/[\s-]+/g, '_');
 }
 
 function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
@@ -38,7 +50,7 @@ export function AdminPanel() {
   const [updatingUid, setUpdatingUid] = useState<string | null>(null);
 
   // Inventory Management State
-  const [inventory, setInventory] = useState<WarehouseItem[]>([]);
+  const [inventory, setInventory] = useState<StockItem[]>([]);
   const [inventoryLoading, setInventoryLoading] = useState(true);
   const [newStockId, setNewStockId] = useState('');
   const [newStockLabel, setNewStockLabel] = useState('');
@@ -78,17 +90,21 @@ export function AdminPanel() {
     const inventoryCollection = collection(db, 'inventory');
     const unsubscribe = onSnapshot(inventoryCollection,
       (snapshot) => {
-        const stockItems = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as WarehouseItem[];
-        stockItems.sort((a, b) => a.label.localeCompare(b.label));
+        const stockItems = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            label: formatDisplayLabel(data.label ?? data.item_name ?? doc.id),
+            current_quantity: Number(data.current_quantity) || 0,
+          };
+        }) as StockItem[];
+        stockItems.sort((a, b) => formatDisplayLabel(a.label).localeCompare(formatDisplayLabel(b.label)));
         setInventory(stockItems);
         setInventoryLoading(false);
       },
       (err) => {
-        console.error("Live sync failure inside admin manager:", err);
-        setError("Failed to track live warehouse metrics.");
+        console.error('Live stock sync failed inside admin panel:', err);
+        setError('Could not load current food bank stock levels.');
         setInventoryLoading(false);
       }
     );
@@ -122,7 +138,7 @@ export function AdminPanel() {
         current_quantity: increment(delta)
       });
     } catch (err) {
-      setError("Failed to execute database stock update adjustment.");
+      setError('Could not update this food item count.');
     } finally {
       setActionItemRef(null);
     }
@@ -134,12 +150,12 @@ export function AdminPanel() {
     setError(null);
     setSuccess(null);
 
-    const sanitizedId = newStockId.trim().toUpperCase().replace(/\s+/g, '_');
-    const sanitizedLabel = newStockLabel.trim();
+    const sanitizedId = normalizeCategoryId(newStockId);
+    const sanitizedLabel = formatDisplayLabel(newStockLabel.trim() || newStockId.trim());
     const parsedQty = parseInt(newStockQty) || 0;
 
     if (!sanitizedId || !sanitizedLabel) {
-      setError("Please supply a valid alphanumeric Stock Category ID and descriptive label.");
+      setError('Please add a food item name before saving.');
       return;
     }
 
@@ -149,12 +165,12 @@ export function AdminPanel() {
         label: sanitizedLabel,
         current_quantity: parsedQty
       });
-      setSuccess(`Successfully provisioned new stock category: "${sanitizedLabel}"`);
+      setSuccess(`Added "${sanitizedLabel}" to the food bank stock list.`);
       setNewStockId('');
       setNewStockLabel('');
       setNewStockQuantity('0');
     } catch (err) {
-      setError("Failed to establish new category document record.");
+      setError('Could not add this food item to the stock list.');
     }
   };
 
@@ -166,12 +182,12 @@ export function AdminPanel() {
         {/* HEADER INFORMATION SYSTEM */}
         <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-widest text-teal-700">Central Hub Administration</p>
+            <p className="text-xs font-black uppercase tracking-widest text-teal-700">Food bank administration</p>
             <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
-              System Command Console
+              Food Bank Admin Panel
             </h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Manage local security access parameters or override core logistics warehouse balances live.
+              Manage volunteer access and keep local food stock counts up to date.
             </p>
           </div>
 
@@ -184,7 +200,7 @@ export function AdminPanel() {
                 adminTab === 'users' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              👥 User Access
+              User Access
             </button>
             <button
               type="button"
@@ -193,7 +209,7 @@ export function AdminPanel() {
                 adminTab === 'inventory' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              📦 Stock Levels
+              Food Stock
             </button>
           </div>
         </div>
@@ -201,12 +217,12 @@ export function AdminPanel() {
         {/* FEEDBACK BANNERS */}
         {error && (
           <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            ⚠️ {error}
+            {error}
           </div>
         )}
         {success && (
           <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-            ✓ {success}
+            {success}
           </div>
         )}
 
@@ -227,13 +243,13 @@ export function AdminPanel() {
                   {usersLoading ? (
                     <tr>
                       <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={4}>
-                        Loading Firestore user roles...
+                        Loading user access records...
                       </td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
                       <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={4}>
-                        No users found in the Firestore users collection.
+                        No user records found yet.
                       </td>
                     </tr>
                   ) : (
@@ -279,36 +295,36 @@ export function AdminPanel() {
 
             {/* SUB-SECTION 1: CATEGORY PROVISIONING FORM */}
             <div className="border border-slate-200 bg-slate-50/50 rounded-2xl p-5 h-fit">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-1">Provision Stock Category</h3>
-              <p className="text-xs text-slate-500 mb-4 font-medium">Add a brand-new item class directly to the dynamic storage ledger matrix.</p>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-1">Add a Food Item</h3>
+              <p className="text-xs text-slate-500 mb-4 font-medium">Add a new donation item to the stock list.</p>
 
               <form onSubmit={handleCreateCategory} className="space-y-3.5">
                 <label className="block text-xs font-bold text-slate-700">
-                  Stock Category Key Code (ID)
+                  Food item name
                   <input
                     type="text"
                     value={newStockId}
                     onChange={(e) => setNewStockId(e.target.value)}
-                    placeholder="e.g. BREAKFAST_CEREAL"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 uppercase outline-none focus:border-emerald-500"
+                    placeholder="e.g. Breakfast cereal"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500"
                     required
                   />
                 </label>
 
                 <label className="block text-xs font-bold text-slate-700">
-                  Descriptive Label Name
+                  Friendly display name
                   <input
                     type="text"
                     value={newStockLabel}
                     onChange={(e) => setNewStockLabel(e.target.value)}
-                    placeholder="e.g. Weetabix & Cereal Boxes"
+                    placeholder="e.g. Cereal boxes"
                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500"
                     required
                   />
                 </label>
 
                 <label className="block text-xs font-bold text-slate-700">
-                  Initial Opening Units Count
+                  Starting quantity
                   <input
                     type="number"
                     min="0"
@@ -323,33 +339,35 @@ export function AdminPanel() {
                   type="submit"
                   className="w-full mt-2 rounded-xl bg-slate-950 hover:bg-emerald-600 font-bold text-xs uppercase tracking-wider text-white py-2.5 shadow-sm transition-all"
                 >
-                  Deploy Category Node
+                  Add Food Item
                 </button>
               </form>
             </div>
 
-            {/* SUB-SECTION 2: QUANTITY ADJUSTMENT LEDGER CONTROL PANEL */}
+            {/* Food stock adjustment controls */}
             <div className="lg:col-span-2 border border-slate-200 rounded-2xl overflow-hidden">
               <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Active Warehouse Allocations</h3>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Current Hub Allocations</h3>
               </div>
 
               {inventoryLoading ? (
-                <div className="text-center py-12 font-semibold text-slate-400 text-sm">Synchronizing real-time item rows...</div>
+                <div className="text-center py-12 font-semibold text-slate-400 text-sm">Loading current food stock...</div>
               ) : inventory.length === 0 ? (
-                <div className="text-center py-12 font-semibold text-slate-400 text-sm">No live warehouse document nodes provisioned.</div>
+                <div className="text-center py-12 font-semibold text-slate-400 text-sm">No food items are being tracked yet.</div>
               ) : (
                 <div className="divide-y divide-slate-100 bg-white">
                   {inventory.map((item) => (
                     <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3 transition-colors hover:bg-slate-50/50">
                       <div>
-                        <code className="text-[10px] font-mono font-bold text-slate-400 block tracking-tight uppercase">NODE: {item.id}</code>
-                        <h4 className="text-sm font-black text-slate-900 mt-0.5 tracking-tight">{item.label}</h4>
+                        <p className="text-[10px] font-bold text-slate-400 block tracking-wider uppercase">Food item</p>
+                        <h4 className="text-sm font-black text-slate-900 mt-0.5 tracking-tight">
+                          {formatDisplayLabel(item.label || item.id)}
+                        </h4>
                         <div className="mt-1.5 flex items-center gap-2">
                           <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${
                             item.current_quantity === 0 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-800'
                           }`}>
-                            {item.current_quantity} units stored
+                            {item.current_quantity} units available
                           </span>
                         </div>
                       </div>

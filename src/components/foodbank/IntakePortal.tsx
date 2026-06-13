@@ -10,6 +10,14 @@ type IntakeCategory = {
 
 type ItemsReceivedState = Record<string, number>;
 
+function formatDisplayLabel(value: string) {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function LogDonationIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -28,7 +36,7 @@ const sourceTypes = ['Supermarket', 'Walk-in', 'Cafe / Restaurant', 'Community D
 
 const intakeCategories: IntakeCategory[] = [
   { id: 'tinned_goods', label: 'Tinned Goods', helper: 'Beans, soup, tomatoes' },
-  { id: 'dairy_uht', label: 'UHT Dairy', helper: 'Long-life milk and cartons' },
+  { id: 'dairy_uht', label: 'Dairy Uht', helper: 'Long-life milk and cartons' },
   { id: 'toiletries', label: 'Toiletries', helper: 'Soap, toothpaste, hygiene' },
   { id: 'cereal', label: 'Cereal', helper: 'Breakfast boxes and oats' },
   { id: 'grains', label: 'Grains', helper: 'Rice, pasta, couscous' },
@@ -107,12 +115,12 @@ export function IntakePortal() {
       <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-widest text-teal-700">Foodbank intake</p>
+          <p className="text-xs font-black uppercase tracking-widest text-teal-700">Food donations</p>
           <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
-            Donation Intake Portal
+            Donation Drop-Off Log
           </h2>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-            Rapid stock logging for volunteers receiving supermarket, walk-in, and community donations.
+            Quickly record food given by supermarkets, local groups, churches, and walk-in donors.
           </p>
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center">
@@ -123,7 +131,7 @@ export function IntakePortal() {
 
       <div className="grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
         <label className="block min-w-0">
-          <span className="text-sm font-bold text-slate-700">Source type</span>
+          <span className="text-sm font-bold text-slate-700">Where did it come from?</span>
           <select
             value={sourceType}
             onChange={(event) => setSourceType(event.target.value)}
@@ -138,11 +146,11 @@ export function IntakePortal() {
         </label>
 
         <label className="block min-w-0">
-          <span className="text-sm font-bold text-slate-700">Source name</span>
+          <span className="text-sm font-bold text-slate-700">Name of shop, group, or donor</span>
           <input
             value={sourceName}
             onChange={(event) => setSourceName(event.target.value)}
-            placeholder="e.g. Local Tesco, Hanley cafe, walk-in donor"
+            placeholder="e.g. Local Tesco, church collection, walk-in donor"
             className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           />
         </label>
@@ -158,7 +166,9 @@ export function IntakePortal() {
               className="flex min-h-52 min-w-0 flex-col justify-between rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:bg-white hover:shadow-lg"
             >
               <div className="min-w-0">
-                <h3 className="break-words text-xs font-black uppercase tracking-widest text-slate-900">{category.label}</h3>
+                <h3 className="break-words text-xs font-black uppercase tracking-widest text-slate-900">
+                  {formatDisplayLabel(category.label || category.id)}
+                </h3>
                 <p className="mt-2 break-words text-sm leading-5 text-slate-500">{category.helper}</p>
               </div>
 
