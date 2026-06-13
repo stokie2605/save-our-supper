@@ -10,6 +10,39 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Admin Command Console And Infrastructure Cleanup
+
+The admin surface has been expanded into a system command console for live user and warehouse operations.
+
+System Command Console:
+
+- `src/components/admin/AdminPanel.tsx` now includes an administrative sub-tab system for switching between user access management and inventory command controls.
+- The user access tab keeps the existing Firestore `users` role-management workflow for assigning `user`, `volunteer`, and `admin` permissions.
+- The inventory command tab provisions new warehouse stock categories directly from the app interface.
+- New category provisioning uses Firestore `setDoc(...)` against the `inventory` collection so admins can create a new category document with:
+  - a stable stock category ID
+  - a descriptive label
+  - an initial `current_quantity`
+- Live stock adjustments use Firestore `updateDoc(...)` with `increment(...)` so small stock corrections can be applied atomically without fetching and rewriting the whole document.
+- The quick adjustment controls support decrement/increment operations such as `-10`, `-1`, `+1`, and `+10`.
+- The inventory command tab listens to the live `inventory` collection with `onSnapshot(...)`, so admin-side stock changes are reflected immediately in the interface.
+
+Duplicate file elimination:
+
+- A loose compatibility file at `src/components/AdminPanel.tsx` was detected as a duplicate admin entry point.
+- The duplicate file was safely removed so there is one source of architectural truth for the admin surface:
+  `src/components/admin/AdminPanel.tsx`.
+- This prevents stale imports, conflicting admin behavior, and future confusion between legacy post-management admin code and the current RBAC/warehouse command console.
+
+Unused state variable cleanup:
+
+- `src/App.tsx` was trimmed after the inventory view moved into `LiveInventory`.
+- Obsolete app-level inventory array trackers such as `inventory` and `inventoryLoading` were removed from the shell.
+- The old app-level inventory subscription/useEffect path was deactivated so live inventory ownership now belongs to the standalone `LiveInventory` component.
+- This cleanup keeps the project aligned with strict TypeScript compilation expectations by removing unused state, stale setters, and disconnected effect logic from the main app shell.
+
+---
+
 ### Foodbank Infrastructure Modularization
 
 The warehouse and referral workflow screens have been split out of the main application shell into standalone real-time infrastructure components.

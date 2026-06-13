@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, onSnapshot, setDoc, increment } from 'firebase/firestore';
 import { db } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
@@ -10,6 +10,12 @@ const roleBadgeClass: Record<UserRole, string> = {
   volunteer: 'border-teal-200 bg-teal-50 text-teal-700',
   admin: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 };
+
+interface WarehouseItem {
+  id: string;
+  label: string;
+  current_quantity: number;
+}
 
 function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
   const userData = data && typeof data === 'object' ? (data as Partial<UserProfile>) : {};
@@ -23,61 +29,132 @@ function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
 }
 
 export function AdminPanel() {
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [updatingUid, setUpdatingUid] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Navigation State
+  const [adminTab, setAdminTab] = useState<'users' | 'inventory'>('users');
 
+  // User State
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [updatingUid, setUpdatingUid] = useState<string | null>(null);
+
+  // Inventory Management State
+  const [inventory, setInventory] = useState<WarehouseItem[]>([]);
+  const [inventoryLoading, setInventoryLoading] = useState(true);
+  const [newStockId, setNewStockId] = useState('');
+  const [newStockLabel, setNewStockLabel] = useState('');
+  const [newStockQty, setNewStockQuantity] = useState('0');
+  const [actionItemRef, setActionItemRef] = useState<string | null>(null);
+
+  // Error/Success Notification States
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Lifecycle: Pull User Lists (Static Fetch)
   useEffect(() => {
     let isMounted = true;
-
     async function fetchUsers() {
-      setLoading(true);
+      setUsersLoading(true);
       setError(null);
-
       try {
         const usersSnapshot = await getDocs(collection(db, 'users'));
         if (!isMounted) return;
-
         const nextUsers = usersSnapshot.docs
-          .map((userDocument) => normalizeUserDocument(userDocument.id, userDocument.data()))
+          .map((doc) => normalizeUserDocument(doc.id, doc.data()))
           .sort((a, b) => a.email.localeCompare(b.email));
-
         setUsers(nextUsers);
-      } catch (fetchError) {
+      } catch (err) {
         if (!isMounted) return;
-        const message = fetchError instanceof Error ? fetchError.message : 'Unable to load user role records.';
-        setError(message);
+        setError(err instanceof Error ? err.message : 'Unable to load user role records.');
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setUsersLoading(false);
       }
     }
-
     void fetchUsers();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
+  // Lifecycle: Subscribe Live to Inventory Changes
+  useEffect(() => {
+    const inventoryCollection = collection(db, 'inventory');
+    const unsubscribe = onSnapshot(inventoryCollection,
+      (snapshot) => {
+        const stockItems = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as WarehouseItem[];
+        stockItems.sort((a, b) => a.label.localeCompare(b.label));
+        setInventory(stockItems);
+        setInventoryLoading(false);
+      },
+      (err) => {
+        console.error("Live sync failure inside admin manager:", err);
+        setError("Failed to track live warehouse metrics.");
+        setInventoryLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  // Handler: Modify User Privilege Tiers
   const handleRoleChange = async (user: UserProfile, nextRole: UserRole) => {
     setUpdatingUid(user.uid);
     setError(null);
-
     try {
       await updateDoc(doc(db, 'users', user.uid), { role: nextRole });
       setUsers((current) =>
-        current.map((currentUser) =>
-          currentUser.uid === user.uid ? { ...currentUser, role: nextRole } : currentUser,
-        ),
+        current.map((curr) => (curr.uid === user.uid ? { ...curr, role: nextRole } : curr)),
       );
-    } catch (updateError) {
-      const message = updateError instanceof Error ? updateError.message : 'Unable to update user role.';
-      setError(message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to update user role.');
     } finally {
       setUpdatingUid(null);
+    }
+  };
+
+  // Handler: Atomic Increment/Decrement Adjustments
+  const handleModifyStock = async (itemId: string, delta: number) => {
+    setActionItemRef(itemId);
+    setError(null);
+    setSuccess(null);
+    try {
+      const itemDoc = doc(db, 'inventory', itemId);
+      await updateDoc(itemDoc, {
+        current_quantity: increment(delta)
+      });
+    } catch (err) {
+      setError("Failed to execute database stock update adjustment.");
+    } finally {
+      setActionItemRef(null);
+    }
+  };
+
+  // Handler: Register/Provision a Brand New Stock Category
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    const sanitizedId = newStockId.trim().toUpperCase().replace(/\s+/g, '_');
+    const sanitizedLabel = newStockLabel.trim();
+    const parsedQty = parseInt(newStockQty) || 0;
+
+    if (!sanitizedId || !sanitizedLabel) {
+      setError("Please supply a valid alphanumeric Stock Category ID and descriptive label.");
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'inventory', sanitizedId);
+      await setDoc(docRef, {
+        label: sanitizedLabel,
+        current_quantity: parsedQty
+      });
+      setSuccess(`Successfully provisioned new stock category: "${sanitizedLabel}"`);
+      setNewStockId('');
+      setNewStockLabel('');
+      setNewStockQuantity('0');
+    } catch (err) {
+      setError("Failed to establish new category document record.");
     }
   };
 
@@ -85,89 +162,242 @@ export function AdminPanel() {
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="h-2 bg-gradient-to-r from-slate-900 via-teal-600 to-emerald-400" />
       <div className="p-4 sm:p-6">
+
+        {/* HEADER INFORMATION SYSTEM */}
         <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-widest text-teal-700">Role-based access control</p>
+            <p className="text-xs font-black uppercase tracking-widest text-teal-700">Central Hub Administration</p>
             <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
-              Admin User Management
+              System Command Console
             </h2>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Promote or restrict accounts by assigning operational roles from the Firestore users collection.
+              Manage local security access parameters or override core logistics warehouse balances live.
             </p>
           </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center">
-            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Tracked users</p>
-            <p className="text-3xl font-black text-slate-950">{users.length}</p>
+
+          {/* ADMIN ACTION SUB-TAB CONTROLLERS */}
+          <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setAdminTab('users')}
+              className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+                adminTab === 'users' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              👥 User Access
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdminTab('inventory')}
+              className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+                adminTab === 'inventory' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              📦 Stock Levels
+            </button>
           </div>
         </div>
 
-        {error ? (
+        {/* FEEDBACK BANNERS */}
+        {error && (
           <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            {error}
+            ⚠️ {error}
           </div>
-        ) : null}
+        )}
+        {success && (
+          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+            ✓ {success}
+          </div>
+        )}
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-widest text-slate-500">
-                <tr>
-                  <th className="px-5 py-4">User ID (UID)</th>
-                  <th className="px-5 py-4">Email Address</th>
-                  <th className="px-5 py-4">Current Role</th>
-                  <th className="px-5 py-4 text-right">Role Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {loading ? (
+        {/* ─── TAB VIEWPORT A: ROLE MANAGEMENT ─── */}
+        {adminTab === 'users' && (
+          <div className="overflow-hidden rounded-2xl border border-slate-200">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-widest text-slate-500">
                   <tr>
-                    <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={4}>
-                      Loading Firestore user roles...
-                    </td>
+                    <th className="px-5 py-4">User ID (UID)</th>
+                    <th className="px-5 py-4">Email Address</th>
+                    <th className="px-5 py-4">Current Role</th>
+                    <th className="px-5 py-4 text-right">Role Action</th>
                   </tr>
-                ) : users.length === 0 ? (
-                  <tr>
-                    <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={4}>
-                      No users found in the Firestore users collection.
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((user) => (
-                    <tr key={user.uid} className="transition-colors hover:bg-slate-50">
-                      <td className="min-w-0 px-5 py-4">
-                        <p className="break-all font-mono text-xs font-bold text-slate-500">{user.uid}</p>
-                      </td>
-                      <td className="min-w-0 px-5 py-4">
-                        <p className="break-words font-black text-slate-950">{user.email}</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${roleBadgeClass[user.role]}`}
-                        >
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <select
-                          value={user.role}
-                          onChange={(event) => void handleRoleChange(user, event.target.value as UserRole)}
-                          disabled={updatingUid === user.uid}
-                          className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-bold text-white shadow-sm outline-none transition-all hover:bg-emerald-600 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-                        >
-                          {roleOptions.map((role) => (
-                            <option key={role} value={role}>
-                              {updatingUid === user.uid ? 'Updating...' : role}
-                            </option>
-                          ))}
-                        </select>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {usersLoading ? (
+                    <tr>
+                      <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={4}>
+                        Loading Firestore user roles...
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td className="px-5 py-10 text-center font-semibold text-slate-400" colSpan={4}>
+                        No users found in the Firestore users collection.
+                      </td>
+                    </tr>
+                  ) : (
+                    users.map((user) => (
+                      <tr key={user.uid} className="transition-colors hover:bg-slate-50">
+                        <td className="min-w-0 px-5 py-4">
+                          <p className="break-all font-mono text-xs font-bold text-slate-500">{user.uid}</p>
+                        </td>
+                        <td className="min-w-0 px-5 py-4">
+                          <p className="break-words font-black text-slate-950">{user.email}</p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-wide ${roleBadgeClass[user.role]}`}>
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <select
+                            value={user.role}
+                            onChange={(event) => void handleRoleChange(user, event.target.value as UserRole)}
+                            disabled={updatingUid === user.uid}
+                            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-bold text-white shadow-sm outline-none transition-all hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                          >
+                            {roleOptions.map((role) => (
+                              <option key={role} value={role}>
+                                {updatingUid === user.uid ? 'Updating...' : role}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* ─── TAB VIEWPORT B: INVENTORY MANAGEMENT ─── */}
+        {adminTab === 'inventory' && (
+          <div className="grid gap-6 lg:grid-cols-3">
+
+            {/* SUB-SECTION 1: CATEGORY PROVISIONING FORM */}
+            <div className="border border-slate-200 bg-slate-50/50 rounded-2xl p-5 h-fit">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-1">Provision Stock Category</h3>
+              <p className="text-xs text-slate-500 mb-4 font-medium">Add a brand-new item class directly to the dynamic storage ledger matrix.</p>
+
+              <form onSubmit={handleCreateCategory} className="space-y-3.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Stock Category Key Code (ID)
+                  <input
+                    type="text"
+                    value={newStockId}
+                    onChange={(e) => setNewStockId(e.target.value)}
+                    placeholder="e.g. BREAKFAST_CEREAL"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 uppercase outline-none focus:border-emerald-500"
+                    required
+                  />
+                </label>
+
+                <label className="block text-xs font-bold text-slate-700">
+                  Descriptive Label Name
+                  <input
+                    type="text"
+                    value={newStockLabel}
+                    onChange={(e) => setNewStockLabel(e.target.value)}
+                    placeholder="e.g. Weetabix & Cereal Boxes"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500"
+                    required
+                  />
+                </label>
+
+                <label className="block text-xs font-bold text-slate-700">
+                  Initial Opening Units Count
+                  <input
+                    type="number"
+                    min="0"
+                    value={newStockQty}
+                    onChange={(e) => setNewStockQuantity(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500"
+                    required
+                  />
+                </label>
+
+                <button
+                  type="submit"
+                  className="w-full mt-2 rounded-xl bg-slate-950 hover:bg-emerald-600 font-bold text-xs uppercase tracking-wider text-white py-2.5 shadow-sm transition-all"
+                >
+                  Deploy Category Node
+                </button>
+              </form>
+            </div>
+
+            {/* SUB-SECTION 2: QUANTITY ADJUSTMENT LEDGER CONTROL PANEL */}
+            <div className="lg:col-span-2 border border-slate-200 rounded-2xl overflow-hidden">
+              <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Active Warehouse Allocations</h3>
+              </div>
+
+              {inventoryLoading ? (
+                <div className="text-center py-12 font-semibold text-slate-400 text-sm">Synchronizing real-time item rows...</div>
+              ) : inventory.length === 0 ? (
+                <div className="text-center py-12 font-semibold text-slate-400 text-sm">No live warehouse document nodes provisioned.</div>
+              ) : (
+                <div className="divide-y divide-slate-100 bg-white">
+                  {inventory.map((item) => (
+                    <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3 transition-colors hover:bg-slate-50/50">
+                      <div>
+                        <code className="text-[10px] font-mono font-bold text-slate-400 block tracking-tight uppercase">NODE: {item.id}</code>
+                        <h4 className="text-sm font-black text-slate-900 mt-0.5 tracking-tight">{item.label}</h4>
+                        <div className="mt-1.5 flex items-center gap-2">
+                          <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${
+                            item.current_quantity === 0 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-800'
+                          }`}>
+                            {item.current_quantity} units stored
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* QUICK CLICK DISPATCH INTEGRATIONS */}
+                      <div className="flex items-center gap-1.5 self-end sm:self-center">
+                        <button
+                          type="button"
+                          onClick={() => void handleModifyStock(item.id, -10)}
+                          disabled={actionItemRef === item.id || item.current_quantity < 10}
+                          className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-red-600 hover:text-white disabled:opacity-40 transition-all"
+                        >
+                          -10
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleModifyStock(item.id, -1)}
+                          disabled={actionItemRef === item.id || item.current_quantity === 0}
+                          className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-red-500 hover:text-white disabled:opacity-40 transition-all"
+                        >
+                          -1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleModifyStock(item.id, 1)}
+                          disabled={actionItemRef === item.id}
+                          className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-emerald-600 hover:text-white disabled:opacity-40 transition-all"
+                        >
+                          +1
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleModifyStock(item.id, 10)}
+                          disabled={actionItemRef === item.id}
+                          className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-emerald-600 hover:text-white disabled:opacity-40 transition-all"
+                        >
+                          +10
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
       </div>
     </section>
   );
