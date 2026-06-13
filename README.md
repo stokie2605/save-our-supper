@@ -10,6 +10,41 @@ A full-stack, highly reactive community foodbank support and localized food-wast
 
 ## Latest Implementation Update
 
+### Foodbank Infrastructure Modularization
+
+The warehouse and referral workflow screens have been split out of the main application shell into standalone real-time infrastructure components.
+
+Architectural notes:
+
+- `LiveInventory` now lives in `src/components/foodbank/LiveInventory.tsx`.
+- `ReferralQueue` now lives in `src/components/foodbank/ReferralQueue.tsx`.
+- Both components are decoupled from the main `src/App.tsx` shell so `App.tsx` only handles routing, top-level view selection, and shared session/profile state.
+- `LiveInventory` listens directly to the Firestore `inventory` collection with `onSnapshot(...)` and renders live warehouse balances as independent stock cards.
+- `ReferralQueue` listens directly to the Firestore `referral_vouchers` collection with `onSnapshot(...)`, filtering active operational vouchers through the `Pending Contact` and `Packing` statuses.
+- This keeps live Firestore stream ownership close to the screen that renders the data, reducing state coupling and making the dashboard easier to maintain.
+
+Resolved build snags:
+
+- Strict TypeScript compilation with `verbatimModuleSyntax` required type-only imports for interfaces.
+- The referral queue build issue was resolved by enforcing type-only import syntax:
+  ```typescript
+  import { type ReferralVoucher } from '../../types/foodbank';
+  ```
+- This keeps runtime imports and erased TypeScript-only symbols separated correctly during Vite/TypeScript compilation.
+
+Resolved circular mismatch:
+
+- A module mismatch appeared between `src/App.tsx` and `src/components/foodbank/ReferralQueue.tsx` after the referral queue was converted into a standalone component.
+- The issue came from named/default export alignment: `App.tsx` was importing the component as a named export while the component file exposed a default export.
+- The fix was to align both sides around a default component export/import:
+  ```typescript
+  export default function ReferralQueue() {}
+  import ReferralQueue from './components/foodbank/ReferralQueue';
+  ```
+- The same modular pattern is now used for `LiveInventory`, keeping both foodbank workflow screens consistent.
+
+---
+
 ### Production Environment And Atomic Transaction Verification
 
 The current production environment has been cleaned and verified around one active Firebase project.
