@@ -63,9 +63,9 @@ If a category document does not exist yet in Firestore, the donation intake tran
 
 Volunteer and administrator screens are protected by `AuthGuard`, which checks the current signed-in user before showing food bank operations tools.
 
-The guard now waits for role verification before rendering any access-denied message. It first checks the Firestore `users` document by user ID, then tries a matching email lookup so production sessions can still resolve the correct role if the stored document ID and session ID differ.
+The guard now waits for role verification before rendering any access-denied message. It checks the Firestore `users/{uid}` document directly by the current signed-in user's ID and normalizes the stored role value before comparing it against the allowed roles.
 
-Firestore rules allow read access to user role records for verification, while user role creation, updates, and deletion remain restricted to the administrator rule.
+Firestore rules allow direct `get` access to individual user role records for verification, while collection `list` access is denied and user role creation, updates, and deletion remain restricted to the administrator rule.
 
 ## Core Screens
 

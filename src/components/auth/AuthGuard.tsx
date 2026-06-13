@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
@@ -61,7 +61,7 @@ export function AuthGuard({
     async function checkUserRole() {
       const normalizedFallbackEmail = normalizeEmail(fallbackEmail);
 
-      if (!uid && !normalizedFallbackEmail) {
+      if (!uid) {
         setGuardState({
           status: 'checking',
           profile: null,
@@ -79,32 +79,12 @@ export function AuthGuard({
       });
 
       try {
-        let profile: UserProfile | null = null;
-
-        if (uid) {
-          const userSnapshot = await getDoc(doc(db, 'users', uid));
-          if (!isMounted) return;
-
-          if (userSnapshot.exists()) {
-            profile = normalizeUserProfile(uid, userSnapshot.data(), normalizedFallbackEmail);
-          }
-        }
-
-        if (!profile && normalizedFallbackEmail) {
-          const usersByEmailQuery = query(
-            collection(db, 'users'),
-            where('email', '==', normalizedFallbackEmail),
-          );
-          const usersByEmailSnapshot = await getDocs(usersByEmailQuery);
-          if (!isMounted) return;
-
-          const matchedUser = usersByEmailSnapshot.docs[0];
-          if (matchedUser) {
-            profile = normalizeUserProfile(matchedUser.id, matchedUser.data(), normalizedFallbackEmail);
-          }
-        }
-
+        const userSnapshot = await getDoc(doc(db, 'users', uid));
         if (!isMounted) return;
+
+        const profile = userSnapshot.exists()
+          ? normalizeUserProfile(uid, userSnapshot.data(), normalizedFallbackEmail)
+          : null;
 
         if (!profile) {
           setGuardState({
