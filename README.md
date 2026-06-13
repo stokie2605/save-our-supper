@@ -59,6 +59,14 @@ The database keys remain normalized in snake_case, such as `breakfast_cereals`, 
 
 If a category document does not exist yet in Firestore, the donation intake transaction now creates it automatically on first use. This lets a new hub start from an empty `inventory` collection and safely build its stock records as real donations are logged.
 
+## Access Verification
+
+Volunteer and administrator screens are protected by `AuthGuard`, which checks the current signed-in user before showing food bank operations tools.
+
+The guard now waits for role verification before rendering any access-denied message. It first checks the Firestore `users` document by user ID, then tries a matching email lookup so production sessions can still resolve the correct role if the stored document ID and session ID differ.
+
+Firestore rules allow read access to user role records for verification, while user role creation, updates, and deletion remain restricted to the administrator rule.
+
 ## Core Screens
 
 - `LiveInventory` shows current food bank stock levels.

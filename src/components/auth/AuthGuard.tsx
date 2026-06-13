@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
@@ -17,6 +17,10 @@ type GuardState =
   | { status: 'denied'; profile: UserProfile | null; error: string | null };
 
 const defaultAllowedRoles: readonly UserRole[] = ['volunteer', 'admin'];
+
+function normalizeEmail(email?: string | null) {
+  return email?.trim().toLowerCase() ?? null;
+}
 
 function normalizeUserProfile(uid: string, data: unknown, fallbackEmail?: string | null): UserProfile | null {
   if (!data || typeof data !== 'object') {
@@ -55,7 +59,9 @@ export function AuthGuard({
     let isMounted = true;
 
     async function checkUserRole() {
-      if (!uid) {
+      const normalizedFallbackEmail = normalizeEmail(fallbackEmail);
+
+      if (!uid && !normalizedFallbackEmail) {
         setGuardState({
           status: 'checking',
           profile: null,
@@ -73,12 +79,34 @@ export function AuthGuard({
       });
 
       try {
-        const userSnapshot = await getDoc(doc(db, 'users', uid));
+        let profile: UserProfile | null = null;
+
+        if (uid) {
+          const userSnapshot = await getDoc(doc(db, 'users', uid));
+          if (!isMounted) return;
+
+          if (userSnapshot.exists()) {
+            profile = normalizeUserProfile(uid, userSnapshot.data(), normalizedFallbackEmail);
+          }
+        }
+
+        if (!profile && normalizedFallbackEmail) {
+          const usersByEmailQuery = query(
+            collection(db, 'users'),
+            where('email', '==', normalizedFallbackEmail),
+          );
+          const usersByEmailSnapshot = await getDocs(usersByEmailQuery);
+          if (!isMounted) return;
+
+          const matchedUser = usersByEmailSnapshot.docs[0];
+          if (matchedUser) {
+            profile = normalizeUserProfile(matchedUser.id, matchedUser.data(), normalizedFallbackEmail);
+          }
+        }
+
         if (!isMounted) return;
 
-        const profile = normalizeUserProfile(uid, userSnapshot.data(), fallbackEmail);
-
-        if (!userSnapshot.exists() || !profile) {
+        if (!profile) {
           setGuardState({
             status: 'denied',
             profile: null,
@@ -95,6 +123,7 @@ export function AuthGuard({
       } catch (error) {
         if (!isMounted) return;
         const message = error instanceof Error ? error.message : 'Unable to verify your access role.';
+        console.error('Role verification failed:', message);
         setGuardState({ status: 'denied', profile: null, error: message });
       }
     }
