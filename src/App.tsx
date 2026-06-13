@@ -6,7 +6,7 @@ import { UserPostList } from './components/UserPostList';
 import { AdminPanel as RoleAdminPanel } from './components/admin/AdminPanel';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { IntakePortal } from './components/foodbank/IntakePortal';
-import { ReferralQueue } from './components/foodbank/ReferralQueue';
+import ReferralQueue from './components/foodbank/ReferralQueue';
 import {
   claimFirebaseSupper as claimSupper,
   completeFirebaseClaim as completeClaim,
