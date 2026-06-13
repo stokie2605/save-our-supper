@@ -1,4 +1,11 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { AppShell } from './components/AppShell';
 import { ExpiryCountdown } from './components/ExpiryCountdown';
 import { FoodMap } from './components/FoodMap';
@@ -22,17 +29,7 @@ import {
   getCoordinatesFromPostcode,
   type Post,
 } from './lib/posts';
-import { supabase } from './lib/supabase';
-
-interface ReferralVoucher {
-  id: string;
-  client_reference: string;
-  issued_by: string;
-  parcel_type: string;
-  status: 'active' | 'fulfilled' | 'expired';
-  location: string;
-  created_at: string;
-}
+import { db, firebaseAuth } from './lib/firebaseConfig';
 
 interface UserProfile {
   id: string;
@@ -42,8 +39,24 @@ interface UserProfile {
   contact_phone: string | null;
 }
 
+type AppSession = {
+  user: {
+    id: string;
+    email: string | null;
+  };
+};
+
+type UserProfileDocument = Partial<UserProfile> & {
+  organizationName?: string;
+  primaryLocation?: string;
+  contactPhone?: string | null;
+  role?: string | string[];
+  roles?: string[];
+  isAdmin?: boolean;
+};
+
 type FeedFilter = 'all' | 'surplus' | 'need' | 'my-posts' | 'my-claims';
-type ActiveView = 'feed' | 'inventory' | 'referrals' | 'settings' | 'admin';
+type ActiveView = 'feed' | 'inventory' | 'settings' | 'admin';
 type DashboardTab = 'find-food' | 'my-claims' | 'my-listings';
 type SystemMessage = { type: 'success' | 'error'; text: string } | null;
 
@@ -124,7 +137,7 @@ const getDistanceLabel = (post: Post, coordinates: { lat: number; lon: number })
 };
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<AppSession | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [, setProfileLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -154,8 +167,6 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [activeView, setActiveView] = useState<ActiveView>('feed');
-  const [referrals, setReferrals] = useState<ReferralVoucher[]>([]);
-  const [referralsLoading, setReferralsLoading] = useState(true);
 
   const [settingsOrgName, setSettingsOrgName] = useState('');
   const [settingsPhone, setSettingsPhone] = useState('');
@@ -166,27 +177,48 @@ export default function App() {
   const [seedMessage, setSeedMessage] = useState('');
   const feedRequestIdRef = useRef(0);
 
-  const fetchUserProfile = async (userId: string) => {
+  const fetchUserProfile = async (userId: string, fallbackEmail?: string | null) => {
     setProfileLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (!error && data) {
-        setProfile(data as UserProfile);
-        setSettingsOrgName(data.organization_name);
-        setSettingsPhone(data.contact_phone || '');
-        setSettingsLocation(data.primary_location || 'Alsager');
-        if (data.primary_location) {
-          getCoordinatesFromPostcode(data.primary_location)
+      const userSnapshot = await getDoc(doc(db, 'users', userId));
+
+      if (userSnapshot.exists()) {
+        const data = userSnapshot.data() as UserProfileDocument;
+        const rawRoles = Array.isArray(data.roles) ? data.roles : Array.isArray(data.role) ? data.role : [data.role];
+        const isAdminProfile =
+          data.isAdmin === true ||
+          rawRoles.some((role) => String(role).toLowerCase().trim() === 'admin');
+        const normalizedProfile: UserProfile = {
+          id: userId,
+          organization_name:
+            data.organization_name ?? data.organizationName ?? (isAdminProfile ? 'Alsager Central Hub' : 'Community member'),
+          tier: data.tier ?? (isAdminProfile ? 'distribution_hub' : 'grassroots_partner'),
+          primary_location: data.primary_location ?? data.primaryLocation ?? 'ST7',
+          contact_phone: data.contact_phone ?? data.contactPhone ?? null,
+        };
+
+        setProfile(normalizedProfile);
+        setSettingsOrgName(normalizedProfile.organization_name);
+        setSettingsPhone(normalizedProfile.contact_phone || '');
+        setSettingsLocation(normalizedProfile.primary_location);
+        if (normalizedProfile.primary_location) {
+          getCoordinatesFromPostcode(normalizedProfile.primary_location)
             .then(setUserCoordinates)
             .catch((err) => console.error('Error geocoding profile location:', err));
         }
       } else {
-        setProfile(null);
+        const fallbackProfile: UserProfile = {
+          id: userId,
+          organization_name: fallbackEmail === 'stokie2605@gmail.com' ? 'Alsager Central Hub' : 'Community member',
+          tier: fallbackEmail === 'stokie2605@gmail.com' ? 'distribution_hub' : 'grassroots_partner',
+          primary_location: 'ST7',
+          contact_phone: null,
+        };
+
+        setProfile(fallbackProfile);
+        setSettingsOrgName(fallbackProfile.organization_name);
+        setSettingsPhone('');
+        setSettingsLocation(fallbackProfile.primary_location);
       }
     } catch (err) {
       console.error('Error getting organization profile details:', err);
@@ -196,45 +228,22 @@ export default function App() {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) {
-        fetchUserProfile(data.session.user.id);
-      }
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
+      if (user) {
+        setSession({
+          user: {
+            id: user.uid,
+            email: user.email,
+          },
+        });
+        void fetchUserProfile(user.uid, user.email);
       } else {
+        setSession(null);
         setProfile(null);
       }
     });
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    async function fetchReferrals() {
-      try {
-        const { data, error } = await supabase
-          .from('referrals')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-        setReferrals(data || []);
-      } catch (err) {
-        console.error('Error fetching referrals:', err);
-      } finally {
-        setReferralsLoading(false);
-      }
-    }
-
-    fetchReferrals();
+    return unsubscribe;
   }, []);
 
   useEffect(() => {
@@ -275,14 +284,15 @@ export default function App() {
       return;
     }
 
+    const userId = session.user.id;
     let isMounted = true;
 
     async function fetchUserDashboardPosts() {
       setUserPostsLoading(true);
       try {
         const [claimsResult, listingsResult] = await Promise.all([
-          fetchPostsByReceiver(session.user.id),
-          fetchPostsByDonor(session.user.id),
+          fetchPostsByReceiver(userId),
+          fetchPostsByDonor(userId),
         ]);
 
         if (!isMounted) return;
@@ -303,20 +313,8 @@ export default function App() {
 
     void fetchUserDashboardPosts();
 
-    const channel = supabase
-      .channel('user-post-dashboard')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'posts' },
-        () => {
-          void fetchUserDashboardPosts();
-        },
-      )
-      .subscribe();
-
     return () => {
       isMounted = false;
-      void supabase.removeChannel(channel);
     };
   }, [session?.user?.id]);
 
@@ -359,6 +357,8 @@ export default function App() {
 
   const handleSubmitListing = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!session?.user?.id) return;
+    const userId = session.user.id;
     setIsSubmitting(true);
     const sanitizedLocation = formState.location.trim().replace(/\s+/g, ' ').toUpperCase();
     const postcode = sanitizedLocation.slice(0, 10) || defaultPostLocation.postcode;
@@ -373,7 +373,7 @@ export default function App() {
         postcode,
         lat: coordinates.lat,
         lon: coordinates.lon,
-        donor_id: session.user.id,
+        donor_id: userId,
         category: formState.category,
         urgency: formState.urgency,
         board_type: 'foodbank_broadcast',
@@ -396,6 +396,7 @@ export default function App() {
       setSystemMessage({ type: 'error', text: 'Please sign in before sharing a community update.' });
       return;
     }
+    const userId = session.user.id;
 
     const trimmedText = communityPostText.trim();
     if (!trimmedText) {
@@ -422,7 +423,7 @@ export default function App() {
         postcode: locationLabel || defaultPostLocation.postcode,
         lat: coordinates.lat,
         lon: coordinates.lon,
-        donor_id: session.user.id,
+        donor_id: userId,
         category: communityUpdateCategory,
         urgency: 'low',
         board_type: 'citizen_post',
@@ -442,18 +443,20 @@ export default function App() {
   };
 
   const handleClaimListing = async (itemId: string) => {
+    if (!session?.user?.id) return;
+    const userId = session.user.id;
     setLoadingPostId(itemId);
     setSystemMessage(null);
 
     try {
-      await claimSupper(itemId, session.user.id);
+      await claimSupper(itemId, userId);
       const claimedPost = posts.find((post) => post.id === itemId);
 
       if (claimedPost) {
         const updatedClaim: Post = {
           ...claimedPost,
           status: 'claimed',
-          receiver_id: session.user.id,
+          receiver_id: userId,
         };
         setMyClaims((current) => [updatedClaim, ...current.filter((post) => post.id !== itemId)]);
         setMyListings((current) => current.map((post) => (post.id === itemId ? updatedClaim : post)));
@@ -478,12 +481,13 @@ export default function App() {
       setSystemMessage({ type: 'error', text: 'Please sign in before completing a claimed post.' });
       return;
     }
+    const userId = session.user.id;
 
     setCompletingPostId(itemId);
     setSystemMessage(null);
 
     try {
-      await completeClaim(itemId, session.user.id);
+      await completeClaim(itemId, userId);
       const markCompleted = (post: Post): Post => ({ ...post, status: 'completed' });
       setMyClaims((current) => current.map((post) => (post.id === itemId ? markCompleted(post) : post)));
       setMyListings((current) => current.map((post) => (post.id === itemId ? markCompleted(post) : post)));
@@ -501,20 +505,16 @@ export default function App() {
   const handleUpdateSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!session?.user?.id) return;
+    const userId = session.user.id;
     setIsSavingSettings(true);
     setSettingsSuccess(false);
 
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          organization_name: settingsOrgName.trim(),
-          contact_phone: settingsPhone.trim() || null,
-          primary_location: settingsLocation.trim()
-        })
-        .eq('id', session.user.id);
-
-      if (error) throw error;
+      await updateDoc(doc(db, 'users', userId), {
+        organization_name: settingsOrgName.trim(),
+        contact_phone: settingsPhone.trim() || null,
+        primary_location: settingsLocation.trim(),
+      });
       
       setSettingsSuccess(true);
       setProfile(prev => prev ? {
@@ -543,33 +543,27 @@ export default function App() {
           throw new Error('Please enter your postcode or local area.');
         }
 
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { primary_location: cleanedLocation } },
-        });
+        const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        const isAdminEmail = credential.user.email?.toLowerCase() === 'stokie2605@gmail.com';
 
-        if (error) throw error;
-
-        if (data.user) {
-          const { error: profileError } = await supabase.from('profiles').upsert({
-            id: data.user.id,
+        await setDoc(doc(db, 'users', credential.user.uid), {
+            uid: credential.user.uid,
+            email: credential.user.email,
+            role: isAdminEmail ? 'admin' : 'user',
+            roles: [isAdminEmail ? 'admin' : 'user'],
+            isAdmin: isAdminEmail,
             organization_name: 'Community member',
-            tier: 'grassroots_partner',
+            tier: isAdminEmail ? 'distribution_hub' : 'grassroots_partner',
             primary_location: cleanedLocation,
             contact_phone: null,
-          });
-
-          if (profileError) throw profileError;
+          }, { merge: true });
 
           setSettingsLocation(cleanedLocation);
           getCoordinatesFromPostcode(cleanedLocation)
             .then(setUserCoordinates)
             .catch((err) => console.error('Error geocoding registration location:', err));
-        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        await signInWithEmailAndPassword(firebaseAuth, email, password);
       }
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
@@ -577,15 +571,17 @@ export default function App() {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut(firebaseAuth);
   };
 
   const handleSeedFirebasePosts = async () => {
+    if (!session?.user?.id) return;
+    const userId = session.user.id;
     setIsSeedingFirebase(true);
     setSeedMessage('Seeding 45 Firebase listings across Alsager, Crewe, Stoke-on-Trent, and Kidsgrove...');
 
     try {
-      const createdCount = await seedFirebasePosts(session.user.id);
+      const createdCount = await seedFirebasePosts(userId);
       const refreshedPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], searchRadiusMiles);
       setPosts(refreshedPosts);
       setSeedMessage(`Seed complete: ${createdCount} Firebase listings are now available.`);
@@ -1029,86 +1025,6 @@ export default function App() {
 
       {/* VIEW B: WAREHOUSE STOCK LEVELS */}
       {isHubManager && activeView === 'inventory' && <LiveInventory />}
-
-      {/* VIEW C: SECURE DIGITAL REFERRALS */}
-      {isHubManager && activeView === 'referrals' && (
-        <div className="min-w-0 rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs sm:p-6">
-          <div className="mb-6 min-w-0">
-            <h2 className="break-words text-2xl font-bold text-brand-forest">Digital Referral Desk</h2>
-            <p className="mb-6 break-words text-sm text-slate-500">Secure interface for foodbank volunteers to verify and process authenticated agency vouchers.</p>
-          </div>
-          
-          {referralsLoading ? (
-            <div className="text-center py-12 text-slate-400 font-medium">Loading referral vouchers...</div>
-          ) : referrals.length === 0 ? (
-            <div className="bg-white border border-dashed border-slate-300 rounded-2xl text-center py-12 px-4 text-slate-400">
-              <p className="font-medium text-lg">No active referral vouchers queued.</p>
-              <p className="text-xs mt-1">Vouchers issued by local councils or care agencies will appear here securely.</p>
-            </div>
-          ) : (
-            <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-              {referrals.map((voucher) => {
-                const isFulfilled = voucher.status === 'fulfilled';
-                const dateIssued = new Date(voucher.created_at).toLocaleDateString('en-GB');
-
-                return (
-                  <div key={voucher.id} className={`min-w-0 rounded-xl border p-4 transition-all ${
-                    isFulfilled 
-                      ? 'border-slate-200 bg-slate-50 opacity-70' 
-                      : 'border-brand-slateSoft bg-white shadow-xs'
-                  }`}>
-                    <div className="mb-3 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Voucher ID</span>
-                        <code className="inline-block max-w-full break-all rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-bold text-slate-700">
-                          {voucher.id.substring(0, 8)}...
-                        </code>
-                      </div>
-                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-md border ${
-                        isFulfilled
-                          ? 'bg-slate-100 text-slate-600 border-slate-300'
-                          : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      }`}>
-                        {voucher.status.toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div className="mb-4 min-w-0 space-y-1 break-words text-sm text-slate-700">
-                      <p>👤 <strong>Client Ref:</strong> {voucher.client_reference}</p>
-                      <p>🏢 <strong>Issued By:</strong> {voucher.issued_by}</p>
-                      <p>📦 <strong>Parcel Type:</strong> {voucher.parcel_type}</p>
-                      <p>📍 <strong>Collection Hub:</strong> {voucher.location}</p>
-                      <p className="text-xs text-slate-400 pt-1">📅 Issued on: {dateIssued}</p>
-                    </div>
-
-                    {!isFulfilled && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const { error } = await supabase.rpc('fulfill_voucher_with_stock', {
-                              voucher_id: voucher.id,
-                              parcel_type: voucher.parcel_type
-                            });
-                            if (error) throw error;
-                            setReferrals(prev => prev.map(v => v.id === voucher.id ? { ...v, status: 'fulfilled' } : v));
-                          } catch (err) {
-                            console.error('Error fulfilling voucher with live deduction:', err);
-                          }
-                        }}
-                        className="w-full bg-brand-forest hover:bg-opacity-90 text-white font-semibold py-2 px-4 rounded-xl text-xs transition-all text-center block"
-                      >
-                        Fulfill & Hand Over Parcel
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* VIEW D: RENDER PROFILE SETTINGS VIEWPORT PANEL */}
       {activeView === 'settings' && (
         <div className="mx-auto min-w-0 max-w-xl rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs sm:p-6">

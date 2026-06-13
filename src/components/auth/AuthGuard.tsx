@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useState } from 'react';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../lib/firebaseConfig';
+import { db, firebaseAuth } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
 type AuthGuardProps = {
@@ -46,8 +47,8 @@ function normalizeUserProfile(uid: string, data: unknown, fallbackEmail?: string
     return null;
   }
 
-  const profileData = data as Partial<UserProfile> & { role?: unknown };
-  const role = normalizeRoleValue(profileData.role);
+  const profileData = data as Partial<UserProfile> & { role?: unknown; roles?: unknown; isAdmin?: unknown };
+  const role = profileData.isAdmin === true ? 'admin' : normalizeRoleValue(profileData.role ?? profileData.roles);
 
   if (!role) {
     return null;
@@ -67,6 +68,7 @@ export function AuthGuard({
   onAccessDenied,
   children,
 }: AuthGuardProps) {
+  const [authUser, setAuthUser] = useState<User | null>(firebaseAuth.currentUser);
   const [guardState, setGuardState] = useState<GuardState>({
     status: 'checking',
     profile: null,
@@ -74,13 +76,16 @@ export function AuthGuard({
     message: 'Verifying credentials...',
   });
 
+  useEffect(() => onAuthStateChanged(firebaseAuth, setAuthUser), []);
+
   useEffect(() => {
     let isMounted = true;
 
     async function checkUserRole() {
-      const normalizedFallbackEmail = normalizeEmail(fallbackEmail);
+      const effectiveUid = authUser?.uid ?? uid;
+      const normalizedFallbackEmail = normalizeEmail(authUser?.email ?? fallbackEmail);
 
-      if (!uid) {
+      if (!effectiveUid) {
         setGuardState({
           status: 'checking',
           profile: null,
@@ -98,11 +103,11 @@ export function AuthGuard({
       });
 
       try {
-        const userSnapshot = await getDoc(doc(db, 'users', uid));
+        const userSnapshot = await getDoc(doc(db, 'users', effectiveUid));
         if (!isMounted) return;
 
         const profile = userSnapshot.exists()
-          ? normalizeUserProfile(uid, userSnapshot.data(), normalizedFallbackEmail)
+          ? normalizeUserProfile(effectiveUid, userSnapshot.data(), normalizedFallbackEmail)
           : null;
 
         if (!profile) {
@@ -132,7 +137,7 @@ export function AuthGuard({
     return () => {
       isMounted = false;
     };
-  }, [allowedRoles, fallbackEmail, uid]);
+  }, [allowedRoles, authUser?.email, authUser?.uid, fallbackEmail, uid]);
 
   useEffect(() => {
     if (guardState.status !== 'denied' || !onAccessDenied) return;

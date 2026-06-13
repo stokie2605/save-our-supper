@@ -8,90 +8,101 @@ It helps local teams manage crisis food provisions clearly, without warehouse ja
 
 ---
 
-## Architectural Layout & Auth Bridge
+## Current Architecture
 
-Save Our Supper utilizes a decoupled, cross-platform architecture designed for flexible identity management and real-time document streaming:
+Save Our Supper now runs on a unified Firebase stack for both authentication and database access:
 
-* **Authentication Engine:** Managed independently via **Supabase Auth** on the frontend, which handles secure credentials and provides a 36-character UUID string for user sessions.
-* **Database Cloud:** Powered by **Google Cloud Firestore**, which processes real-time document streaming and data storage.
-* **The Profile Bridge:** User access permissions are bridged by matching the user's Firestore document name directly to their unique Supabase User ID.
+* **Authentication:** Native Firebase Authentication handles sign-in, sign-up, session tracking, and sign-out.
+* **Database:** Google Cloud Firestore stores food posts, stock records, intake receipts, referral vouchers, donation receipts, and user role documents.
+* **Hosting:** Firebase Hosting serves the production web app at `save-our-supper.web.app`.
+* **Access Model:** Firestore security rules now receive a real Firebase `request.auth` token, removing the previous cross-platform Supabase/Auth mismatch.
+
+The old Supabase frontend client has been removed from the application bundle. Firestore access now depends on native Firebase user sessions instead of temporary open prototype rules.
 
 ---
 
-## Access Verification & Role Evaluation
+## Authentication & Role Verification
 
-Volunteer and administrator screens are protected by a client-side `AuthGuard`, which intercepts the active session before showing food bank operations tools.
+Volunteer and administrator screens are protected by `AuthGuard`.
 
-The guard safely waits for asynchronous document fetching to resolve before rendering any access states. It queries the Firestore `users/{userId}` document directly using the authenticated user's active token ID.
+`AuthGuard` listens to Firebase Authentication with `onAuthStateChanged`, waits for the active Firebase user session, then reads the matching Firestore profile document at:
+
+```text
+users/{firebaseUser.uid}
+```
+
+The guard waits for the profile lookup to finish before rendering protected content. While verification is in progress, the interface shows a calm loading state instead of immediately falling through to an access denied screen.
 
 ### Role Standardization
-To eliminate silent routing blockages caused by profile formatting differences, `AuthGuard` normalizes and sanitizes the data payload prior to evaluations:
-* **Casing & Trimming:** Role strings are processed using `.toLowerCase().trim()`.
-* **Format Flexibility:** The parsing engine correctly processes flat strings (e.g., `admin`, `Admin`) as well as string wrappers nested inside document arrays (e.g., `["admin"]`).
-* **Access Validation:** If the sanitized role maps cleanly to `admin` or `volunteer`, the restricted operational and administrative hubs mount seamlessly.
+
+To avoid silent access failures caused by small data formatting differences, role evaluation is intentionally tolerant:
+
+* `role: "admin"` and `role: "Admin"` are both normalized.
+* `roles: ["admin"]` is also accepted.
+* `isAdmin: true` is treated as an administrator profile.
+* Role strings are trimmed and lowercased before comparison.
+
+Accepted operational roles are `volunteer` and `admin`. The Admin Panel is restricted to `admin` only.
 
 ---
 
-## Firestore Profile Document Schema
+## Firestore User Profile Schema
 
-To ensure compatibility with the `AuthGuard` query loops and administrative directory lists, every user document created inside the Firestore `users` collection must use the user's Supabase UUID string as its explicit Document ID.
+Every authenticated user should have a document in the root `users` collection where the document ID matches their Firebase Auth UID.
 
-The document profile must contain the following schema fields:
-
-| Field Name | Type | Sample Value | Description |
+| Field Name | Type | Example | Purpose |
 | :--- | :--- | :--- | :--- |
-| `uid` | `string` | `"a4bb3a1f-5933-4514-bc34-177b6f82e741"` | Matches the Supabase Auth identifier exactly. |
-| `email` | `string` | `"stokie2605@gmail.com"` | Used for identity logging and dashboard display. |
-| `role` | `string` | `"admin"` | Fallback role evaluations string. |
-| `roles` | `array (string)` | `["admin"]` | Array container parsed sequentially by the guard. |
-| `isAdmin` | `boolean` | `true` | Explicit Boolean flag for administrative layouts. |
+| `uid` | `string` | `firebase-user-uid` | Must match the Firebase Auth user ID. |
+| `email` | `string` | `stokie2605@gmail.com` | Used for identity display and admin checks. |
+| `role` | `string` | `admin` | Primary operational role. |
+| `roles` | `array<string>` | `["admin"]` | Optional compatibility role array. |
+| `isAdmin` | `boolean` | `true` | Optional explicit administrator flag. |
+| `organization_name` | `string` | `Alsager Central Hub` | Display name for the local hub or account. |
+| `tier` | `string` | `distribution_hub` | Operational account tier used by the interface. |
+| `primary_location` | `string` | `ST7` | Local postcode area for community routing. |
 
 ---
 
-## Security Rules Environment (Prototype Phase)
+## Backend Security Rules
 
-Because database document reads are triggered via client-side Supabase tokens rather than native Firebase credentials, Firestore's `request.auth` perimeter evaluates as `null`. 
+Firestore is now locked to native Firebase Authentication.
 
-To support seamless real-time snapshot streams across multi-platform boundaries during the prototype testing phase, a relaxed read environment is temporarily deployed:
+The temporary prototype rules that allowed open reads and writes have been removed. The current security posture is:
+
+* Users can read only their own profile document unless they are the verified admin.
+* Admins can list and manage user profiles.
+* Inventory, intakes, referral vouchers, and donation receipts require a signed-in Firebase user for reads.
+* Writes to operational collections are restricted to the admin email token.
+* Food posts require authentication for reads and creation.
+* Food post claiming is field-level restricted so a signed-in user can only move an available post to claimed using their own UID.
+* Food post completion is restricted so only the claiming user can mark their own claimed post as completed.
+* Deletions remain admin-only.
+
+The admin check is enforced server-side in `firestore.rules` using the Firebase Auth token email:
 
 ```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    
-    // 1. Public Feed Access
-    match /posts/{document} {
-      allow read, write: if true;
-    }
-
-    // 2. Open Operational Streams for Proto-testing
-    match /inventory/{document} { allow read, write: if true; }
-    match /intakes/{document} { allow read, write: if true; }
-    match /referral_vouchers/{document} { allow read, write: if true; }
-    match /donations_receipts/{document} { allow read, write: if true; }
-
-    // 3. Directory Views for Admin Management Table Layouts
-    match /users/{userId} {
-      allow get, list: if true; 
-      allow write: if true;     
-    }
-  }
+function isAdmin() {
+  return request.auth != null
+    && request.auth.token.email == "stokie2605@gmail.com";
 }
 ```
 
-> ⚠️ **Production Note:** Prior to moving out of prototype testing, these open rules must be locked down by migrating backend access to a unified authentication model or implementing a secure server-side JWT proxy verification layer.
+This means protected database access can no longer be bypassed by changing frontend code.
 
 ---
 
 ## Key Features
 
 ### Real-Time Food Bank Stock
+
 A welcoming live stock view shows what is currently available on the shelves. Food item names are displayed in plain English, such as *Breakfast Cereals*, *UHT Milk*, or *Tinned Meat*, rather than raw database codes like `breakfast_cereals`. The stock view updates from Firestore via real-time streams (`onSnapshot`), so adjustments populate instantly across panels without page refreshes.
 
 ### Simplified Donation Drop-Off Log
+
 The donation intake screen gives volunteers an easy way to record incoming items from supermarkets, community drop-off points, churches, local groups, cafes, and walk-in donors. Volunteers can quickly scale quantities for standard food bank categories. When a donation is logged, the system updates the matching stock record and writes a receipt for traceability.
 
 ### Referral Preparation Queue
+
 The referral queue helps teams prepare food parcels requested by trusted local partner agencies, such as schools, housing associations, health professionals, social care teams, and voluntary organisations. When a parcel is marked as fulfilled, the system safely deducts the required food items from live stock.
 
 ---
@@ -111,7 +122,7 @@ The app coordinates operations using ten normalized real-world food bank categor
 * Baby Items
 * Pet Food
 
-Database keys remain normalized in `snake_case` (e.g., `breakfast_cereals`, `uht_milk`) to ensure underlying integrity, while rendering friendly, human-readable labels to volunteers on the frontend interface.
+Database keys remain normalized in `snake_case` (for example, `breakfast_cereals` and `uht_milk`) to preserve data integrity, while the frontend renders friendly labels for volunteers.
 
 If a category document does not exist in Firestore, donation transactions initialize the category structure automatically on first use. This lets a new hub deploy from an empty `inventory` collection safely.
 
@@ -122,7 +133,8 @@ If a category document does not exist in Firestore, donation transactions initia
 * **`LiveInventory`** - Displays real-time hub provisions and shelf counts.
 * **`IntakePortal`** - Processes incoming community and corporate donations.
 * **`ReferralQueue`** - Tracks preparation, allocation, and client distribution streams.
-* **`AdminPanel`** - High-tier control panel for managing user profile roles and master food item registration.
+* **`AdminPanel`** - Admin control panel for user roles and master stock controls.
+* **`AuthGuard`** - Firebase-authenticated role gate for protected views.
 
 ---
 
@@ -146,7 +158,7 @@ npm run build
 The application build pipeline compiles into a static single-page web bundle deployed via Firebase Hosting infrastructure:
 
 ```bash
-# Compile and sync hosting assets
+# Compile and sync hosting assets and rules
 npm run build
-npx firebase-tools deploy --only hosting --project save-our-supper
+npx firebase-tools deploy --project save-our-supper
 ```

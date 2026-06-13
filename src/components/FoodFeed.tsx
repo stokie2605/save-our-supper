@@ -27,7 +27,7 @@ export function FoodFeed({ posts, loading, error, currentUserId, onReservePost }
     return (
       <div className="bg-white border border-dashed border-slate-300 rounded-2xl text-center py-16 px-4">
         <p className="text-slate-400 font-medium text-lg">No active food posts found.</p>
-        <p className="text-slate-400 text-sm mt-1">Your connection to Supabase is active and waiting for data.</p>
+        <p className="text-slate-400 text-sm mt-1">Your connection to Firebase Firestore is active and waiting for data.</p>
       </div>
     );
   }
