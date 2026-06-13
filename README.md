@@ -18,13 +18,13 @@ The system is built for people working in practical local settings: volunteers r
 
 A welcoming live stock view shows what is currently available on the shelves.
 
-Food item names are displayed in plain English, such as `Tinned Goods` or `Dairy Uht`, rather than raw database codes like `tinned_goods` or `DAIRY_UHT`. The stock view updates from Firestore in real time, so changes made during donation intake or parcel collection appear without refreshing the page.
+Food item names are displayed in plain English, such as `Breakfast Cereals`, `UHT Milk`, or `Tinned Meat`, rather than raw database codes like `breakfast_cereals` or `uht_milk`. The stock view updates from Firestore in real time, so changes made during donation intake or parcel collection appear without refreshing the page.
 
 ### Simplified Donation Drop-Off Log
 
 The donation intake screen gives volunteers an easy way to record incoming items from supermarkets, community drop-off points, churches, local groups, cafes, and walk-in donors.
 
-Volunteers can quickly add quantities for common categories such as tinned goods, UHT dairy, toiletries, cereal, and grains. When a donation is logged, the system updates the matching stock record and writes a receipt for traceability.
+Volunteers can quickly add quantities for common food bank categories such as breakfast cereals, UHT milk, tinned meat, tinned fish, soup, baked beans, pasta/rice, toiletries, baby items, and pet food. When a donation is logged, the system updates the matching stock record and writes a receipt for traceability.
 
 ### Referral Preparation Queue
 
@@ -39,6 +39,23 @@ The workflow is modular and can be adapted for any local area or community hub.
 The design draws on real-world operating patterns from local food bank organisations, including the public-facing structure of Alsager & District Foodbank: clear donation information, simple referral guidance, volunteer-friendly wording, and a practical focus on local drop-off points and community support.
 
 Save Our Supper is intentionally not a recipe app, marketplace, or industrial warehouse system. It is a community hub management tool for making food support easier to coordinate.
+
+## Current Stock Categories
+
+The app now uses ten real-world food bank stock categories across the donation intake screen and the live stock view:
+
+- Breakfast Cereals
+- UHT Milk
+- Tinned Meat
+- Tinned Fish
+- Soup
+- Baked Beans
+- Pasta / Rice
+- Toiletries
+- Baby Items
+- Pet Food
+
+The database keys remain normalized in snake_case, such as `breakfast_cereals`, `uht_milk`, and `tinned_meat`, so Firestore updates stay consistent while volunteers see plain English labels.
 
 ## Core Screens
 
