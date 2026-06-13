@@ -35,11 +35,16 @@ function LogDonationIcon({ className = 'h-5 w-5' }: { className?: string }) {
 const sourceTypes = ['Supermarket', 'Walk-in', 'Cafe / Restaurant', 'Community Drive', 'Other'];
 
 const intakeCategories: IntakeCategory[] = [
-  { id: 'tinned_goods', label: 'Tinned Goods', helper: 'Beans, soup, tomatoes' },
-  { id: 'dairy_uht', label: 'Dairy Uht', helper: 'Long-life milk and cartons' },
+  { id: 'breakfast_cereals', label: 'Breakfast Cereals', helper: 'Cereal boxes, oats, porridge' },
+  { id: 'uht_milk', label: 'UHT Milk', helper: 'Long-life milk and cartons' },
+  { id: 'tinned_meat', label: 'Tinned Meat', helper: 'Meat tins and protein meals' },
+  { id: 'tinned_fish', label: 'Tinned Fish', helper: 'Tuna, sardines, salmon' },
+  { id: 'soup', label: 'Soup', helper: 'Packets, tins, and cup soups' },
+  { id: 'baked_beans', label: 'Baked Beans', helper: 'Beans and similar staples' },
+  { id: 'pasta_rice', label: 'Pasta / Rice', helper: 'Dry pasta, rice, couscous' },
   { id: 'toiletries', label: 'Toiletries', helper: 'Soap, toothpaste, hygiene' },
-  { id: 'cereal', label: 'Cereal', helper: 'Breakfast boxes and oats' },
-  { id: 'grains', label: 'Grains', helper: 'Rice, pasta, couscous' },
+  { id: 'baby_items', label: 'Baby Items', helper: 'Nappies, wipes, baby food' },
+  { id: 'pet_food', label: 'Pet Food', helper: 'Dog, cat, and small pet food' },
 ];
 
 const initialItemsReceived = intakeCategories.reduce<ItemsReceivedState>((acc, category) => {

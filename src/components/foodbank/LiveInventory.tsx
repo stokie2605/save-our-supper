@@ -9,12 +9,33 @@ interface StockItem {
   last_updated?: string;
 }
 
+const inventoryCategories = [
+  { id: 'breakfast_cereals', label: 'Breakfast Cereals' },
+  { id: 'uht_milk', label: 'UHT Milk' },
+  { id: 'tinned_meat', label: 'Tinned Meat' },
+  { id: 'tinned_fish', label: 'Tinned Fish' },
+  { id: 'soup', label: 'Soup' },
+  { id: 'baked_beans', label: 'Baked Beans' },
+  { id: 'pasta_rice', label: 'Pasta / Rice' },
+  { id: 'toiletries', label: 'Toiletries' },
+  { id: 'baby_items', label: 'Baby Items' },
+  { id: 'pet_food', label: 'Pet Food' },
+];
+
 function formatDisplayLabel(value: string | undefined) {
   return (value ?? '')
     .replace(/[_-]+/g, ' ')
     .trim()
     .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function normalizeInventoryId(value: string | undefined) {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[/]+/g, ' ')
+    .replace(/[_\s-]+/g, '_');
 }
 
 export default function LiveInventory() {
@@ -28,20 +49,29 @@ export default function LiveInventory() {
     // Listen directly to active food bank stock changes.
     const unsubscribe = onSnapshot(inventoryCollection,
       (snapshot) => {
-        const stockItems = snapshot.docs.map(doc => {
+        const stockById = new Map<string, StockItem>();
+
+        snapshot.docs.forEach(doc => {
           const data = doc.data();
-          return {
+          const normalizedId = normalizeInventoryId(doc.id);
+
+          stockById.set(normalizedId, {
             id: doc.id,
             label: formatDisplayLabel(data.label ?? data.item_name ?? doc.id),
             current_quantity: Number(data.current_quantity) || 0,
             last_updated: data.last_updated
-          };
-        }) as StockItem[];
+          });
+        });
 
-        stockItems.sort((a, b) => {
-          const labelA = (a.label ?? '').toString();
-          const labelB = (b.label ?? '').toString();
-          return labelA.localeCompare(labelB);
+        const stockItems = inventoryCategories.map((category) => {
+          const trackedItem = stockById.get(category.id);
+
+          return {
+            id: category.id,
+            label: category.label,
+            current_quantity: trackedItem?.current_quantity ?? 0,
+            last_updated: trackedItem?.last_updated,
+          };
         });
 
         setInventory(stockItems);
@@ -66,12 +96,6 @@ export default function LiveInventory() {
     );
   }
 
-  const getBarColor = (quantity: number) => {
-    if (quantity === 0) return 'bg-red-500';
-    if (quantity < 10) return 'bg-amber-500';
-    return 'bg-emerald-600';
-  };
-
   return (
     <div className="w-full max-w-6xl mx-auto p-4">
       {/* Gradient Top Decorator Banner */}
@@ -95,38 +119,25 @@ export default function LiveInventory() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {inventory.map((item) => {
-              // Standard scale ceiling of 120 for native progress tracking
-              const displayPercentage = Math.min((item.current_quantity / 120) * 100, 100);
-
-              return (
-                <div key={item.id} className="border border-slate-200 rounded-xl p-4 bg-white shadow-2xs hover:shadow-sm transition-all duration-150">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Food item</p>
-                      <h4 className="text-sm font-bold text-slate-800 tracking-tight mt-0.5 break-words">
-                        {formatDisplayLabel(item.label || item.id)}
-                      </h4>
-                    </div>
-                    <span className={`inline-flex items-center shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${
-                      item.current_quantity === 0
-                        ? 'bg-red-50 text-red-700 border border-red-200'
-                        : 'bg-slate-50 text-slate-700 border border-slate-200'
-                    }`}>
-                      {item.current_quantity} units
-                    </span>
+            {inventory.map((item) => (
+              <div key={item.id} className="border border-slate-200 rounded-xl p-4 bg-white shadow-2xs hover:shadow-sm transition-all duration-150">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Food item</p>
+                    <h4 className="text-sm font-bold text-slate-800 tracking-tight mt-0.5 break-words">
+                      {formatDisplayLabel(item.label || item.id)}
+                    </h4>
                   </div>
-
-                  {/* Progressive Bar Slider UI */}
-                  <div className="mt-4 h-2 w-full overflow-hidden rounded-full border border-slate-100 bg-slate-100">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${getBarColor(item.current_quantity)}`}
-                      style={{ width: `${item.current_quantity === 0 ? 5 : displayPercentage}%` }}
-                    />
-                  </div>
+                  <span className={`inline-flex items-center shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${
+                    item.current_quantity === 0
+                      ? 'bg-red-50 text-red-700 border border-red-200'
+                      : 'bg-slate-50 text-slate-700 border border-slate-200'
+                  }`}>
+                    {item.current_quantity} units
+                  </span>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </div>
