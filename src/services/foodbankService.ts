@@ -1,4 +1,4 @@
-import { collection, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, increment, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
 import type {
   DonationIntakeData,
@@ -24,6 +24,10 @@ function assertInventoryItemId(inventoryItemId: string | undefined, context: str
   }
 }
 
+function normalizeInventoryDocumentId(inventoryItemId: string) {
+  return inventoryItemId.trim().toUpperCase().replace(/[\s-]+/g, '_');
+}
+
 function readCurrentQuantity(inventoryItem: Partial<InventoryItem>, inventoryItemId: string) {
   const currentQuantity = inventoryItem.current_quantity;
 
@@ -47,15 +51,15 @@ function aggregateRequirements(requirements: VoucherRequirement[]) {
 
   requirements.forEach((requirement) => {
     assertInventoryItemId(requirement.inventory_item_id, 'Voucher manifest requirement');
-    assertPositiveQuantity(
-      requirement.quantity,
-      `Voucher manifest quantity for ${requirement.inventory_item_id}`,
-    );
+    const inventoryItemId = normalizeInventoryDocumentId(requirement.inventory_item_id);
+    const quantity = Math.trunc(Number(requirement.quantity));
+    assertPositiveQuantity(quantity, `Voucher manifest quantity for ${inventoryItemId}`);
 
-    const existingRequirement = requirementMap.get(requirement.inventory_item_id);
-    requirementMap.set(requirement.inventory_item_id, {
+    const existingRequirement = requirementMap.get(inventoryItemId);
+    requirementMap.set(inventoryItemId, {
       ...requirement,
-      quantity: (existingRequirement?.quantity ?? 0) + requirement.quantity,
+      inventory_item_id: inventoryItemId,
+      quantity: (existingRequirement?.quantity ?? 0) + quantity,
       label: existingRequirement?.label ?? requirement.label,
     });
   });
@@ -118,7 +122,7 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
     throw new Error('Voucher ID is required to finalize collection.');
   }
 
-  const collectedAt = new Date().toISOString();
+  const fulfilledAt = new Date().toISOString();
   const voucherRef = doc(db, vouchersCollectionName, voucherId);
 
   await runTransaction(db, async (transaction) => {
@@ -144,7 +148,7 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
       ),
     );
 
-    const inventoryUpdates = await Promise.all(
+    const inventoryDeductions = await Promise.all(
       requirements.map(async (requirement) => {
         const inventoryRef = doc(db, inventoryCollectionName, requirement.inventory_item_id);
         const inventorySnapshot = await transaction.get(inventoryRef);
@@ -155,31 +159,31 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
 
         const inventoryItem = inventorySnapshot.data() as Partial<InventoryItem>;
         const currentQuantity = readCurrentQuantity(inventoryItem, requirement.inventory_item_id);
-        const nextQuantity = currentQuantity - requirement.quantity;
 
-        if (nextQuantity < 0) {
+        if (currentQuantity < requirement.quantity) {
           throw new Error('Insufficient inventory stock to fulfill this parcel requirement.');
         }
 
         return {
           inventoryRef,
           requiredQuantity: requirement.quantity,
-          nextQuantity,
         };
       }),
     );
 
-    inventoryUpdates.forEach(({ inventoryRef, requiredQuantity, nextQuantity }) => {
+    inventoryDeductions.forEach(({ inventoryRef, requiredQuantity }) => {
       transaction.update(inventoryRef, {
-        current_quantity: nextQuantity,
+        current_quantity: increment(-requiredQuantity),
         last_deduction_quantity: requiredQuantity,
-        last_updated: collectedAt,
+        last_updated: fulfilledAt,
       });
     });
 
     transaction.update(voucherRef, {
-      status: 'Collected',
-      collected_at: collectedAt,
+      status: 'Fulfilled',
+      collected_at: fulfilledAt,
+      fulfilled_at: fulfilledAt,
+      closed_at: fulfilledAt,
       fulfilled_manifest_requirements: requirements,
     });
   });
