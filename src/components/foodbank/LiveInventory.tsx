@@ -20,13 +20,24 @@ export default function LiveInventory() {
     // Listen directly to your active inventory document changes
     const unsubscribe = onSnapshot(inventoryCollection,
       (snapshot) => {
-        const stockItems = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as WarehouseItem[];
+        const stockItems = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            // Fallback safety layer: if 'label' doesn't exist, try reading legacy 'item_name' field
+            label: data.label ?? data.item_name ?? doc.id,
+            current_quantity: Number(data.current_quantity) || 0,
+            last_updated: data.last_updated
+          };
+        }) as WarehouseItem[];
 
-        // Sort items alphabetically by name
-        stockItems.sort((a, b) => a.label.localeCompare(b.label));
+        // CRASH PROTECTION: Enforce absolute string fallback layers during alphabetical sorting checks
+        stockItems.sort((a, b) => {
+          const labelA = (a.label ?? '').toString();
+          const labelB = (b.label ?? '').toString();
+          return labelA.localeCompare(labelB);
+        });
+
         setInventory(stockItems);
         setLoading(false);
       },
@@ -79,17 +90,17 @@ export default function LiveInventory() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {inventory.map((item) => {
-              // Standard scale ceiling of 100 for native progress tracking
+              // Standard scale ceiling of 120 for native progress tracking
               const displayPercentage = Math.min((item.current_quantity / 120) * 100, 100);
 
               return (
                 <div key={item.id} className="border border-slate-200 rounded-xl p-4 bg-white shadow-2xs hover:shadow-sm transition-all duration-150">
                   <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Stock ID: {item.id}</p>
-                      <h4 className="text-sm font-bold text-slate-800 tracking-tight mt-0.5">{item.label}</h4>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Stock ID: {item.id}</p>
+                      <h4 className="text-sm font-bold text-slate-800 tracking-tight mt-0.5 break-words">{item.label}</h4>
                     </div>
-                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${
+                    <span className={`inline-flex items-center shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${
                       item.current_quantity === 0
                         ? 'bg-red-50 text-red-700 border border-red-200'
                         : 'bg-slate-50 text-slate-700 border border-slate-200'
