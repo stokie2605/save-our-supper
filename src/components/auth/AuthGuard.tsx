@@ -22,15 +22,34 @@ function normalizeEmail(email?: string | null) {
   return email?.trim().toLowerCase() ?? null;
 }
 
+function normalizeRoleValue(roleValue: unknown): UserRole | null {
+  const roleCandidates = Array.isArray(roleValue) ? roleValue : [roleValue];
+  const normalizedRoles = roleCandidates.map((role) => String(role).toLowerCase().trim());
+
+  if (normalizedRoles.includes('admin')) {
+    return 'admin';
+  }
+
+  if (normalizedRoles.includes('volunteer')) {
+    return 'volunteer';
+  }
+
+  if (normalizedRoles.includes('user')) {
+    return 'user';
+  }
+
+  return null;
+}
+
 function normalizeUserProfile(uid: string, data: unknown, fallbackEmail?: string | null): UserProfile | null {
   if (!data || typeof data !== 'object') {
     return null;
   }
 
-  const profileData = data as Partial<UserProfile>;
-  const role = typeof profileData.role === 'string' ? profileData.role.trim().toLowerCase() : null;
+  const profileData = data as Partial<UserProfile> & { role?: unknown };
+  const role = normalizeRoleValue(profileData.role);
 
-  if (role !== 'user' && role !== 'volunteer' && role !== 'admin') {
+  if (!role) {
     return null;
   }
 

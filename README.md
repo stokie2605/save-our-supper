@@ -65,6 +65,8 @@ Volunteer and administrator screens are protected by `AuthGuard`, which checks t
 
 The guard now waits for role verification before rendering any access-denied message. It checks the Firestore `users/{uid}` document directly by the current signed-in user's ID and normalizes the stored role value before comparing it against the allowed roles.
 
+Role evaluation accepts simple strings such as `admin`, capitalized values such as `Admin`, and role arrays such as `["admin"]`. Values are converted to lowercase and trimmed before comparison so production profile documents do not fail because of casing or storage-shape differences.
+
 Firestore rules allow direct `get` access to individual user role records for verification, while collection `list` access is denied and user role creation, updates, and deletion remain restricted to the administrator rule.
 
 ## Core Screens
