@@ -250,7 +250,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
         </div>
       ) : null}
 
-      <div className="grid gap-0 md:gap-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         {posts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm font-semibold text-slate-400">
             No community notices yet. Be the first to share something useful.
@@ -350,7 +350,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
         ))}
       </div>
 
-      <div className="grid min-w-0 gap-5 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,0.85fr)] md:items-start">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[260px_minmax(0,1fr)_260px] md:items-start">
         <div className={`${activeMobilePanel === 'wishlist' ? 'block' : 'hidden'} md:sticky md:top-[72px] md:order-1 md:block md:h-[calc(100vh-6rem)] md:overflow-y-auto`}>
           {wishlistPanel}
         </div>
@@ -366,6 +366,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
 }
 
 export default CommunityHub;
+
 
 
 
