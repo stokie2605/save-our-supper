@@ -3,6 +3,7 @@ export type InventoryItem = {
   item_name?: string;
   category?: string;
   current_quantity: number;
+  quantity?: number;
   last_updated?: string;
 };
 
@@ -30,7 +31,7 @@ export type VoucherRequirement = {
 
 export type ReferralVoucher = {
   id: string;
-  status: 'Pending Contact' | 'Packing' | 'Collected';
+  status: 'Pending Contact' | 'Packing' | 'Collected' | 'pending' | 'completed' | 'fulfilled' | 'Fulfilled';
   agency_id?: string;
   agency_name?: string;
   client_reference?: string;
@@ -42,6 +43,8 @@ export type ReferralVoucher = {
   item_requirements?: VoucherRequirement[];
   manifest_requirements?: VoucherRequirement[];
   collected_at?: string;
+  fulfilledAt?: string;
+  fulfilled_at?: string;
 };
 
 export type DonationIntakeReceipt = DonationIntakeData & {

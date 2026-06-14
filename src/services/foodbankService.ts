@@ -45,13 +45,18 @@ function normalizeInventoryDocumentId(inventoryItemId: string) {
 }
 
 function readCurrentQuantity(inventoryItem: Partial<InventoryItem>, inventoryItemId: string) {
-  const currentQuantity = inventoryItem.current_quantity;
+  const currentQuantity = inventoryItem.current_quantity ?? inventoryItem.quantity;
 
   if (!Number.isFinite(currentQuantity)) {
     throw new Error(`Inventory item ${inventoryItemId} has an invalid current_quantity value.`);
   }
 
   return Number(currentQuantity);
+}
+
+function isCollectableVoucherStatus(status: unknown) {
+  const normalizedStatus = String(status).toLowerCase().trim();
+  return normalizedStatus === 'pending' || normalizedStatus === 'packing';
 }
 
 function normalizeRequirements(requirements: VoucherRequirement[] | undefined, context: string) {
@@ -169,8 +174,8 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
       ...voucherSnapshot.data(),
     } as ReferralVoucher;
 
-    if (voucher.status !== 'Packing') {
-      throw new Error(`Voucher ${voucherId} cannot be collected because its status is ${voucher.status}.`);
+    if (!isCollectableVoucherStatus(voucher.status)) {
+      throw new Error(`Voucher ${voucherId} cannot be completed because its status is ${voucher.status}.`);
     }
 
     const requirements = aggregateRequirements(
@@ -194,7 +199,8 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
         const currentQuantity = readCurrentQuantity(inventoryItem, requirement.inventory_item_id);
 
         if (currentQuantity < requirement.quantity) {
-          throw new Error('Insufficient inventory stock to fulfill this parcel requirement.');
+          const itemLabel = requirement.label ?? requirement.inventory_item_id.replace(/[_-]+/g, ' ');
+          throw new Error(`Insufficient stock for ${itemLabel}. Required ${requirement.quantity}, available ${currentQuantity}.`);
         }
 
         return {
@@ -213,8 +219,9 @@ export async function finalizeFoodParcelCollection(voucherId: string) {
     });
 
     transaction.update(voucherRef, {
-      status: 'Fulfilled',
+      status: 'completed',
       collected_at: fulfilledAt,
+      fulfilledAt,
       fulfilled_at: fulfilledAt,
       closed_at: fulfilledAt,
       fulfilled_manifest_requirements: requirements,

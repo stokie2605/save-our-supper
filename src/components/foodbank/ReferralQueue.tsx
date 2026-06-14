@@ -16,13 +16,14 @@ export default function ReferralQueue() {
   const [vouchers, setVouchers] = useState<ReferralVoucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   useEffect(() => {
     // Listen for referrals actively being handled by volunteers.
     const vouchersQuery = query(
       collection(db, 'referral_vouchers'),
-      where('status', 'in', ['Pending Contact', 'Packing'])
+      where('status', 'in', ['Pending Contact', 'Packing', 'pending'])
     );
 
     const unsubscribe = onSnapshot(vouchersQuery,
@@ -49,11 +50,16 @@ export default function ReferralQueue() {
   const handleCollect = async (voucherId: string) => {
     setProcessingId(voucherId);
     setError(null);
+    setSuccessMessage(null);
+
     try {
       await finalizeFoodParcelCollection(voucherId);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Failed to finalize collection.");
+      setVouchers((current) => current.filter((voucher) => voucher.id !== voucherId));
+      setSuccessMessage('Food parcel completed. Stock has been deducted from the live inventory.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to finalize collection.';
+      console.error('Food parcel completion failed:', message);
+      setError(message);
     } finally {
       setProcessingId(null);
     }
@@ -86,6 +92,14 @@ export default function ReferralQueue() {
           </div>
         </div>
 
+        {successMessage && (
+          <div className="mb-6 p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-medium flex items-center">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+            {successMessage}
+          </div>
+        )}
         {error && (
           <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-medium flex items-center">
             <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,7 +120,8 @@ export default function ReferralQueue() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             {vouchers.map((voucher) => {
-              const isPendingContact = voucher.status === 'Pending Contact';
+              const normalizedStatus = String(voucher.status).toLowerCase().trim();
+              const isPendingContact = normalizedStatus === 'pending contact';
 
               return (
                 <div

@@ -105,6 +105,12 @@ The donation intake screen gives volunteers an easy way to record incoming items
 
 The referral queue helps teams prepare food parcels requested by trusted local partner agencies, such as schools, housing associations, health professionals, social care teams, and voluntary organisations. When a parcel is marked as fulfilled, the system safely deducts the required food items from live stock.
 
+### Atomic Voucher Fulfillment
+
+Food parcel completion now runs through a Firestore `runTransaction` in `src/services/foodbankService.ts`. When a volunteer or administrator marks a packing voucher as collected, the transaction reads the voucher, normalizes its `manifest_requirements` or `item_requirements`, reads every matching `inventory` document, checks stock levels, and only then writes the completion.
+
+If any stock item is missing or does not have enough units available, the transaction aborts before changing the voucher or deducting stock. The Referral Queue displays a clear human-readable error, such as the missing item or the quantity shortfall. On success, the voucher is marked `completed`, fulfillment timestamps are written, and the exact required quantities are deducted from `current_quantity` in the same atomic commit.
+
 ---
 
 ## Current Stock Categories
