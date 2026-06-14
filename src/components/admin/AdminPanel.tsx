@@ -237,8 +237,55 @@ export function AdminPanel() {
 
         {/* ─── TAB VIEWPORT A: ROLE MANAGEMENT ─── */}
         {adminTab === 'users' && (
-          <div className="overflow-hidden rounded-2xl border border-slate-200">
-            <div className="overflow-x-auto">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3 md:bg-transparent md:p-0">
+            <div className="block md:hidden">
+              {usersLoading ? (
+                <div className="rounded-xl border border-slate-100 bg-white p-5 text-center text-sm font-semibold text-slate-400 shadow-sm">
+                  Loading user access records...
+                </div>
+              ) : users.length === 0 ? (
+                <div className="rounded-xl border border-slate-100 bg-white p-5 text-center text-sm font-semibold text-slate-400 shadow-sm">
+                  No user records found yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {users.map((user) => (
+                    <article key={user.uid} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-semibold text-slate-800">{user.name ?? 'Community member'}</p>
+                          <p className="mt-1 break-all text-xs font-semibold text-slate-500">{user.email}</p>
+                        </div>
+                        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${roleBadgeClass[user.role]}`}>
+                          {user.role}
+                        </span>
+                      </div>
+                      <p className="mt-3 break-all rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] font-bold text-slate-500">
+                        {user.uid}
+                      </p>
+                      <div className="mt-3 flex items-center gap-2">
+                        <label className="sr-only" htmlFor={`mobile-role-${user.uid}`}>Modify access for {user.email}</label>
+                        <select
+                          id={`mobile-role-${user.uid}`}
+                          value={user.role}
+                          onChange={(event) => void handleRoleChange(user, event.target.value as UserRole)}
+                          disabled={updatingUid === user.uid}
+                          className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-bold text-white shadow-sm outline-none transition-all hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        >
+                          {roleOptions.map((role) => (
+                            <option key={role} value={role}>
+                              {updatingUid === user.uid ? 'Updating...' : role}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="hidden overflow-hidden rounded-2xl border border-slate-200 md:block">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-widest text-slate-500">
                   <tr>
@@ -299,8 +346,7 @@ export function AdminPanel() {
           </div>
         )}
 
-        {/* ─── TAB VIEWPORT B: INVENTORY MANAGEMENT ─── */}
-        {adminTab === 'inventory' && (
+                {adminTab === 'inventory' && (
           <div className="grid gap-6 lg:grid-cols-3">
 
             {/* SUB-SECTION 1: CATEGORY PROVISIONING FORM */}
@@ -361,67 +407,122 @@ export function AdminPanel() {
               </div>
 
               {inventoryLoading ? (
-                <div className="text-center py-12 font-semibold text-slate-400 text-sm">Loading current food stock...</div>
+                <div className="py-12 text-center text-sm font-semibold text-slate-400">Loading current food stock...</div>
               ) : inventory.length === 0 ? (
-                <div className="text-center py-12 font-semibold text-slate-400 text-sm">No food items are being tracked yet.</div>
+                <div className="py-12 text-center text-sm font-semibold text-slate-400">No food items are being tracked yet.</div>
               ) : (
-                <div className="divide-y divide-slate-100 bg-white">
-                  {inventory.map((item) => (
-                    <div key={item.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3 transition-colors hover:bg-slate-50/50">
-                      <div>
-                        <p className="text-[10px] font-bold text-slate-400 block tracking-wider uppercase">Food item</p>
-                        <h4 className="text-sm font-black text-slate-900 mt-0.5 tracking-tight">
-                          {formatDisplayLabel(item.label || item.id)}
-                        </h4>
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${
-                            item.current_quantity === 0 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-800'
+                <>
+                  <div className="block space-y-3 bg-slate-50/50 p-3 md:hidden">
+                    {inventory.map((item) => (
+                      <article key={item.id} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                        <div className="flex min-w-0 items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Food item</p>
+                            <h4 className="mt-1 break-words text-sm font-semibold text-slate-800">
+                              {formatDisplayLabel(item.label || item.id)}
+                            </h4>
+                            <p className="mt-1 break-all text-xs text-slate-500">{item.id}</p>
+                          </div>
+                          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${
+                            item.current_quantity === 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-50 text-emerald-700'
                           }`}>
-                            {item.current_quantity} units available
+                            {item.current_quantity} units
                           </span>
                         </div>
-                      </div>
+                        <div className="mt-4 grid grid-cols-4 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleModifyStock(item.id, -10)}
+                            disabled={actionItemRef === item.id || item.current_quantity < 10}
+                            className="rounded-lg bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-red-600 hover:text-white disabled:opacity-40"
+                          >
+                            -10
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleModifyStock(item.id, -1)}
+                            disabled={actionItemRef === item.id || item.current_quantity === 0}
+                            className="rounded-lg bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-red-500 hover:text-white disabled:opacity-40"
+                          >
+                            -1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleModifyStock(item.id, 1)}
+                            disabled={actionItemRef === item.id}
+                            className="rounded-lg bg-slate-900 px-2 py-2 text-xs font-bold text-white transition-all hover:bg-emerald-600 disabled:opacity-40"
+                          >
+                            +1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleModifyStock(item.id, 10)}
+                            disabled={actionItemRef === item.id}
+                            className="rounded-lg bg-slate-900 px-2 py-2 text-xs font-bold text-white transition-all hover:bg-emerald-600 disabled:opacity-40"
+                          >
+                            +10
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
 
-                      {/* QUICK CLICK DISPATCH INTEGRATIONS */}
-                      <div className="flex items-center gap-1.5 self-end sm:self-center">
-                        <button
-                          type="button"
-                          onClick={() => void handleModifyStock(item.id, -10)}
-                          disabled={actionItemRef === item.id || item.current_quantity < 10}
-                          className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-red-600 hover:text-white disabled:opacity-40 transition-all"
-                        >
-                          -10
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleModifyStock(item.id, -1)}
-                          disabled={actionItemRef === item.id || item.current_quantity === 0}
-                          className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-red-500 hover:text-white disabled:opacity-40 transition-all"
-                        >
-                          -1
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleModifyStock(item.id, 1)}
-                          disabled={actionItemRef === item.id}
-                          className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-emerald-600 hover:text-white disabled:opacity-40 transition-all"
-                        >
-                          +1
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleModifyStock(item.id, 10)}
-                          disabled={actionItemRef === item.id}
-                          className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-emerald-600 hover:text-white disabled:opacity-40 transition-all"
-                        >
-                          +10
-                        </button>
+                  <div className="hidden divide-y divide-slate-100 bg-white md:block">
+                    {inventory.map((item) => (
+                      <div key={item.id} className="flex flex-col gap-3 p-4 transition-colors hover:bg-slate-50/50 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">Food item</p>
+                          <h4 className="mt-0.5 break-words text-sm font-black tracking-tight text-slate-900">
+                            {formatDisplayLabel(item.label || item.id)}
+                          </h4>
+                          <div className="mt-1.5 flex items-center gap-2">
+                            <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-bold ${
+                              item.current_quantity === 0 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-800'
+                            }`}>
+                              {item.current_quantity} units available
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 self-end sm:self-center">
+                          <button
+                            type="button"
+                            onClick={() => void handleModifyStock(item.id, -10)}
+                            disabled={actionItemRef === item.id || item.current_quantity < 10}
+                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-red-600 hover:text-white disabled:opacity-40"
+                          >
+                            -10
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleModifyStock(item.id, -1)}
+                            disabled={actionItemRef === item.id || item.current_quantity === 0}
+                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-red-500 hover:text-white disabled:opacity-40"
+                          >
+                            -1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleModifyStock(item.id, 1)}
+                            disabled={actionItemRef === item.id}
+                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-emerald-600 hover:text-white disabled:opacity-40"
+                          >
+                            +1
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleModifyStock(item.id, 10)}
+                            disabled={actionItemRef === item.id}
+                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-emerald-600 hover:text-white disabled:opacity-40"
+                          >
+                            +10
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                    ))}
+                  </div>
+                </>
+              )}            </div>
 
           </div>
         )}
@@ -432,3 +533,5 @@ export function AdminPanel() {
 }
 
 export default AdminPanel;
+
+

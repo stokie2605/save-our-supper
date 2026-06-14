@@ -110,6 +110,8 @@ On mobile, the intake screen uses a compact two-column category grid and a fixed
 
 A new dashboard summary widget now sits below the distribution hub header, showing the current active session item total and a compact `Hub Link Stable` status chip with a pulsing green indicator. The widget gives volunteers immediate operational feedback before they begin logging donations.
 
+The Admin Panel now uses responsive mobile card views for both user access records and food stock adjustments. Desktop screens keep the wider tabular layouts, while phones render each user or stock item as a standalone stacked card with readable identifiers and fully visible action controls, removing horizontal scrolling from administrator workflows.
+
 ### Production Cleanup
 
 The temporary Firebase seed tools were removed from the production dashboard and settings screens. Demo data seeding is no longer available through the live interface, protecting the deployed food bank environment from accidental bulk test data creation.
@@ -158,7 +160,7 @@ If a category document does not exist in Firestore, donation transactions initia
 * **`LiveInventory`** - Displays real-time hub provisions and shelf counts.
 * **`IntakePortal`** - Processes incoming community and corporate donations.
 * **`ReferralQueue`** - Tracks preparation, allocation, and client distribution streams.
-* **`AdminPanel`** - Admin control panel for user roles and master stock controls.
+* **`AdminPanel`** - Admin control panel for user roles and master stock controls, with mobile stacked cards replacing wide data tables on phone screens.
 * **`AuthGuard`** - Firebase-authenticated role gate for protected views.
 
 ---
@@ -197,6 +199,7 @@ The application build pipeline compiles into a static single-page web bundle dep
 npm run build
 npx firebase-tools deploy --project save-our-supper
 ```
+
 
 
 
