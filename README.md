@@ -98,7 +98,7 @@ This means protected database access can no longer be bypassed by changing front
 
 ### Real-Time Food Bank Stock
 
-A welcoming live stock view shows what is currently available on the shelves. Food item names are displayed in plain English, such as *Breakfast Cereals*, *UHT Milk*, or *Tinned Meat*, rather than raw database codes like `breakfast_cereals`. The stock view updates from Firestore via real-time streams (`onSnapshot`), so adjustments populate instantly across panels without page refreshes.
+A welcoming live stock view shows what is currently available on the shelves. Food item names are displayed in plain English, such as *Breakfast Cereals*, *UHT Milk*, or *Tinned Meat*, rather than raw database codes like `breakfast_cereals`. The stock view updates from Firestore via real-time streams (`onSnapshot`), so adjustments populate instantly across panels without page refreshes. On mobile, the stock cards now render in a compact two-column grid with scaled labels, unit counts, and low-stock warnings to reduce scrolling while staying readable.
 
 ### Simplified Donation Drop-Off Log
 
@@ -106,7 +106,7 @@ The donation intake screen gives volunteers an easy way to record incoming items
 
 Donation quantity cards now use visual category tiles with centered foodbank graphics and a native numeric input anchored at the bottom of each card. Volunteers can tap directly into the white quantity box, type larger amounts with a keyboard or mobile keypad, use the browser's built-in number steppers for small changes, and rely on select-on-focus plus blur handling so the typed value is saved cleanly as soon as they leave the field.
 
-On mobile, the intake screen uses a compact two-column category grid and a fixed bottom action bar with a dynamic `Log X Donated Items` button and a discreet `Clear All` reset control. The action bar is positioned above the mobile-only icon navigation, keeping both submission controls and staff shortcuts reachable without blocking the cards. On desktop, the text navigation and action area return to the normal page flow so office and partner users can scan the full category grid comfortably.
+On mobile, the intake screen uses a compact two-column category grid and a fixed bottom action bar with a dynamic `Log X Donated Items` button and a discreet `Clear All` reset control. The action bar is positioned above the mobile-only icon navigation, keeping both submission controls and staff shortcuts reachable without blocking the cards. The mobile staff navigation mirrors desktop authorization: standard staff see Donations, Live Inventory, Referral Queue, and Settings icons, while the Admin Panel lock icon only appears for the authorized admin account. On desktop, the text navigation and action area return to the normal page flow so office and partner users can scan the full category grid comfortably.
 
 ### Production Cleanup
 
@@ -195,4 +195,5 @@ The application build pipeline compiles into a static single-page web bundle dep
 npm run build
 npx firebase-tools deploy --project save-our-supper
 ```
+
 

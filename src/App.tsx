@@ -178,6 +178,16 @@ function SettingsIcon({ className = 'h-6 w-6' }: NavIconProps) {
   );
 }
 
+function LockIcon({ className = 'h-6 w-6' }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 14v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState<AppSession | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -943,6 +953,22 @@ export default function App() {
         >
           <SettingsIcon />
         </button>
+
+        {isSystemAdminAccount ? (
+          <button
+            type="button"
+            onClick={() => setActiveView('admin')}
+            className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
+              activeView === 'admin'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'text-red-600 hover:bg-red-50 hover:text-red-700'
+            }`}
+            aria-label="Admin Panel"
+            title="Admin Panel"
+          >
+            <LockIcon />
+          </button>
+        ) : null}
       </nav>
 
       {/* ─── VIEW VIEWPORTS ─── */}
@@ -1414,4 +1440,5 @@ export default function App() {
     </AppShell>
   );
 }
+
 
