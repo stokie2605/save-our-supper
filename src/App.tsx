@@ -59,7 +59,7 @@ type UserProfileDocument = Partial<UserProfile> & {
 };
 
 type FeedFilter = 'all' | 'surplus' | 'need' | 'my-posts' | 'my-claims';
-type ActiveView = 'feed' | 'inventory' | 'settings' | 'admin';
+type ActiveView = 'community' | 'feed' | 'inventory' | 'settings' | 'admin';
 type DashboardTab = 'find-food' | 'my-claims' | 'my-listings';
 type SystemMessage = { type: 'success' | 'error'; text: string } | null;
 
@@ -165,6 +165,15 @@ function UsersIcon({ className = 'h-6 w-6' }: NavIconProps) {
       <path d="M16 19c0-2.2-1.8-4-4-4H8c-2.2 0-4 1.8-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <circle cx="10" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
       <path d="M20 19c0-1.8-1.1-3.3-2.7-3.8M17 4.4a4 4 0 0 1 0 7.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MessageIcon({ className = 'h-6 w-6' }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v5A3.5 3.5 0 0 1 15.5 15H11l-5 4v-4.4A3.5 3.5 0 0 1 3 11.2V6.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M8 8h8M8 11h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -719,7 +728,7 @@ export default function App() {
 
   const isSystemAdminAccount = session?.user?.email === 'stokie2605@gmail.com';
   const redirectToPublicFeed = () => {
-    setActiveView('feed');
+    setActiveView('community');
     setDashboardTab('find-food');
     setFilter('all');
   };
@@ -836,6 +845,17 @@ export default function App() {
       <div className="mb-6 hidden min-w-0 gap-2 rounded-2xl bg-slate-100 p-1.5 md:flex md:flex-wrap md:items-center">
         <button
           type="button"
+          onClick={() => setActiveView('community')}
+          className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
+            activeView === 'community'
+              ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
+              : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
+          }`}
+        >
+          Community Feed
+        </button>
+        <button
+          type="button"
           onClick={() => {
             setActiveView('feed');
             setDashboardTab('find-food');
@@ -847,7 +867,7 @@ export default function App() {
               : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
           }`}
         >
-          Donations
+          Donations Page
         </button>
         {isHubManager && (
           <>
@@ -863,7 +883,7 @@ export default function App() {
                   : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
               }`}
             >
-              Live Inventory
+              Stock Inventory Page
             </button>
             <button
               type="button"
@@ -878,7 +898,7 @@ export default function App() {
                   : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
               }`}
             >
-              Referral Queue
+              Referral Queue Page
             </button>
           </>
         )}
@@ -910,6 +930,19 @@ export default function App() {
       <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around border-t border-slate-200 bg-white p-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] md:hidden" aria-label="Mobile staff navigation">
         <button
           type="button"
+          onClick={() => setActiveView('community')}
+          className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
+            activeView === 'community'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          aria-label="Community Feed"
+          title="Community Feed"
+        >
+          <MessageIcon />
+        </button>
+        <button
+          type="button"
           onClick={() => {
             setActiveView('feed');
             setDashboardTab('find-food');
@@ -920,8 +953,8 @@ export default function App() {
               ? 'bg-emerald-600 text-white shadow-sm'
               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
           }`}
-          aria-label="Donations"
-          title="Donations"
+          aria-label="Donations Page"
+          title="Donations Page"
         >
           <PlusCircleIcon />
         </button>
@@ -939,8 +972,8 @@ export default function App() {
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
-              aria-label="Live Inventory"
-              title="Live Inventory"
+              aria-label="Stock Inventory Page"
+              title="Stock Inventory Page"
             >
               <PackageIcon />
             </button>
@@ -956,8 +989,8 @@ export default function App() {
                   ? 'bg-emerald-600 text-white shadow-sm'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
               }`}
-              aria-label="Referral Queue"
-              title="Referral Queue"
+              aria-label="Referral Queue Page"
+              title="Referral Queue Page"
             >
               <UsersIcon />
             </button>
@@ -997,7 +1030,16 @@ export default function App() {
 
       {/* ─── VIEW VIEWPORTS ─── */}
 
-      {/* VIEW A: THE COMMUNITY FEED */}
+      {/* VIEW A: STANDALONE COMMUNITY FEED */}
+      {activeView === 'community' && (
+        <CommunityHub
+          userId={session.user.id}
+          authorName={profile.organization_name || session.user.email || 'Community member'}
+          postcode={profile.primary_location}
+        />
+      )}
+
+      {/* VIEW B: OPERATIONS FEED */}
       {activeView === 'feed' && (
         <>
           {dashboardTab === 'find-food' ? (
@@ -1464,6 +1506,9 @@ export default function App() {
     </AppShell>
   );
 }
+
+
+
 
 
 

@@ -17,54 +17,6 @@ type CommunityPost = {
   postcode?: string;
 };
 
-type WishlistItem = {
-  id: string;
-  label: string;
-  quantity: number;
-};
-
-const lowStockThreshold = 10;
-
-const usefulLinks = [
-  {
-    label: 'Debt and benefits advice',
-    description: 'Free, independent help with debt, benefits, bills, and household money worries.',
-    href: 'https://www.citizensadvice.org.uk/',
-  },
-  {
-    label: 'Housing support',
-    description: 'Guidance for homelessness risk, renting problems, repairs, and emergency housing rights.',
-    href: 'https://england.shelter.org.uk/',
-  },
-  {
-    label: 'Mental health support',
-    description: 'Plain-language information and routes to urgent support for mental health concerns.',
-    href: 'https://www.mind.org.uk/need-urgent-help/',
-  },
-  {
-    label: 'NHS 111',
-    description: 'Medical help when it is not a 999 emergency.',
-    href: 'https://111.nhs.uk/',
-  },
-  {
-    label: 'Help with energy and bills',
-    description: 'Check government guidance on cost-of-living support, energy help, and grants.',
-    href: 'https://www.gov.uk/cost-of-living',
-  },
-  {
-    label: 'Turn2us grants search',
-    description: 'Search for charitable grants and support funds that may match your situation.',
-    href: 'https://www.turn2us.org.uk/',
-  },
-];
-
-function formatDisplayLabel(value: string | undefined) {
-  return (value ?? '')
-    .replace(/[_-]+/g, ' ')
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
 
 function getCreatedAt(value: unknown) {
   if (typeof value === 'string' && value.trim()) {
@@ -95,9 +47,7 @@ function formatPostDate(value: string) {
 
 export function CommunityHub({ userId, authorName, postcode = 'Local area' }: CommunityHubProps) {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
-  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [postText, setPostText] = useState('');
-  const [activeMobilePanel, setActiveMobilePanel] = useState<'board' | 'wishlist' | 'links'>('board');
   const [isPosting, setIsPosting] = useState(false);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
@@ -132,32 +82,6 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, 'inventory'),
-      (snapshot) => {
-        const lowStockItems = snapshot.docs
-          .map((documentSnapshot) => {
-            const data = documentSnapshot.data();
-            return {
-              id: documentSnapshot.id,
-              label: formatDisplayLabel(data.label ?? data.item_name ?? documentSnapshot.id),
-              quantity: Number(data.current_quantity) || 0,
-            } satisfies WishlistItem;
-          })
-          .filter((item) => item.quantity <= lowStockThreshold)
-          .sort((a, b) => a.quantity - b.quantity || a.label.localeCompare(b.label));
-
-        setWishlist(lowStockItems);
-      },
-      (error) => {
-        console.error('Community wishlist stream failed:', error);
-        setMessage({ tone: 'error', text: 'Could not load the current donation wishlist.' });
-      },
-    );
-
-    return () => unsubscribe();
-  }, []);
 
   const shortPostcode = useMemo(() => postcode.trim().toUpperCase().split(/\s+/)[0] || 'LOCAL', [postcode]);
 
@@ -209,7 +133,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
   };
 
   const feedPanel = (
-    <section className="min-w-0 bg-white p-4 shadow-sm md:rounded-3xl md:border md:border-slate-200 md:p-5">
+    <section className="min-w-0 bg-white p-4 shadow-sm sm:rounded-3xl sm:border sm:border-slate-200 sm:p-5">
       <div className="mb-4 min-w-0">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Community noticeboard</p>
         <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">Share local support</h2>
@@ -250,7 +174,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-0">
         {posts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm font-semibold text-slate-400">
             No community notices yet. Be the first to share something useful.
@@ -277,99 +201,26 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
     </section>
   );
 
-  const wishlistPanel = (
-    <aside className="min-w-0 rounded-3xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm sm:p-5">
-      <p className="text-xs font-black uppercase tracking-widest text-amber-700">Donation wishlist</p>
-      <h3 className="mt-2 break-words text-xl font-black tracking-tight text-slate-950">Most needed now</h3>
-      <p className="mt-1 text-sm leading-6 text-slate-600">Read-only stock signals from the food bank shelves.</p>
-
-      <div className="mt-4 grid gap-2">
-        {wishlist.length === 0 ? (
-          <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-800">
-            No urgent low-stock items are showing right now.
-          </p>
-        ) : (
-          wishlist.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-white px-4 py-3">
-              <span className="min-w-0 break-words text-sm font-black text-slate-800">{item.label}</span>
-              <span className="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
-                {item.quantity} left
-              </span>
-            </div>
-          ))
-        )}
-      </div>
-    </aside>
-  );
-
-  const linksPanel = (
-    <aside className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-      <p className="text-xs font-black uppercase tracking-widest text-teal-700">Local help and resources</p>
-      <h3 className="mt-2 break-words text-xl font-black tracking-tight text-slate-950">Useful links</h3>
-      <p className="mt-1 text-sm leading-6 text-slate-500">Simple routes to help. No ads, no clutter.</p>
-
-      <div className="mt-4 grid gap-3">
-        {usefulLinks.map((link) => (
-          <a
-            key={link.href}
-            href={link.href}
-            target="_blank"
-            rel="noreferrer"
-            className="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition-all hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-white hover:shadow-sm"
-          >
-            <span className="block break-words text-sm font-black text-slate-900">{link.label}</span>
-            <span className="mt-1 block break-words text-xs leading-5 text-slate-500">{link.description}</span>
-          </a>
-        ))}
-      </div>
-    </aside>
-  );
 
   return (
-    <div className="mx-auto grid w-full max-w-7xl min-w-0 gap-5 px-4">
+    <main className="mx-auto grid w-full max-w-4xl min-w-0 gap-5 px-4 py-6">
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Public Community Hub</p>
+        <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Community Feed</p>
         <h1 className="mt-2 break-words text-3xl font-black tracking-tight text-brand-forest">Welcome to Save Our Supper</h1>
         <p className="mt-2 max-w-3xl break-words text-base leading-7 text-slate-600">
-          A calm place to share practical food support, see what the food bank most needs, and find trusted help links.
+          A calm place to share practical food support and local notes without the foodbank operations dashboard around it.
         </p>
       </div>
 
-      <div className="sticky top-[72px] z-50 grid grid-cols-3 gap-2 rounded-2xl bg-[#faf7f2]/95 p-1.5 py-2 backdrop-blur-md md:hidden">
-        {([
-          ['board', 'Board'],
-          ['wishlist', 'Wishlist'],
-          ['links', 'Links'],
-        ] as const).map(([panel, label]) => (
-          <button
-            key={panel}
-            type="button"
-            onClick={() => setActiveMobilePanel(panel)}
-            className={`rounded-xl px-3 py-2.5 text-sm font-black transition-all ${
-              activeMobilePanel === panel ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-[260px_minmax(0,1fr)_260px] md:items-start">
-        <div className={`${activeMobilePanel === 'wishlist' ? 'block' : 'hidden'} md:sticky md:top-[72px] md:order-1 md:block md:h-[calc(100vh-6rem)] md:overflow-y-auto`}>
-          {wishlistPanel}
-        </div>
-        <div className={`${activeMobilePanel === 'board' ? 'block' : 'hidden'} min-w-0 md:order-2 md:block`}>
-          {feedPanel}
-        </div>
-        <div className={`${activeMobilePanel === 'links' ? 'block' : 'hidden'} md:sticky md:top-[72px] md:order-3 md:block md:h-[calc(100vh-6rem)] md:overflow-y-auto`}>
-          {linksPanel}
-        </div>
-      </div>
-    </div>
+      {feedPanel}
+    </main>
   );
 }
 
 export default CommunityHub;
+
+
+
 
 
 
