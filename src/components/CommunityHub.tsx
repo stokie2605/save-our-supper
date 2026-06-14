@@ -257,15 +257,19 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
           </div>
         ) : (
           posts.map((post) => (
-            <article key={post.id} className="-mx-4 rounded-none border-x-0 border-b border-gray-100 bg-white px-4 py-4 shadow-none md:mx-0 md:rounded-2xl md:border md:border-slate-200 md:p-4 md:shadow-xs">
-              <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
-                <span className="rounded-full bg-emerald-50 px-3 py-1 uppercase tracking-wide text-emerald-700">
-                  {post.authorName}
-                </span>
-                <span>{formatPostDate(post.createdAt)}</span>
-                {post.postcode ? <span className="rounded-full bg-slate-100 px-2 py-1">{post.postcode}</span> : null}
+            <article key={post.id} className="flex w-full flex-col gap-1 border-b border-gray-100 bg-white px-4 py-3 text-left">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-gray-500 md:text-sm">
+                <span className="min-w-0 break-words font-semibold text-emerald-700">{post.authorName}</span>
+                {post.postcode ? (
+                  <>
+                    <span aria-hidden="true">&bull;</span>
+                    <span className="shrink-0 uppercase tracking-wide">{post.postcode}</span>
+                  </>
+                ) : null}
+                <span aria-hidden="true">&bull;</span>
+                <span className="shrink-0">{formatPostDate(post.createdAt)}</span>
               </div>
-              <p className="break-words text-base leading-7 text-slate-800">{post.body}</p>
+              <p className="line-clamp-3 break-words pt-0.5 text-sm leading-relaxed text-gray-800 md:text-base">{post.body}</p>
             </article>
           ))
         )}
@@ -366,6 +370,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
 }
 
 export default CommunityHub;
+
 
 
 

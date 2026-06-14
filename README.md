@@ -171,7 +171,7 @@ Client-role users now land in a dedicated, ad-free Community Hub instead of the 
 
 The Community Hub also includes a read-only low-stock wishlist powered by the live `inventory` collection, helping the public understand which donation items are currently most needed. A clean Local Help & Resources panel links to trusted external support for debt and benefits advice, housing support, mental health help, NHS 111, energy and bill support, and charitable grant searches.
 
-On mobile, the hub uses a sticky tab switcher for Board, Wishlist, and Links, rendering only the selected panel so wishlist and support resources never stack underneath long noticeboard threads. The Board keeps a single-column edge-to-edge thumb feed on phones. On desktop, the hub shares the same high-density dashboard rhythm as the staff screens: a wide max-width shell, fixed-width sticky Wishlist and Links panels, and a Responsive Multi-Column Client Noticeboard Grid that distributes posts across two columns on wide screens while preserving normal document reading order.
+On mobile, the hub uses a sticky tab switcher for Board, Wishlist, and Links, rendering only the selected panel so wishlist and support resources never stack underneath long noticeboard threads. The Board keeps a single-column edge-to-edge thumb feed on phones. On desktop, the hub shares the same high-density dashboard rhythm as the staff screens: a wide max-width shell, fixed-width sticky Wishlist and Links panels, and a Responsive Multi-Column Client Noticeboard Grid that distributes posts across two columns on wide screens while preserving normal document reading order. Noticeboard posts now use a Unified Horizontal Row Component with Safe Clamping, flattening author, postcode, and timestamp into a single scannable line and limiting long messages to three readable lines in the main feed.
 
 ---
 
@@ -199,6 +199,7 @@ The application build pipeline compiles into a static single-page web bundle dep
 npm run build
 npx firebase-tools deploy --project save-our-supper
 ```
+
 
 
 
