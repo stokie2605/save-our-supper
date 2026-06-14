@@ -145,11 +145,22 @@ If a category document does not exist in Firestore, donation transactions initia
 
 ## Core Screens
 
+* **`CommunityHub`** - Client-facing public dashboard with the peer noticeboard, low-stock donation wishlist, and clean local help links.
 * **`LiveInventory`** - Displays real-time hub provisions and shelf counts.
 * **`IntakePortal`** - Processes incoming community and corporate donations.
 * **`ReferralQueue`** - Tracks preparation, allocation, and client distribution streams.
 * **`AdminPanel`** - Admin control panel for user roles and master stock controls.
 * **`AuthGuard`** - Firebase-authenticated role gate for protected views.
+
+---
+
+## Public Community Hub
+
+Client-role users now land in a dedicated, ad-free Community Hub instead of the staff operations dashboard. The hub provides a smartphone-first peer noticeboard where clients can share practical food tips, simple recipes, and local support notes.
+
+The Community Hub also includes a read-only low-stock wishlist powered by the live `inventory` collection, helping the public understand which donation items are currently most needed. A clean Local Help & Resources panel links to trusted external support for debt and benefits advice, housing support, mental health help, NHS 111, energy and bill support, and charitable grant searches.
+
+On mobile, the hub uses a simple tab switcher for Board, Wishlist, and Links. On desktop, it expands into a three-column layout so the donation wishlist, noticeboard, and support links remain visible and easy to scan.
 
 ---
 

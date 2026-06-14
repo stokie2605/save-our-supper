@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { AppShell } from './components/AppShell';
+import { CommunityHub } from './components/CommunityHub';
 import { ExpiryCountdown } from './components/ExpiryCountdown';
 import { FoodMap } from './components/FoodMap';
 import { UserPostList } from './components/UserPostList';
@@ -672,6 +673,51 @@ export default function App() {
     setDashboardTab('find-food');
     setFilter('all');
   };
+
+  if (!profile) {
+    return (
+      <AppShell>
+        <div className="rounded-3xl border border-slate-200 bg-white px-5 py-10 text-center shadow-sm">
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-500" />
+          <p className="text-xs font-black uppercase tracking-widest text-teal-700">Loading your hub</p>
+          <p className="mt-2 text-sm font-semibold text-slate-500">Checking your community profile...</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (profile.role === 'client') {
+    return (
+      <AppShell>
+        <div className="mb-6 min-w-0 rounded-3xl border border-brand-slateSoft bg-white p-5 shadow-xs sm:p-6">
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="mb-3 inline-flex rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
+                Community client space
+              </div>
+              <h1 className="break-words text-3xl font-extrabold tracking-tight text-brand-forest">Save Our Supper</h1>
+              <p className="mt-2 max-w-2xl break-words leading-6 text-slate-500">
+                Peer support, useful crisis links, and donation needs for the local community.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="w-full rounded-xl border border-brand-slateSoft bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm sm:w-auto"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+
+        <CommunityHub
+          userId={session.user.id}
+          authorName={profile.organization_name || session.user.email || 'Community member'}
+          postcode={profile.primary_location}
+        />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
