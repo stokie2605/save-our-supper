@@ -171,7 +171,7 @@ Client-role users now land in a dedicated, ad-free Community Hub instead of the 
 
 The Community Hub also includes a read-only low-stock wishlist powered by the live `inventory` collection, helping the public understand which donation items are currently most needed. A clean Local Help & Resources panel links to trusted external support for debt and benefits advice, housing support, mental health help, NHS 111, energy and bill support, and charitable grant searches.
 
-On mobile, the hub uses a simple tab switcher for Board, Wishlist, and Links, rendering only the selected panel so the wishlist and support links do not stack underneath long noticeboard threads. The Board panel now keeps the notice list inside a constrained internal scroll area, preventing oversized community feeds from stretching the entire phone page. On desktop, the hub expands into a three-column layout with natural page flow so the donation wishlist, noticeboard, and support links remain visible and easy to scan.
+On mobile, the hub uses a sticky tab switcher for Board, Wishlist, and Links, rendering only the selected panel so wishlist and support resources never stack underneath long noticeboard threads. The Board now scrolls naturally with the main page while individual notice rows stretch edge-to-edge for a more app-like thumb feed. On desktop, the hub shares the same high-density dashboard rhythm as the staff screens: a wide max-width shell, a stronger three-column spread, and sticky Wishlist and Links panels that remain visible while the central noticeboard scrolls.
 
 ---
 
@@ -199,6 +199,7 @@ The application build pipeline compiles into a static single-page web bundle dep
 npm run build
 npx firebase-tools deploy --project save-our-supper
 ```
+
 
 
 

@@ -209,7 +209,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
   };
 
   const feedPanel = (
-    <section className="min-w-0 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className="min-w-0 bg-white p-4 shadow-sm md:rounded-3xl md:border md:border-slate-200 md:p-5">
       <div className="mb-4 min-w-0">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Community noticeboard</p>
         <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">Share local support</h2>
@@ -250,14 +250,14 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
         </div>
       ) : null}
 
-      <div className="grid max-h-[65vh] gap-3 overflow-y-auto overscroll-contain pr-1 md:max-h-none md:overflow-visible md:pr-0">
+      <div className="grid gap-0 md:gap-3">
         {posts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm font-semibold text-slate-400">
             No community notices yet. Be the first to share something useful.
           </div>
         ) : (
           posts.map((post) => (
-            <article key={post.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs">
+            <article key={post.id} className="-mx-4 rounded-none border-x-0 border-b border-gray-100 bg-white px-4 py-4 shadow-none md:mx-0 md:rounded-2xl md:border md:border-slate-200 md:p-4 md:shadow-xs">
               <div className="mb-3 flex min-w-0 flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
                 <span className="rounded-full bg-emerald-50 px-3 py-1 uppercase tracking-wide text-emerald-700">
                   {post.authorName}
@@ -322,7 +322,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
   );
 
   return (
-    <div className="grid min-w-0 gap-5">
+    <div className="mx-auto grid w-full max-w-7xl min-w-0 gap-5 px-4">
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Public Community Hub</p>
         <h1 className="mt-2 break-words text-3xl font-black tracking-tight text-brand-forest">Welcome to Save Our Supper</h1>
@@ -331,7 +331,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-100 p-1.5 md:hidden">
+      <div className="sticky top-[72px] z-50 grid grid-cols-3 gap-2 rounded-2xl bg-[#faf7f2]/95 p-1.5 py-2 backdrop-blur-md md:hidden">
         {([
           ['board', 'Board'],
           ['wishlist', 'Wishlist'],
@@ -350,14 +350,14 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
         ))}
       </div>
 
-      <div className="grid min-w-0 gap-5 md:grid-cols-3 md:items-start">
-        <div className={`${activeMobilePanel === 'wishlist' ? 'block' : 'hidden'} md:order-1 md:block`}>
+      <div className="grid min-w-0 gap-5 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)_minmax(0,0.85fr)] md:items-start">
+        <div className={`${activeMobilePanel === 'wishlist' ? 'block' : 'hidden'} md:sticky md:top-[72px] md:order-1 md:block md:h-[calc(100vh-6rem)] md:overflow-y-auto`}>
           {wishlistPanel}
         </div>
         <div className={`${activeMobilePanel === 'board' ? 'block' : 'hidden'} min-w-0 md:order-2 md:block`}>
           {feedPanel}
         </div>
-        <div className={`${activeMobilePanel === 'links' ? 'block' : 'hidden'} md:order-3 md:block`}>
+        <div className={`${activeMobilePanel === 'links' ? 'block' : 'hidden'} md:sticky md:top-[72px] md:order-3 md:block md:h-[calc(100vh-6rem)] md:overflow-y-auto`}>
           {linksPanel}
         </div>
       </div>
@@ -366,5 +366,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
 }
 
 export default CommunityHub;
+
+
 
 
