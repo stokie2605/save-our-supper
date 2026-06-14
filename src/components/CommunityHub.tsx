@@ -250,7 +250,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
         </div>
       ) : null}
 
-      <div className="grid gap-3">
+      <div className="grid max-h-[65vh] gap-3 overflow-y-auto overscroll-contain pr-1 md:max-h-none md:overflow-visible md:pr-0">
         {posts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm font-semibold text-slate-400">
             No community notices yet. Be the first to share something useful.
@@ -366,3 +366,5 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
 }
 
 export default CommunityHub;
+
+
