@@ -89,7 +89,7 @@ export default function LiveInventory() {
     <div className="mx-auto w-full max-w-6xl p-3 sm:p-4">
       <div className="h-2 w-full rounded-t-xl bg-gradient-to-r from-teal-500 to-emerald-600" />
 
-      <div className="rounded-b-xl border border-t-0 border-slate-200 bg-white p-3 shadow-sm sm:p-6">
+      <div className="rounded-b-xl border border-t-0 border-slate-200/70 bg-white p-3 shadow-[0_8px_30px_rgb(0,0,0,0.06)] sm:p-6">
         <div className="mb-4 border-b border-slate-100 pb-4 sm:mb-6 sm:pb-5">
           <h2 className="break-words text-xl font-bold tracking-tight text-slate-900">Food Bank Stock Levels</h2>
           <p className="mt-1 text-xs font-medium uppercase tracking-wider text-slate-500">Current Hub Provisions</p>
@@ -121,7 +121,7 @@ export default function LiveInventory() {
                     <p className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">Food item</p>
                     <span
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
-                        isOutOfStock ? 'bg-red-100 text-red-600' : 'bg-emerald-50 text-emerald-700'
+                        isOutOfStock ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-700'
                       }`}
                     >
                       {isOutOfStock ? 'OUT' : 'OK'}
@@ -145,5 +145,6 @@ export default function LiveInventory() {
     </div>
   );
 }
+
 
 

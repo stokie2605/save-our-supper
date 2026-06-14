@@ -11,19 +11,19 @@ export function AppShell({ children, onShowFeed, onAddPost, onShowMyActivity }: 
   const showMobileNav = onShowFeed && onAddPost && onShowMyActivity;
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-brand-cream text-slate-900 font-sans">
-      <header className="sticky top-0 z-50 border-b border-brand-slateSoft bg-white shadow-sm">
-        <div className="mx-auto flex h-16 min-w-0 max-w-5xl items-center justify-between px-4 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-brand-slateSoft bg-brand-cream text-sm font-bold tracking-tight text-brand-forest">
+    <div className="min-h-screen overflow-x-hidden bg-[#FBF7EF] text-slate-900 font-sans">
+      <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur">
+        <div className="mx-auto flex h-14 min-w-0 max-w-5xl items-center justify-between px-4 sm:h-16 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-[#FBF7EF] text-sm font-black tracking-tight text-brand-forest shadow-inner">
               S
             </div>
             <div className="min-w-0">
-              <span className="block truncate text-xl font-bold tracking-tight text-brand-forest">Save Our Supper</span>
-              <span className="block truncate text-xs font-medium text-slate-500">Community food sharing, made clear.</span>
+              <span className="block truncate text-lg font-black tracking-tight text-brand-forest sm:text-xl">Save Our Supper</span>
+              <span className="block truncate text-[11px] font-semibold text-slate-500 sm:text-xs">Community food sharing, made clear.</span>
             </div>
           </div>
-          <span className="hidden rounded-full border border-brand-slateSoft bg-brand-cream px-2.5 py-1 text-xs font-medium text-slate-600 md:inline-flex">
+          <span className="hidden rounded-full border border-slate-200 bg-[#FBF7EF] px-2.5 py-1 text-xs font-semibold text-slate-600 md:inline-flex">
             Database Active
           </span>
         </div>
@@ -59,3 +59,4 @@ export function AppShell({ children, onShowFeed, onAddPost, onShowMyActivity }: 
     </div>
   );
 }
+

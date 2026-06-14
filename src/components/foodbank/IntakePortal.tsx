@@ -192,7 +192,7 @@ export function IntakePortal({ onQueuedItemsChange }: IntakePortalProps) {
   };
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white pb-44 shadow-sm md:pb-0">
+    <section className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white pb-44 shadow-[0_8px_30px_rgb(0,0,0,0.06)] md:pb-0">
       <div className="h-2 bg-gradient-to-r from-emerald-400 to-teal-500" />
       <div className="p-4 sm:p-6">
         <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
@@ -245,8 +245,15 @@ export function IntakePortal({ onQueuedItemsChange }: IntakePortalProps) {
             return (
               <article
                 key={category.id}
-                className="flex min-h-56 min-w-0 flex-col rounded-xl border border-slate-100 bg-white p-3 text-center shadow-sm transition-colors hover:border-emerald-200 sm:min-h-64 md:min-h-72"
+                className={`relative flex min-h-56 min-w-0 flex-col rounded-xl border bg-white p-3 text-center shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-colors hover:border-emerald-200 sm:min-h-64 md:min-h-72 ${
+                  count > 0 ? 'border-emerald-300 ring-2 ring-emerald-200/70 shadow-emerald-100/80' : 'border-slate-100'
+                }`}
               >
+                {count > 0 ? (
+                  <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-[11px] font-black text-white shadow-sm">
+                    ?
+                  </span>
+                ) : null}
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 sm:gap-3">
                   <div className="grid h-20 w-20 place-items-center rounded-3xl border border-slate-100 bg-slate-50 shadow-inner sm:h-24 sm:w-24 md:h-28 md:w-28 md:rounded-[2rem]">
                     <CategoryGraphic category={category} />
@@ -321,5 +328,6 @@ export function IntakePortal({ onQueuedItemsChange }: IntakePortalProps) {
 }
 
 export default IntakePortal;
+
 
 
