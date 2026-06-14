@@ -218,6 +218,7 @@ export default function App() {
   const [formState, setFormState] = useState<ListingFormState>(emptyListingForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [donationSessionTotal, setDonationSessionTotal] = useState(0);
   const [activeView, setActiveView] = useState<ActiveView>('feed');
 
   const [settingsOrgName, setSettingsOrgName] = useState('');
@@ -808,6 +809,22 @@ export default function App() {
         </div>
       </div>
 
+      <div className="mb-5 flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-slate-200/60 bg-slate-50 p-4 shadow-xs">
+        <div className="min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Active Session</p>
+          <p className="mt-1 break-words text-base font-semibold text-slate-800 sm:text-lg">
+            {donationSessionTotal} {donationSessionTotal === 1 ? 'Item' : 'Items'} Logged
+          </p>
+        </div>
+        <div className="inline-flex shrink-0 items-center gap-2 rounded-full border border-emerald-100 bg-white px-3 py-2 text-xs font-semibold text-slate-800 shadow-xs">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </span>
+          Hub Link Stable
+        </div>
+      </div>
+
       {/* ─── 📍 VISUAL TAB SWITCHER SYSTEM ─── */}
       <div className="mb-6 hidden min-w-0 gap-2 rounded-2xl bg-slate-100 p-1.5 md:flex md:flex-wrap md:items-center">
         <button
@@ -983,7 +1000,7 @@ export default function App() {
               allowedRoles={foodbankAccessRoles}
               onAccessDenied={redirectToPublicFeed}
             >
-              <IntakePortal />
+              <IntakePortal onQueuedItemsChange={setDonationSessionTotal} />
             </AuthGuard>
           ) : null}
 
@@ -1440,5 +1457,7 @@ export default function App() {
     </AppShell>
   );
 }
+
+
 
 

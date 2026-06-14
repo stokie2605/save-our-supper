@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { processDonationIntake } from '../../services/foodbankService';
 import type { DonationIntakeData, DonationIntakeItem } from '../../types/foodbank';
 import { foodbankCategories, type FoodbankCategory } from './foodbankCategories';
 
 type ItemsReceivedState = Record<string, number>;
+
+interface IntakePortalProps {
+  onQueuedItemsChange?: (totalItems: number) => void;
+}
 
 function LogDonationIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
@@ -116,7 +120,7 @@ const initialItemsReceived = foodbankCategories.reduce<ItemsReceivedState>((acc,
   return acc;
 }, {});
 
-export function IntakePortal() {
+export function IntakePortal({ onQueuedItemsChange }: IntakePortalProps) {
   const [sourceType, setSourceType] = useState(sourceTypes[0]);
   const [sourceName, setSourceName] = useState('');
   const [itemsReceived, setItemsReceived] = useState<ItemsReceivedState>(initialItemsReceived);
@@ -127,6 +131,10 @@ export function IntakePortal() {
     () => Object.values(itemsReceived).reduce((total, count) => total + count, 0),
     [itemsReceived],
   );
+
+  useEffect(() => {
+    onQueuedItemsChange?.(totalItems);
+  }, [onQueuedItemsChange, totalItems]);
 
   const setCount = (categoryId: string, nextValue: number) => {
     setMessage(null);
@@ -237,10 +245,10 @@ export function IntakePortal() {
             return (
               <article
                 key={category.id}
-                className="flex min-h-56 min-w-0 flex-col rounded-3xl border border-slate-200 bg-slate-50 p-3 text-center shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:bg-white hover:shadow-lg sm:min-h-64 sm:p-4 md:min-h-72"
+                className="flex min-h-56 min-w-0 flex-col rounded-xl border border-slate-100 bg-white p-3 text-center shadow-sm transition-colors hover:border-emerald-200 sm:min-h-64 md:min-h-72"
               >
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 sm:gap-3">
-                  <div className="grid h-20 w-20 place-items-center rounded-3xl border border-slate-200 bg-white shadow-xs sm:h-24 sm:w-24 md:h-28 md:w-28 md:rounded-[2rem]">
+                  <div className="grid h-20 w-20 place-items-center rounded-3xl border border-slate-100 bg-slate-50 shadow-inner sm:h-24 sm:w-24 md:h-28 md:w-28 md:rounded-[2rem]">
                     <CategoryGraphic category={category} />
                   </div>
                   <div className="min-w-0">
@@ -251,7 +259,7 @@ export function IntakePortal() {
                   </div>
                 </div>
 
-                <div className="mt-5 flex justify-center">
+                <div className="mt-5 flex w-full justify-center">
                   <label className="sr-only" htmlFor={`quantity-${category.id}`}>
                     {category.label} quantity
                   </label>
@@ -266,7 +274,7 @@ export function IntakePortal() {
                     onBlur={(event) => setCount(category.id, Number(event.currentTarget.value))}
                     onFocus={(event) => event.currentTarget.select()}
                     disabled={isSubmitting}
-                    className="h-12 w-24 rounded-2xl border border-slate-200 bg-white px-2 text-center text-2xl font-black tabular-nums text-slate-950 shadow-xs outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:w-28 sm:px-3 sm:text-3xl"
+                    className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-950 px-2 text-center text-2xl font-black tabular-nums text-white shadow-sm outline-none transition-all focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:px-3 sm:text-3xl"
                   />
                 </div>
               </article>
@@ -313,3 +321,5 @@ export function IntakePortal() {
 }
 
 export default IntakePortal;
+
+
