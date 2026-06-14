@@ -64,12 +64,20 @@ export function IntakePortal() {
     [itemsReceived],
   );
 
-  const updateCount = (categoryId: string, delta: number) => {
+  const setCount = (categoryId: string, nextValue: number) => {
     setMessage(null);
+    setItemsReceived((current) => ({
+      ...current,
+      [categoryId]: Math.max(0, Math.trunc(Number.isFinite(nextValue) ? nextValue : 0)),
+    }));
+  };
+
+  const updateCount = (categoryId: string, delta: number) => {
     setItemsReceived((current) => ({
       ...current,
       [categoryId]: Math.max(0, (current[categoryId] ?? 0) + delta),
     }));
+    setMessage(null);
   };
 
   const resetForm = () => {
@@ -161,7 +169,7 @@ export function IntakePortal() {
         </label>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {intakeCategories.map((category) => {
           const count = itemsReceived[category.id] ?? 0;
 
@@ -178,15 +186,25 @@ export function IntakePortal() {
               </div>
 
               <div className="mt-5">
-                <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center shadow-xs">
-                  <span className="text-5xl font-black tabular-nums text-slate-950">{count}</span>
+                <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center shadow-xs focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/20">
+                  <input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={count}
+                    onChange={(event) => setCount(category.id, Number(event.target.value))}
+                    onFocus={(event) => event.currentTarget.select()}
+                    disabled={isSubmitting}
+                    aria-label={`${category.label} quantity`}
+                    className="w-full bg-transparent text-center text-5xl font-black tabular-nums text-slate-950 outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                  />
                 </div>
-                <div className="flex items-center justify-center gap-4">
+                <div className="flex items-center justify-center gap-4 sm:gap-5">
                   <button
                     type="button"
                     onClick={() => updateCount(category.id, -1)}
                     disabled={count === 0 || isSubmitting}
-                    className="grid h-12 w-12 place-items-center rounded-full border border-slate-300 bg-white text-2xl font-black text-slate-700 shadow-xs transition-all hover:-translate-y-0.5 hover:bg-slate-50 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid h-14 w-14 place-items-center rounded-full border border-slate-300 bg-white text-2xl font-black text-slate-700 shadow-xs transition-all hover:-translate-y-0.5 hover:bg-slate-50 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12"
                     aria-label={`Decrease ${category.label}`}
                   >
                     -
@@ -195,7 +213,7 @@ export function IntakePortal() {
                     type="button"
                     onClick={() => updateCount(category.id, 1)}
                     disabled={isSubmitting}
-                    className="grid h-12 w-12 place-items-center rounded-full bg-slate-900 text-2xl font-black text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-md active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="grid h-14 w-14 place-items-center rounded-full bg-slate-900 text-2xl font-black text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-md active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
                     aria-label={`Increase ${category.label}`}
                   >
                     +

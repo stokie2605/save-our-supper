@@ -104,6 +104,12 @@ A welcoming live stock view shows what is currently available on the shelves. Fo
 
 The donation intake screen gives volunteers an easy way to record incoming items from supermarkets, community drop-off points, churches, local groups, cafes, and walk-in donors. Volunteers can quickly scale quantities for standard food bank categories. When a donation is logged, the system updates the matching stock record and writes a receipt for traceability.
 
+Donation quantity cards now use hybrid controls: each large counter is a real numeric input for keyboard or mobile keypad entry, while the adjacent plus and minus buttons remain available for quick one-tap adjustments. Focusing a quantity input selects the current number so volunteers can immediately type over `0` with a larger count.
+
+### Production Cleanup
+
+The temporary Firebase seed tools were removed from the production dashboard and settings screens. Demo data seeding is no longer available through the live interface, protecting the deployed food bank environment from accidental bulk test data creation.
+
 ### Referral Preparation Queue
 
 The referral queue helps teams prepare food parcels requested by trusted local partner agencies, such as schools, housing associations, health professionals, social care teams, and voluntary organisations. When a parcel is marked as fulfilled, the system safely deducts the required food items from live stock.

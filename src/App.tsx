@@ -22,7 +22,6 @@ import {
   fetchFirebaseNearbyPosts as fetchNearbyPosts,
   fetchFirebasePostsByDonor as fetchPostsByDonor,
   fetchFirebasePostsByReceiver as fetchPostsByReceiver,
-  seedFirebasePosts,
 } from './lib/firebasePosts';
 import {
   defaultHubCoordinates,
@@ -176,8 +175,6 @@ export default function App() {
   const [settingsLocation, setSettingsLocation] = useState('');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
-  const [isSeedingFirebase, setIsSeedingFirebase] = useState(false);
-  const [seedMessage, setSeedMessage] = useState('');
   const feedRequestIdRef = useRef(0);
 
   const fetchUserProfile = async (userId: string, fallbackEmail?: string | null) => {
@@ -587,28 +584,6 @@ export default function App() {
     await signOut(firebaseAuth);
   };
 
-  const handleSeedFirebasePosts = async () => {
-    if (!session?.user?.id) return;
-    const userId = session.user.id;
-    setIsSeedingFirebase(true);
-    setSeedMessage('Seeding 45 Firebase listings across Alsager, Crewe, Stoke-on-Trent, and Kidsgrove...');
-
-    try {
-      const createdCount = await seedFirebasePosts(userId);
-      const refreshedPosts = await fetchNearbyPosts([userCoordinates.lat, userCoordinates.lon], searchRadiusMiles);
-      setPosts(refreshedPosts);
-      setSeedMessage(`Seed complete: ${createdCount} Firebase listings are now available.`);
-      window.alert(`Seed complete: ${createdCount} Firebase listings added to Firestore.`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown Firebase seed error';
-      console.error('Detailed Firebase Seed Error:', message);
-      setSeedMessage(`Seed failed: ${message}`);
-      window.alert(`Seed failed: ${message}`);
-    } finally {
-      setIsSeedingFirebase(false);
-    }
-  };
-
   if (!session) {
     return (
       <AppShell>
@@ -927,7 +902,7 @@ export default function App() {
             <div className="min-w-0 rounded-2xl border border-dashed border-brand-slateSoft bg-white px-4 py-14 text-center shadow-xs sm:px-5">
               <p className="break-words text-lg font-bold tracking-tight text-slate-700">No local board posts found.</p>
               <p className="mx-auto mt-2 max-w-xl break-words text-sm leading-6 text-slate-500">
-                No community board posts found near {activeLocationLabel} within {searchRadiusMiles} miles yet. Share a neighbor update above, or use Seed Test Data in Settings to populate demo items.
+                No community board posts found near {activeLocationLabel} within {searchRadiusMiles} miles yet. Share a neighbor update above to get the local board started.
               </p>
             </div>
           ) : null}
@@ -1103,25 +1078,6 @@ export default function App() {
             </button>
           </form>
 
-          <div className="mt-6 min-w-0 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <h3 className="break-words text-sm font-bold text-brand-forest">Temporary Firebase Seed Tools</h3>
-                <p className="mt-1 break-words text-xs leading-5 text-slate-600">
-                  Add 45 realistic test listings across the local map clusters for feed and marker testing.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleSeedFirebasePosts}
-                disabled={isSeedingFirebase}
-                className="rounded-xl bg-brand-amber px-4 py-2.5 text-sm font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSeedingFirebase ? 'Seeding...' : 'Seed Test Data'}
-              </button>
-            </div>
-            {seedMessage ? <p className="mt-3 break-words text-xs font-semibold text-slate-700">{seedMessage}</p> : null}
-          </div>
         </div>
       )}
 
