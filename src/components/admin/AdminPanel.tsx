@@ -250,19 +250,23 @@ export function AdminPanel() {
               ) : (
                 <div className="space-y-3">
                   {users.map((user) => (
-                    <article key={user.uid} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <article key={user.uid} className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-4 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.08)]">
                       <div className="flex min-w-0 items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="break-words text-sm font-semibold text-slate-800">{user.name ?? 'Community member'}</p>
-                          <p className="mt-1 break-all text-xs font-semibold text-slate-500">{user.email}</p>
+                          <p className="break-words text-base font-black tracking-tight text-slate-900">{user.name ?? 'Community member'}</p>
+                          <p className="mt-1 break-all text-xs font-bold text-slate-500">{user.email}</p>
                         </div>
                         <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${roleBadgeClass[user.role]}`}>
                           {user.role}
                         </span>
                       </div>
-                      <p className="mt-3 break-all rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] font-bold text-slate-500">
-                        {user.uid}
-                      </p>
+                      <div className="mt-3 rounded-2xl bg-slate-50 px-3 py-2">
+                        <p className="break-all font-mono text-[11px] font-bold text-slate-500">{user.uid}</p>
+                        <svg className="mt-3 h-8 w-full text-emerald-500" viewBox="0 0 160 32" fill="none" aria-hidden="true">
+                          <path d="M2 24C18 24 20 8 34 8C48 8 50 22 64 22C80 22 82 10 96 10C112 10 116 26 130 26C144 26 146 12 158 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                          <path d="M2 24C18 24 20 8 34 8C48 8 50 22 64 22C80 22 82 10 96 10C112 10 116 26 130 26C144 26 146 12 158 12" stroke="currentColor" strokeWidth="8" strokeLinecap="round" opacity="0.08" />
+                        </svg>
+                      </div>
                       <div className="mt-3 flex items-center gap-2">
                         <label className="sr-only" htmlFor={`mobile-role-${user.uid}`}>Modify access for {user.email}</label>
                         <select
@@ -270,7 +274,7 @@ export function AdminPanel() {
                           value={user.role}
                           onChange={(event) => void handleRoleChange(user, event.target.value as UserRole)}
                           disabled={updatingUid === user.uid}
-                          className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm font-bold text-white shadow-sm outline-none transition-all hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                          className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-800 shadow-sm outline-none transition-all hover:border-emerald-300 hover:bg-white disabled:cursor-not-allowed disabled:bg-slate-200"
                         >
                           {roleOptions.map((role) => (
                             <option key={role} value={role}>
@@ -414,7 +418,7 @@ export function AdminPanel() {
                 <>
                   <div className="block space-y-3 bg-slate-50/50 p-3 md:hidden">
                     {inventory.map((item) => (
-                      <article key={item.id} className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+                      <article key={item.id} className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-4 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.08)]">
                         <div className="flex min-w-0 items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Food item</p>
@@ -533,5 +537,6 @@ export function AdminPanel() {
 }
 
 export default AdminPanel;
+
 
 

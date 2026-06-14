@@ -772,36 +772,40 @@ export default function App() {
   return (
     <AppShell>
       {/* ─── APP HEADER ─── */}
-      <div className="mb-4 min-w-0 rounded-3xl border border-slate-200/70 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] sm:p-5">
-        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="relative mb-6 min-w-0 overflow-hidden rounded-3xl bg-slate-900 p-6 text-white shadow-2xl">
+        <div className="relative flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="max-w-full break-words rounded-full bg-[#FBF7EF] px-3 py-1 text-[11px] font-black uppercase tracking-widest text-brand-forest">
-                Modern Crisis Logistics Engine
+              <span className="max-w-full break-words rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-300">
+                Crisis Logistics Console
               </span>
               {profile && (
-                <span className="max-w-full break-words rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-700">
-                  🏢 {profile.organization_name} ({profile.tier.replace('_', ' ')})
+                <span className="max-w-full break-words rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-300">
+                  {profile.organization_name} / {profile.tier.replace('_', ' ')}
                 </span>
               )}
             </div>
-            <h1 className="break-words text-2xl font-black tracking-tight text-brand-forest sm:text-3xl">Save Our Supper</h1>
-            <p className="mt-2 max-w-2xl break-words text-sm leading-6 text-slate-500 sm:text-base">
-              Connecting supermarkets, foodbanks, and local networks across the region to cut waste and match emergency supply demands.
+            <h1 className="break-words text-xl font-black tracking-tight text-emerald-400 sm:text-3xl">Save Our Supper</h1>
+            <p className="mt-2 max-w-2xl break-words text-sm leading-6 text-slate-300">
+              Live intake, stock, referrals, and access control for the local food support hub.
             </p>
           </div>
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+          <div className="relative flex w-full flex-wrap items-start gap-2 sm:w-auto sm:justify-end">
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-400 animate-pulse">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              Connected
+            </span>
             <button
               type="button"
               onClick={triggerOpenListingModal}
-              className="hidden rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-600 hover:shadow-md md:flex"
+              className="hidden rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-wider text-slate-950 shadow-lg transition-all hover:bg-emerald-300 md:flex"
             >
               Add a Listing
             </button>
             <button
               type="button"
               onClick={handleSignOut}
-              className="rounded-xl border border-brand-slateSoft bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm"
+              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-200 shadow-sm transition-all hover:bg-white hover:text-slate-950"
             >
               Sign Out
             </button>
@@ -809,30 +813,22 @@ export default function App() {
         </div>
       </div>
 
-      <div className="mb-5 rounded-[2rem] border border-slate-200/60 bg-slate-50 p-3 shadow-[0_8px_30px_rgb(0,0,0,0.06)] sm:p-4">
-        <div className="grid min-w-0 grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Volunteers on Shift</p>
-            <p className="mt-2 text-3xl font-bold tabular-nums text-slate-950">1</p>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Active Sessions</p>
-            <p className="mt-2 text-3xl font-bold tabular-nums text-slate-950">{donationSessionTotal}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Items Logged</p>
-            <p className="mt-2 text-3xl font-bold tabular-nums text-brand-forest">{donationSessionTotal}</p>
-          </div>
-          <div className="rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hub Link</p>
-            <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              </span>
-              Stable
-            </div>
-          </div>
+      <div className="mb-6 grid grid-cols-2 gap-4">
+        <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
+          <p className="text-4xl font-black tracking-tight text-slate-800">1</p>
+          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Volunteers on Shift</p>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
+          <p className="text-4xl font-black tracking-tight text-slate-800">{donationSessionTotal}</p>
+          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Active Sessions</p>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
+          <p className="text-4xl font-black tracking-tight text-slate-800">{donationSessionTotal}</p>
+          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Items Logged</p>
+        </div>
+        <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
+          <p className="text-4xl font-black tracking-tight text-emerald-500">OK</p>
+          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Hub Link</p>
         </div>
       </div>
 
@@ -1468,6 +1464,8 @@ export default function App() {
     </AppShell>
   );
 }
+
+
 
 
 

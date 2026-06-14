@@ -104,13 +104,13 @@ A welcoming live stock view shows what is currently available on the shelves. Fo
 
 The donation intake screen gives volunteers an easy way to record incoming items from supermarkets, community drop-off points, churches, local groups, cafes, and walk-in donors. Volunteers can quickly scale quantities for standard food bank categories. When a donation is logged, the system updates the matching stock record and writes a receipt for traceability.
 
-Donation quantity cards now use visual category tiles with centered foodbank graphics and a full-width native numeric input anchored at the bottom of each card. Volunteers can tap directly into the high-contrast quantity box, type larger amounts with a keyboard or mobile keypad, use the browser's built-in number steppers for small changes, and rely on select-on-focus plus blur handling so the typed value is saved cleanly as soon as they leave the field. Any category with a count above zero receives a subtle emerald border glow and corner check badge for immediate active-state feedback.
+Donation quantity cards now use visual category tiles with centered foodbank graphics and a full-width native numeric pill counter anchored at the bottom of each card. Volunteers can tap directly into the high-contrast pill, type larger amounts with a keyboard or mobile keypad, use the browser's built-in number steppers for small changes, and rely on select-on-focus plus blur handling so the typed value is saved cleanly as soon as they leave the field. Any category with a count above zero receives a pulsing emerald glow and corner active badge for immediate feedback.
 
 On mobile, the intake screen uses a compact two-column category grid and a fixed bottom action bar with a dynamic `Log X Donated Items` button and a discreet `Clear All` reset control. The action bar is positioned above the mobile-only icon navigation, keeping both submission controls and staff shortcuts reachable without blocking the cards. The mobile staff navigation mirrors desktop authorization: standard staff see Donations, Live Inventory, Referral Queue, and Settings icons, while the Admin Panel lock icon only appears for the authorized admin account. On desktop, the text navigation and action area return to the normal page flow so office and partner users can scan the full category grid comfortably.
 
-A new dashboard summary widget now sits below the distribution hub header as a rounded multi-panel status strip. It shows operational metrics such as volunteers on shift, active sessions, items logged, and a compact `Hub Link Stable` status chip with a pulsing green indicator. The widget gives volunteers immediate operational feedback before they begin logging donations.
+The staff dashboard now uses a dark app-style control header with a neon `CONNECTED` hub chip, replacing the older web-style white hero block. A floating metric grid sits underneath with premium white cards for volunteers on shift, active sessions, items logged, and hub link status, using large figures and compact metadata labels for a more native logistics-console feel.
 
-The Admin Panel now uses responsive mobile card views for both user access records and food stock adjustments. Desktop screens keep the wider tabular layouts, while phones render each user or stock item as a standalone stacked card with readable identifiers and fully visible action controls, removing horizontal scrolling from administrator workflows.
+The Admin Panel now uses responsive mobile card views for both user access records and food stock adjustments. Desktop screens keep the wider tabular layouts, while phones render each user or stock item as a standalone stacked card with readable identifiers and fully visible action controls, removing horizontal scrolling from administrator workflows. User access cards now include stronger text hierarchy, a small activity-style sparkline, and rounded pill role selectors to match the app-like control surface.
 
 ### Production Cleanup
 
@@ -199,6 +199,7 @@ The application build pipeline compiles into a static single-page web bundle dep
 npm run build
 npx firebase-tools deploy --project save-our-supper
 ```
+
 
 
 

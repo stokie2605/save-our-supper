@@ -245,13 +245,13 @@ export function IntakePortal({ onQueuedItemsChange }: IntakePortalProps) {
             return (
               <article
                 key={category.id}
-                className={`relative flex min-h-56 min-w-0 flex-col rounded-xl border bg-white p-3 text-center shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-colors hover:border-emerald-200 sm:min-h-64 md:min-h-72 ${
-                  count > 0 ? 'border-emerald-300 ring-2 ring-emerald-200/70 shadow-emerald-100/80' : 'border-slate-100'
+                className={`relative flex min-h-56 min-w-0 flex-col rounded-3xl border border-slate-100/80 bg-white p-4 text-center shadow-sm transition-all duration-300 hover:border-emerald-200 sm:min-h-64 md:min-h-72 ${
+                  count > 0 ? 'animate-pulse ring-2 ring-emerald-300/70 shadow-[0_0_30px_rgba(16,185,129,0.18)]' : ''
                 }`}
               >
                 {count > 0 ? (
                   <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-[11px] font-black text-white shadow-sm">
-                    ?
+                    OK
                   </span>
                 ) : null}
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 sm:gap-3">
@@ -281,7 +281,7 @@ export function IntakePortal({ onQueuedItemsChange }: IntakePortalProps) {
                     onBlur={(event) => setCount(category.id, Number(event.currentTarget.value))}
                     onFocus={(event) => event.currentTarget.select()}
                     disabled={isSubmitting}
-                    className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-950 px-2 text-center text-2xl font-black tabular-nums text-white shadow-sm outline-none transition-all focus:border-emerald-400 focus:ring-2 focus:ring-emerald-500/30 disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:px-3 sm:text-3xl"
+                    className="h-12 w-full rounded-full border border-slate-800 bg-slate-900 p-2 text-center font-mono text-2xl font-black tracking-wide text-white shadow-inner outline-none transition-all focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-3xl"
                   />
                 </div>
               </article>
@@ -328,6 +328,9 @@ export function IntakePortal({ onQueuedItemsChange }: IntakePortalProps) {
 }
 
 export default IntakePortal;
+
+
+
 
 
 
