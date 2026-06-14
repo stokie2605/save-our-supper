@@ -11,6 +11,14 @@ service cloud.firestore {
         && request.auth.token.email == "stokie2605@gmail.com";
     }
 
+
+    function isOwnClientProfileCreate(userId) {
+      return isSignedIn()
+        && request.auth.uid == userId
+        && request.resource.data.role == "client"
+        && request.resource.data.isAdmin == false
+        && request.resource.data.isVolunteer == false;
+    }
     function isOwnPostCreate() {
       return isSignedIn()
         && request.resource.data.donor_id == request.auth.uid;
@@ -62,7 +70,8 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
-      allow create, update, delete: if isAdmin();
+      allow create: if isAdmin() || isOwnClientProfileCreate(userId);
+      allow update, delete: if isAdmin();
     }
 
     match /inventory/{itemId} {

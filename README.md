@@ -42,7 +42,9 @@ To avoid silent access failures caused by small data formatting differences, rol
 * `isAdmin: true` is treated as an administrator profile.
 * Role strings are trimmed and lowercased before comparison.
 
-Accepted operational roles are `volunteer` and `admin`. The Admin Panel is restricted to `admin` only.
+Accepted public/community users receive the `client` role by default. Client accounts are confined to Public Community Hub areas such as peer support posts, crisis links, and read-only community resources.
+
+Operational staff areas are reserved for `volunteer`, `moderator`, and `admin` profiles. The Admin Panel remains restricted to `admin` only. If someone signs up as a future staff helper, they still starts as `client`; an administrator must manually elevate them from the Admin Panel.
 
 ---
 
@@ -54,9 +56,10 @@ Every authenticated user should have a document in the root `users` collection w
 | :--- | :--- | :--- | :--- |
 | `uid` | `string` | `firebase-user-uid` | Must match the Firebase Auth user ID. |
 | `email` | `string` | `stokie2605@gmail.com` | Used for identity display and admin checks. |
-| `role` | `string` | `admin` | Primary operational role. |
-| `roles` | `array<string>` | `["admin"]` | Optional compatibility role array. |
-| `isAdmin` | `boolean` | `true` | Optional explicit administrator flag. |
+| `role` | `string` | `client` | Primary user role. New registrations default to `client`. |
+| `roles` | `array<string>` | `["client"]` | Optional compatibility role array. |
+| `isAdmin` | `boolean` | `false` | Explicit administrator flag. |
+| `isVolunteer` | `boolean` | `false` | Explicit staff-helper flag for elevated accounts. |
 | `organization_name` | `string` | `Alsager Central Hub` | Display name for the local hub or account. |
 | `tier` | `string` | `distribution_hub` | Operational account tier used by the interface. |
 | `primary_location` | `string` | `ST7` | Local postcode area for community routing. |

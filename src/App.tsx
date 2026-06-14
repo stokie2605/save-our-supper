@@ -30,6 +30,7 @@ import {
   type Post,
 } from './lib/posts';
 import { db, firebaseAuth } from './lib/firebaseConfig';
+import type { UserRole } from './types/user';
 
 interface UserProfile {
   id: string;
@@ -37,6 +38,7 @@ interface UserProfile {
   tier: 'commercial_donor' | 'distribution_hub' | 'grassroots_partner';
   primary_location: string;
   contact_phone: string | null;
+  role?: UserRole;
 }
 
 type AppSession = {
@@ -53,6 +55,7 @@ type UserProfileDocument = Partial<UserProfile> & {
   role?: string | string[];
   roles?: string[];
   isAdmin?: boolean;
+  isVolunteer?: boolean;
 };
 
 type FeedFilter = 'all' | 'surplus' | 'need' | 'my-posts' | 'my-claims';
@@ -107,7 +110,7 @@ const getExpiryTimestamp = (value: string) => {
 const dietaryOptions = ['Vegan', 'Vegetarian', 'Gluten-Free', 'Nut-Free'];
 const communityUpdateCategory = 'community-update';
 const showLegacyCommunityBoard = false;
-const foodbankAccessRoles = ['volunteer', 'admin'] as const;
+const foodbankAccessRoles = ['volunteer', 'moderator', 'admin'] as const;
 const adminAccessRoles = ['admin'] as const;
 
 const getPostcodePrefix = (postcode?: string | null) => {
@@ -185,9 +188,17 @@ export default function App() {
       if (userSnapshot.exists()) {
         const data = userSnapshot.data() as UserProfileDocument;
         const rawRoles = Array.isArray(data.roles) ? data.roles : Array.isArray(data.role) ? data.role : [data.role];
-        const isAdminProfile =
-          data.isAdmin === true ||
-          rawRoles.some((role) => String(role).toLowerCase().trim() === 'admin');
+        const normalizedRoles = rawRoles.map((role) => String(role).toLowerCase().trim());
+        const normalizedRole: UserRole = data.isAdmin === true
+          ? 'admin'
+          : normalizedRoles.includes('admin')
+            ? 'admin'
+            : normalizedRoles.includes('moderator')
+              ? 'moderator'
+              : normalizedRoles.includes('volunteer') || data.isVolunteer === true
+                ? 'volunteer'
+                : 'client';
+        const isAdminProfile = normalizedRole === 'admin';
         const normalizedProfile: UserProfile = {
           id: userId,
           organization_name:
@@ -195,6 +206,7 @@ export default function App() {
           tier: data.tier ?? (isAdminProfile ? 'distribution_hub' : 'grassroots_partner'),
           primary_location: data.primary_location ?? data.primaryLocation ?? 'ST7',
           contact_phone: data.contact_phone ?? data.contactPhone ?? null,
+          role: normalizedRole,
         };
 
         setProfile(normalizedProfile);
@@ -213,6 +225,7 @@ export default function App() {
           tier: fallbackEmail === 'stokie2605@gmail.com' ? 'distribution_hub' : 'grassroots_partner',
           primary_location: 'ST7',
           contact_phone: null,
+          role: fallbackEmail === 'stokie2605@gmail.com' ? 'admin' : 'client',
         };
 
         setProfile(fallbackProfile);
@@ -544,16 +557,16 @@ export default function App() {
         }
 
         const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-        const isAdminEmail = credential.user.email?.toLowerCase() === 'stokie2605@gmail.com';
 
         await setDoc(doc(db, 'users', credential.user.uid), {
             uid: credential.user.uid,
             email: credential.user.email,
-            role: isAdminEmail ? 'admin' : 'user',
-            roles: [isAdminEmail ? 'admin' : 'user'],
-            isAdmin: isAdminEmail,
+            role: 'client',
+            roles: ['client'],
+            isAdmin: false,
+            isVolunteer: false,
             organization_name: 'Community member',
-            tier: isAdminEmail ? 'distribution_hub' : 'grassroots_partner',
+            tier: 'grassroots_partner',
             primary_location: cleanedLocation,
             contact_phone: null,
           }, { merge: true });
@@ -673,7 +686,8 @@ export default function App() {
     );
   }
 
-  const isHubManager = profile?.tier === 'distribution_hub';
+  const isStaffProfile = profile?.role === 'volunteer' || profile?.role === 'moderator' || profile?.role === 'admin';
+  const isHubManager = profile?.tier === 'distribution_hub' || isStaffProfile;
   const isCommercialDonor = profile?.tier === 'commercial_donor';
   const activeLocationLabel = profile?.primary_location || settingsLocation || defaultPostLocation.postcode;
 

@@ -17,7 +17,7 @@ type GuardState =
   | { status: 'allowed'; profile: UserProfile; error: null }
   | { status: 'denied'; profile: UserProfile | null; error: string | null };
 
-const defaultAllowedRoles: readonly UserRole[] = ['volunteer', 'admin'];
+const defaultAllowedRoles: readonly UserRole[] = ['volunteer', 'moderator', 'admin'];
 
 function normalizeEmail(email?: string | null) {
   return email?.trim().toLowerCase() ?? null;
@@ -31,12 +31,16 @@ function normalizeRoleValue(roleValue: unknown): UserRole | null {
     return 'admin';
   }
 
+  if (normalizedRoles.includes('moderator')) {
+    return 'moderator';
+  }
+
   if (normalizedRoles.includes('volunteer')) {
     return 'volunteer';
   }
 
-  if (normalizedRoles.includes('user')) {
-    return 'user';
+  if (normalizedRoles.includes('client') || normalizedRoles.includes('user')) {
+    return 'client';
   }
 
   return null;
@@ -47,8 +51,12 @@ function normalizeUserProfile(uid: string, data: unknown, fallbackEmail?: string
     return null;
   }
 
-  const profileData = data as Partial<UserProfile> & { role?: unknown; roles?: unknown; isAdmin?: unknown };
-  const role = profileData.isAdmin === true ? 'admin' : normalizeRoleValue(profileData.role ?? profileData.roles);
+  const profileData = data as Partial<UserProfile> & { role?: unknown; roles?: unknown; isAdmin?: unknown; isVolunteer?: unknown };
+  const role = profileData.isAdmin === true
+    ? 'admin'
+    : profileData.isVolunteer === true
+      ? 'volunteer'
+      : normalizeRoleValue(profileData.role ?? profileData.roles);
 
   if (!role) {
     return null;
@@ -161,10 +169,10 @@ export function AuthGuard({
     return (
       <div className="rounded-3xl border border-red-200 bg-red-50 px-5 py-10 text-center shadow-sm">
         <p className="text-xs font-black uppercase tracking-widest text-red-600">Access denied</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-red-900">Administrator or volunteer access required</h2>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-red-900">Staff access required</h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-red-700">
           {guardState.error ??
-            `Your current role is "${guardState.profile?.role ?? 'unknown'}", so this operations area is locked.`}
+            `Your current role is "${guardState.profile?.role ?? 'unknown'}", Client accounts are limited to the Public Community Hub unless an administrator upgrades the account.`}
         </p>
         <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-red-500">
           Returning you to the public community feed...

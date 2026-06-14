@@ -3,11 +3,12 @@ import { collection, getDocs, updateDoc, doc, onSnapshot, setDoc, increment } fr
 import { db } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
-const roleOptions: UserRole[] = ['user', 'volunteer', 'admin'];
+const roleOptions: UserRole[] = ['client', 'volunteer', 'moderator', 'admin'];
 
 const roleBadgeClass: Record<UserRole, string> = {
-  user: 'border-slate-200 bg-slate-50 text-slate-600',
+  client: 'border-slate-200 bg-slate-50 text-slate-600',
   volunteer: 'border-teal-200 bg-teal-50 text-teal-700',
+  moderator: 'border-amber-200 bg-amber-50 text-amber-700',
   admin: 'border-emerald-200 bg-emerald-50 text-emerald-700',
 };
 
@@ -30,12 +31,15 @@ function normalizeCategoryId(value: string) {
 }
 
 function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
-  const userData = data && typeof data === 'object' ? (data as Partial<UserProfile>) : {};
-  const role = userData.role === 'volunteer' || userData.role === 'admin' ? userData.role : 'user';
+  const userData = data && typeof data === 'object' ? (data as Partial<UserProfile> & { organization_name?: string; displayName?: string }) : {};
+  const roleCandidates: UserRole[] = ['client', 'volunteer', 'moderator', 'admin'];
+  const rawRole = String(userData.role ?? 'client').toLowerCase().trim() as UserRole;
+  const role = roleCandidates.includes(rawRole) ? rawRole : 'client';
 
   return {
     uid: userData.uid ?? documentId,
     email: userData.email ?? 'missing-email',
+    name: userData.name ?? userData.displayName ?? userData.organization_name ?? 'Community member',
     role,
   };
 }
@@ -116,7 +120,12 @@ export function AdminPanel() {
     setUpdatingUid(user.uid);
     setError(null);
     try {
-      await updateDoc(doc(db, 'users', user.uid), { role: nextRole });
+      await updateDoc(doc(db, 'users', user.uid), {
+        role: nextRole,
+        roles: [nextRole],
+        isAdmin: nextRole === 'admin',
+        isVolunteer: nextRole === 'volunteer' || nextRole === 'moderator' || nextRole === 'admin',
+      });
       setUsers((current) =>
         current.map((curr) => (curr.uid === user.uid ? { ...curr, role: nextRole } : curr)),
       );
@@ -233,7 +242,7 @@ export function AdminPanel() {
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-widest text-slate-500">
                   <tr>
-                    <th className="px-5 py-4">User ID (UID)</th>
+                    <th className="px-5 py-4">Name</th>
                     <th className="px-5 py-4">Email Address</th>
                     <th className="px-5 py-4">Current Role</th>
                     <th className="px-5 py-4 text-right">Role Action</th>
@@ -256,7 +265,8 @@ export function AdminPanel() {
                     users.map((user) => (
                       <tr key={user.uid} className="transition-colors hover:bg-slate-50">
                         <td className="min-w-0 px-5 py-4">
-                          <p className="break-all font-mono text-xs font-bold text-slate-500">{user.uid}</p>
+                          <p className="break-words font-black text-slate-950">{user.name ?? 'Community member'}</p>
+                          <p className="mt-1 break-all font-mono text-[11px] font-bold text-slate-400">{user.uid}</p>
                         </td>
                         <td className="min-w-0 px-5 py-4">
                           <p className="break-words font-black text-slate-950">{user.email}</p>
