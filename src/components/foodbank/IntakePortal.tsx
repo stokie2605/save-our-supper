@@ -1,22 +1,9 @@
 import { useMemo, useState } from 'react';
 import { processDonationIntake } from '../../services/foodbankService';
 import type { DonationIntakeData, DonationIntakeItem } from '../../types/foodbank';
-
-type IntakeCategory = {
-  id: string;
-  label: string;
-  helper: string;
-};
+import { foodbankCategories, type FoodbankCategory } from './foodbankCategories';
 
 type ItemsReceivedState = Record<string, number>;
-
-function formatDisplayLabel(value: string) {
-  return value
-    .replace(/[_-]+/g, ' ')
-    .trim()
-    .toLowerCase()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
 
 function LogDonationIcon({ className = 'h-5 w-5' }: { className?: string }) {
   return (
@@ -32,22 +19,99 @@ function LogDonationIcon({ className = 'h-5 w-5' }: { className?: string }) {
   );
 }
 
+function CategoryGraphic({ category }: { category: FoodbankCategory }) {
+  const iconClass = 'h-20 w-20 text-slate-900';
+  const accentClass = 'text-emerald-500';
+
+  if (category.visual === 'milk') {
+    return (
+      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <path d="M35 12h26l6 14v52a8 8 0 0 1-8 8H37a8 8 0 0 1-8-8V26l6-14Z" fill="currentColor" opacity="0.08" />
+        <path d="M35 12h26l6 14v52a8 8 0 0 1-8 8H37a8 8 0 0 1-8-8V26l6-14Z" stroke="currentColor" strokeWidth="4" />
+        <path d="M35 12h26M29 28h38M37 48h22" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+        <path d="M39 58h18v16H39z" className={accentClass} fill="currentColor" opacity="0.35" />
+      </svg>
+    );
+  }
+
+  if (category.visual === 'mug') {
+    return (
+      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <path d="M24 34h42v30a18 18 0 0 1-18 18h-6a18 18 0 0 1-18-18V34Z" fill="currentColor" opacity="0.08" />
+        <path d="M24 34h42v30a18 18 0 0 1-18 18h-6a18 18 0 0 1-18-18V34Z" stroke="currentColor" strokeWidth="4" />
+        <path d="M66 42h8a10 10 0 0 1 0 20h-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+        <path d="M36 22c-4-5 4-7 0-12M50 22c-4-5 4-7 0-12" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (['fish', 'pet'].includes(category.visual)) {
+    return (
+      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <path d="M18 50c12-18 34-24 54-6l12-10v32L72 56c-20 18-42 12-54-6Z" fill="currentColor" opacity="0.08" />
+        <path d="M18 50c12-18 34-24 54-6l12-10v32L72 56c-20 18-42 12-54-6Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+        <circle cx="35" cy="48" r="3" fill="currentColor" />
+        <path d="M52 38c-6 8-6 16 0 24" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (category.visual === 'toiletries') {
+    return (
+      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <path d="M34 24h28v10H34zM28 34h40v44a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8V34Z" fill="currentColor" opacity="0.08" />
+        <path d="M34 24h28v10H34zM28 34h40v44a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8V34Z" stroke="currentColor" strokeWidth="4" />
+        <path d="M40 60h16M48 52v16" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (category.visual === 'baby') {
+    return (
+      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <path d="M30 34h36l-6 48H36L30 34Z" fill="currentColor" opacity="0.08" />
+        <path d="M30 34h36l-6 48H36L30 34Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+        <path d="M38 34c0-12 20-12 20 0" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+        <circle cx="42" cy="56" r="3" className={accentClass} fill="currentColor" />
+        <circle cx="54" cy="56" r="3" className={accentClass} fill="currentColor" />
+      </svg>
+    );
+  }
+
+  if (['pasta', 'jar', 'beans', 'meat', 'veg', 'pudding', 'fruit'].includes(category.visual)) {
+    return (
+      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <path d="M28 22h40v12H28zM32 34h32v44a8 8 0 0 1-8 8H40a8 8 0 0 1-8-8V34Z" fill="currentColor" opacity="0.08" />
+        <path d="M28 22h40v12H28zM32 34h32v44a8 8 0 0 1-8 8H40a8 8 0 0 1-8-8V34Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+        <path d="M38 50h20v18H38z" className={accentClass} fill="currentColor" opacity="0.35" />
+        <path d="M40 60h16" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (category.visual === 'snacks') {
+    return (
+      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
+        <path d="M26 26h44l-6 56H32L26 26Z" fill="currentColor" opacity="0.08" />
+        <path d="M26 26h44l-6 56H32L26 26Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+        <path d="M36 42h24M38 56h20" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
+      <path d="M24 30h48v44a10 10 0 0 1-10 10H34a10 10 0 0 1-10-10V30Z" fill="currentColor" opacity="0.08" />
+      <path d="M24 30h48v44a10 10 0 0 1-10 10H34a10 10 0 0 1-10-10V30Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
+      <path d="M34 30c0-12 28-12 28 0" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+      <path d="M38 52h20" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 const sourceTypes = ['Supermarket', 'Walk-in', 'Cafe / Restaurant', 'Community Drive', 'Other'];
 
-const intakeCategories: IntakeCategory[] = [
-  { id: 'breakfast_cereals', label: 'Breakfast Cereals', helper: 'Cereal boxes, oats, porridge' },
-  { id: 'uht_milk', label: 'UHT Milk', helper: 'Long-life milk and cartons' },
-  { id: 'tinned_meat', label: 'Tinned Meat', helper: 'Meat tins and protein meals' },
-  { id: 'tinned_fish', label: 'Tinned Fish', helper: 'Tuna, sardines, salmon' },
-  { id: 'soup', label: 'Soup', helper: 'Packets, tins, and cup soups' },
-  { id: 'baked_beans', label: 'Baked Beans', helper: 'Beans and similar staples' },
-  { id: 'pasta_rice', label: 'Pasta / Rice', helper: 'Dry pasta, rice, couscous' },
-  { id: 'toiletries', label: 'Toiletries', helper: 'Soap, toothpaste, hygiene' },
-  { id: 'baby_items', label: 'Baby Items', helper: 'Nappies, wipes, baby food' },
-  { id: 'pet_food', label: 'Pet Food', helper: 'Dog, cat, and small pet food' },
-];
-
-const initialItemsReceived = intakeCategories.reduce<ItemsReceivedState>((acc, category) => {
+const initialItemsReceived = foodbankCategories.reduce<ItemsReceivedState>((acc, category) => {
   acc[category.id] = 0;
   return acc;
 }, {});
@@ -72,11 +136,8 @@ export function IntakePortal() {
     }));
   };
 
-  const updateCount = (categoryId: string, delta: number) => {
-    setItemsReceived((current) => ({
-      ...current,
-      [categoryId]: Math.max(0, (current[categoryId] ?? 0) + delta),
-    }));
+  const clearAll = () => {
+    setItemsReceived(initialItemsReceived);
     setMessage(null);
   };
 
@@ -92,7 +153,7 @@ export function IntakePortal() {
       return;
     }
 
-    const items: DonationIntakeItem[] = intakeCategories
+    const items: DonationIntakeItem[] = foodbankCategories
       .map((category) => ({
         inventory_item_id: category.id,
         quantity: itemsReceived[category.id] ?? 0,
@@ -123,129 +184,129 @@ export function IntakePortal() {
   };
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white pb-28 shadow-sm md:pb-0">
       <div className="h-2 bg-gradient-to-r from-emerald-400 to-teal-500" />
       <div className="p-4 sm:p-6">
-      <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-widest text-teal-700">Food donations</p>
-          <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
-            Donation Drop-Off Log
-          </h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-            Quickly record food given by supermarkets, local groups, churches, and walk-in donors.
-          </p>
+        <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-widest text-teal-700">Food donations</p>
+            <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+              Donation Drop-Off Log
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              Quickly record food given by supermarkets, local groups, churches, and walk-in donors.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center">
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Items queued</p>
+            <p className="text-3xl font-black text-brand-forest">{totalItems}</p>
+          </div>
         </div>
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center">
-          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Items queued</p>
-          <p className="text-3xl font-black text-brand-forest">{totalItems}</p>
-        </div>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
-        <label className="block min-w-0">
-          <span className="text-sm font-bold text-slate-700">Where did it come from?</span>
-          <select
-            value={sourceType}
-            onChange={(event) => setSourceType(event.target.value)}
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-          >
-            {sourceTypes.map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="block min-w-0">
-          <span className="text-sm font-bold text-slate-700">Name of shop, group, or donor</span>
-          <input
-            value={sourceName}
-            onChange={(event) => setSourceName(event.target.value)}
-            placeholder="e.g. Local Tesco, church collection, walk-in donor"
-            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-          />
-        </label>
-      </div>
-
-      <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        {intakeCategories.map((category) => {
-          const count = itemsReceived[category.id] ?? 0;
-
-          return (
-            <article
-              key={category.id}
-              className="flex min-h-52 min-w-0 flex-col justify-between rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:bg-white hover:shadow-lg"
+        <div className="grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
+          <label className="block min-w-0">
+            <span className="text-sm font-bold text-slate-700">Where did it come from?</span>
+            <select
+              value={sourceType}
+              onChange={(event) => setSourceType(event.target.value)}
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
             >
-              <div className="min-w-0">
-                <h3 className="break-words text-xs font-black uppercase tracking-widest text-slate-900">
-                  {formatDisplayLabel(category.label || category.id)}
-                </h3>
-                <p className="mt-2 break-words text-sm leading-5 text-slate-500">{category.helper}</p>
-              </div>
+              {sourceTypes.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+          </label>
 
-              <div className="mt-5">
-                <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center shadow-xs focus-within:border-emerald-400 focus-within:ring-2 focus-within:ring-emerald-500/20">
+          <label className="block min-w-0">
+            <span className="text-sm font-bold text-slate-700">Name of shop, group, or donor</span>
+            <input
+              value={sourceName}
+              onChange={(event) => setSourceName(event.target.value)}
+              placeholder="e.g. Local Tesco, church collection, walk-in donor"
+              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+            />
+          </label>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {foodbankCategories.map((category) => {
+            const count = itemsReceived[category.id] ?? 0;
+
+            return (
+              <article
+                key={category.id}
+                className="flex min-h-72 min-w-0 flex-col rounded-[2rem] border border-slate-200 bg-slate-50 p-4 text-center shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:bg-white hover:shadow-lg"
+              >
+                <div className="flex flex-1 flex-col items-center justify-center gap-3">
+                  <div className="grid h-28 w-28 place-items-center rounded-[2rem] border border-slate-200 bg-white shadow-xs">
+                    <CategoryGraphic category={category} />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="break-words text-sm font-black uppercase tracking-widest text-slate-900">
+                      {category.label}
+                    </h3>
+                    <p className="mt-2 break-words text-xs leading-5 text-slate-500">{category.helper}</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex justify-center">
+                  <label className="sr-only" htmlFor={`quantity-${category.id}`}>
+                    {category.label} quantity
+                  </label>
                   <input
+                    id={`quantity-${category.id}`}
                     type="number"
                     min={0}
+                    step={1}
                     inputMode="numeric"
                     value={count}
                     onChange={(event) => setCount(category.id, Number(event.target.value))}
+                    onBlur={(event) => setCount(category.id, Number(event.currentTarget.value))}
                     onFocus={(event) => event.currentTarget.select()}
                     disabled={isSubmitting}
-                    aria-label={`${category.label} quantity`}
-                    className="w-full bg-transparent text-center text-5xl font-black tabular-nums text-slate-950 outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-14 w-28 rounded-2xl border border-slate-200 bg-white px-3 text-center text-3xl font-black tabular-nums text-slate-950 shadow-xs outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                   />
                 </div>
-                <div className="flex items-center justify-center gap-4 sm:gap-5">
-                  <button
-                    type="button"
-                    onClick={() => updateCount(category.id, -1)}
-                    disabled={count === 0 || isSubmitting}
-                    className="grid h-14 w-14 place-items-center rounded-full border border-slate-300 bg-white text-2xl font-black text-slate-700 shadow-xs transition-all hover:-translate-y-0.5 hover:bg-slate-50 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 sm:h-12 sm:w-12"
-                    aria-label={`Decrease ${category.label}`}
-                  >
-                    -
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateCount(category.id, 1)}
-                    disabled={isSubmitting}
-                    className="grid h-14 w-14 place-items-center rounded-full bg-slate-900 text-2xl font-black text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-md active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 sm:h-12 sm:w-12"
-                    aria-label={`Increase ${category.label}`}
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-
-      {message && (
-        <div
-          className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-semibold ${
-            message.tone === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-red-200 bg-red-50 text-red-700'
-          }`}
-        >
-          {message.text}
+              </article>
+            );
+          })}
         </div>
-      )}
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={isSubmitting || totalItems === 0}
-        className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-3xl bg-slate-900 px-6 py-5 text-xl font-black text-white shadow-sm transition-all hover:bg-emerald-600 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
-      >
-        <LogDonationIcon />
-        {isSubmitting ? 'Logging Donation...' : 'Log Donation'}
-      </button>
+        {message && (
+          <div
+            className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+              message.tone === 'success'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-red-200 bg-red-50 text-red-700'
+            }`}
+          >
+            {message.text}
+          </div>
+        )}
+
+        <div className="fixed bottom-0 left-0 z-50 w-full border-t border-slate-200 bg-white p-4 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] md:static md:mt-6 md:rounded-3xl md:border md:shadow-xs">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <button
+              type="button"
+              onClick={clearAll}
+              disabled={isSubmitting || totalItems === 0}
+              className="text-sm font-black text-slate-500 underline-offset-4 transition-colors hover:text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Clear All
+            </button>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={isSubmitting || totalItems === 0}
+              className="inline-flex w-full items-center justify-center gap-3 rounded-3xl bg-slate-900 px-6 py-4 text-lg font-black text-white shadow-sm transition-all hover:bg-emerald-600 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 md:w-auto md:min-w-80"
+            >
+              <LogDonationIcon />
+              {isSubmitting ? 'Logging Donation...' : `Log ${totalItems} Donated ${totalItems === 1 ? 'Item' : 'Items'}`}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   );

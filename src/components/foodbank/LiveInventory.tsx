@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebaseConfig';
+import { foodbankCategories } from './foodbankCategories';
 
 interface StockItem {
   id: string;
@@ -8,19 +9,6 @@ interface StockItem {
   current_quantity: number;
   last_updated?: string;
 }
-
-const inventoryCategories = [
-  { id: 'breakfast_cereals', label: 'Breakfast Cereals' },
-  { id: 'uht_milk', label: 'UHT Milk' },
-  { id: 'tinned_meat', label: 'Tinned Meat' },
-  { id: 'tinned_fish', label: 'Tinned Fish' },
-  { id: 'soup', label: 'Soup' },
-  { id: 'baked_beans', label: 'Baked Beans' },
-  { id: 'pasta_rice', label: 'Pasta / Rice' },
-  { id: 'toiletries', label: 'Toiletries' },
-  { id: 'baby_items', label: 'Baby Items' },
-  { id: 'pet_food', label: 'Pet Food' },
-];
 
 function formatDisplayLabel(value: string | undefined) {
   return (value ?? '')
@@ -46,24 +34,25 @@ export default function LiveInventory() {
   useEffect(() => {
     const inventoryCollection = collection(db, 'inventory');
 
-    // Listen directly to active food bank stock changes.
-    const unsubscribe = onSnapshot(inventoryCollection,
+    const unsubscribe = onSnapshot(
+      inventoryCollection,
       (snapshot) => {
         const stockById = new Map<string, StockItem>();
 
-        snapshot.docs.forEach(doc => {
+        snapshot.docs.forEach((doc) => {
           const data = doc.data();
           const normalizedId = normalizeInventoryId(doc.id);
+          const currentQuantity = Number(data.current_quantity ?? data.quantity) || 0;
 
           stockById.set(normalizedId, {
             id: doc.id,
             label: formatDisplayLabel(data.label ?? data.item_name ?? doc.id),
-            current_quantity: Number(data.current_quantity) || 0,
-            last_updated: data.last_updated
+            current_quantity: currentQuantity,
+            last_updated: data.last_updated,
           });
         });
 
-        const stockItems = inventoryCategories.map((category) => {
+        const stockItems = foodbankCategories.map((category) => {
           const trackedItem = stockById.get(category.id);
 
           return {
@@ -81,7 +70,7 @@ export default function LiveInventory() {
         console.error('Live stock stream failed:', err);
         setError('Could not load current food bank stock levels.');
         setLoading(false);
-      }
+      },
     );
 
     return () => unsubscribe();
@@ -90,52 +79,54 @@ export default function LiveInventory() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center p-12 text-slate-500">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600 mb-4" />
+        <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-600" />
         <p className="text-sm font-medium">Loading current food bank stock...</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4">
-      {/* Gradient Top Decorator Banner */}
-      <div className="h-2 w-full bg-gradient-to-r from-teal-500 to-emerald-600 rounded-t-xl" />
+    <div className="mx-auto w-full max-w-6xl p-4">
+      <div className="h-2 w-full rounded-t-xl bg-gradient-to-r from-teal-500 to-emerald-600" />
 
-      <div className="bg-white border border-slate-200 border-t-0 rounded-b-xl shadow-sm p-6">
-        <div className="border-b border-slate-100 pb-5 mb-6">
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Food Bank Stock Levels</h2>
-          <p className="text-xs font-medium text-slate-500 mt-1 uppercase tracking-wider">Current Hub Provisions</p>
+      <div className="rounded-b-xl border border-t-0 border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <div className="mb-6 border-b border-slate-100 pb-5">
+          <h2 className="break-words text-xl font-bold tracking-tight text-slate-900">Food Bank Stock Levels</h2>
+          <p className="mt-1 text-xs font-medium uppercase tracking-wider text-slate-500">Current Hub Provisions</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
             {error}
           </div>
         )}
 
         {inventory.length === 0 ? (
-          <div className="text-center py-16 border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/50 text-slate-400 text-sm">
+          <div className="rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/50 py-16 text-center text-sm text-slate-400">
             No food bank stock items are being tracked yet. Add common donation items to begin.
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {inventory.map((item) => (
-              <div key={item.id} className="border border-slate-200 rounded-xl p-4 bg-white shadow-2xs hover:shadow-sm transition-all duration-150">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Food item</p>
-                    <h4 className="text-sm font-bold text-slate-800 tracking-tight mt-0.5 break-words">
-                      {formatDisplayLabel(item.label || item.id)}
-                    </h4>
-                  </div>
-                  <span className={`inline-flex items-center shrink-0 rounded-md px-2 py-0.5 text-xs font-bold ${
-                    item.current_quantity === 0
-                      ? 'bg-red-50 text-red-700 border border-red-200'
-                      : 'bg-slate-50 text-slate-700 border border-slate-200'
-                  }`}>
-                    {item.current_quantity} units
-                  </span>
+              <div
+                key={item.id}
+                className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs transition-all duration-150 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-sm"
+              >
+                <p className="truncate text-[10px] font-bold uppercase tracking-wider text-slate-400">Food item</p>
+                <h4 className="mt-1 min-h-10 break-words text-sm font-black tracking-tight text-slate-900">
+                  {formatDisplayLabel(item.label || item.id)}
+                </h4>
+                <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center">
+                  <p className="text-3xl font-black tabular-nums text-brand-forest">{item.current_quantity}</p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+                    {item.current_quantity === 1 ? 'unit' : 'units'}
+                  </p>
                 </div>
+                {item.current_quantity === 0 && (
+                  <p className="mt-3 rounded-lg border border-red-100 bg-red-50 px-2 py-1 text-center text-xs font-bold text-red-700">
+                    Low stock
+                  </p>
+                )}
               </div>
             ))}
           </div>

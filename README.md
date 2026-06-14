@@ -104,7 +104,9 @@ A welcoming live stock view shows what is currently available on the shelves. Fo
 
 The donation intake screen gives volunteers an easy way to record incoming items from supermarkets, community drop-off points, churches, local groups, cafes, and walk-in donors. Volunteers can quickly scale quantities for standard food bank categories. When a donation is logged, the system updates the matching stock record and writes a receipt for traceability.
 
-Donation quantity cards now use hybrid controls: each large counter is a real numeric input for keyboard or mobile keypad entry, while the adjacent plus and minus buttons remain available for quick one-tap adjustments. Focusing a quantity input selects the current number so volunteers can immediately type over `0` with a larger count.
+Donation quantity cards now use visual category tiles with centered foodbank graphics and a native numeric input anchored at the bottom of each card. Volunteers can tap directly into the white quantity box, type larger amounts with a keyboard or mobile keypad, use the browser's built-in number steppers for small changes, and rely on select-on-focus plus blur handling so the typed value is saved cleanly as soon as they leave the field.
+
+On mobile, the intake screen uses a fixed bottom action bar with a dynamic `Log X Donated Items` button and a discreet `Clear All` reset control. On desktop, the same action area returns to the normal page flow so office and partner users can scan the full category grid comfortably.
 
 ### Production Cleanup
 
@@ -124,15 +126,20 @@ If any stock item is missing or does not have enough units available, the transa
 
 ## Current Stock Categories
 
-The app coordinates operations using ten normalized real-world food bank categories:
+The app coordinates operations using fifteen normalized real-world UK food bank crate categories:
 
 * Breakfast Cereals
 * UHT Milk
+* Tea / Coffee
+* Pasta / Rice
+* Pasta Sauce / Tinned Tomatoes
+* Baked Beans
 * Tinned Meat
 * Tinned Fish
-* Soup
-* Baked Beans
-* Pasta / Rice
+* Tinned Vegetables
+* Rice Pudding / Custard
+* Tinned Fruit
+* Biscuits & Snacks
 * Toiletries
 * Baby Items
 * Pet Food
