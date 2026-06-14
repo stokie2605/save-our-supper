@@ -139,6 +139,45 @@ const getDistanceLabel = (post: Post, coordinates: { lat: number; lon: number })
   return `${miles < 10 ? miles.toFixed(1) : Math.round(miles)} miles away`;
 };
 
+type NavIconProps = { className?: string };
+
+function PlusCircleIcon({ className = 'h-6 w-6' }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 8v8M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PackageIcon({ className = 'h-6 w-6' }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m3 7.5 9-4 9 4-9 4-9-4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M3 7.5v9l9 4 9-4v-9M12 11.5v9" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function UsersIcon({ className = 'h-6 w-6' }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M16 19c0-2.2-1.8-4-4-4H8c-2.2 0-4 1.8-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="10" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+      <path d="M20 19c0-1.8-1.1-3.3-2.7-3.8M17 4.4a4 4 0 0 1 0 7.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SettingsIcon({ className = 'h-6 w-6' }: NavIconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState<AppSession | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -760,7 +799,7 @@ export default function App() {
       </div>
 
       {/* ─── 📍 VISUAL TAB SWITCHER SYSTEM ─── */}
-      <div className="mb-6 grid min-w-0 grid-cols-1 gap-2 rounded-2xl bg-slate-100 p-1.5 sm:flex sm:flex-wrap sm:items-center">
+      <div className="mb-6 hidden min-w-0 gap-2 rounded-2xl bg-slate-100 p-1.5 md:flex md:flex-wrap md:items-center">
         <button
           type="button"
           onClick={() => {
@@ -833,6 +872,78 @@ export default function App() {
           </button>
         )}
       </div>
+
+      <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around border-t border-slate-200 bg-white p-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] md:hidden" aria-label="Mobile staff navigation">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveView('feed');
+            setDashboardTab('find-food');
+            setFilter('all');
+          }}
+          className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
+            activeView === 'feed' && dashboardTab === 'find-food'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          aria-label="Donations"
+          title="Donations"
+        >
+          <PlusCircleIcon />
+        </button>
+
+        {isHubManager ? (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveView('inventory');
+                setDashboardTab('my-listings');
+              }}
+              className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
+                activeView === 'inventory'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+              aria-label="Live Inventory"
+              title="Live Inventory"
+            >
+              <PackageIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveView('feed');
+                setDashboardTab('my-claims');
+                setFilter('my-claims');
+              }}
+              className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
+                activeView === 'feed' && dashboardTab === 'my-claims'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+              aria-label="Referral Queue"
+              title="Referral Queue"
+            >
+              <UsersIcon />
+            </button>
+          </>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => setActiveView('settings')}
+          className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
+            activeView === 'settings'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+          }`}
+          aria-label="Settings"
+          title="Settings"
+        >
+          <SettingsIcon />
+        </button>
+      </nav>
 
       {/* ─── VIEW VIEWPORTS ─── */}
 
@@ -1303,3 +1414,4 @@ export default function App() {
     </AppShell>
   );
 }
+

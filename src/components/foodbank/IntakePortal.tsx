@@ -20,7 +20,7 @@ function LogDonationIcon({ className = 'h-5 w-5' }: { className?: string }) {
 }
 
 function CategoryGraphic({ category }: { category: FoodbankCategory }) {
-  const iconClass = 'h-20 w-20 text-slate-900';
+  const iconClass = 'h-14 w-14 text-slate-900 sm:h-16 sm:w-16 md:h-20 md:w-20';
   const accentClass = 'text-emerald-500';
 
   if (category.visual === 'milk') {
@@ -184,7 +184,7 @@ export function IntakePortal() {
   };
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white pb-28 shadow-sm md:pb-0">
+    <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white pb-44 shadow-sm md:pb-0">
       <div className="h-2 bg-gradient-to-r from-emerald-400 to-teal-500" />
       <div className="p-4 sm:p-6">
         <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
@@ -230,24 +230,24 @@ export function IntakePortal() {
           </label>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">
           {foodbankCategories.map((category) => {
             const count = itemsReceived[category.id] ?? 0;
 
             return (
               <article
                 key={category.id}
-                className="flex min-h-72 min-w-0 flex-col rounded-[2rem] border border-slate-200 bg-slate-50 p-4 text-center shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:bg-white hover:shadow-lg"
+                className="flex min-h-56 min-w-0 flex-col rounded-3xl border border-slate-200 bg-slate-50 p-3 text-center shadow-xs transition-all duration-300 hover:-translate-y-1 hover:border-emerald-200 hover:bg-white hover:shadow-lg sm:min-h-64 sm:p-4 md:min-h-72"
               >
-                <div className="flex flex-1 flex-col items-center justify-center gap-3">
-                  <div className="grid h-28 w-28 place-items-center rounded-[2rem] border border-slate-200 bg-white shadow-xs">
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 sm:gap-3">
+                  <div className="grid h-20 w-20 place-items-center rounded-3xl border border-slate-200 bg-white shadow-xs sm:h-24 sm:w-24 md:h-28 md:w-28 md:rounded-[2rem]">
                     <CategoryGraphic category={category} />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="break-words text-sm font-black uppercase tracking-widest text-slate-900">
+                    <h3 className="break-words text-[11px] font-black uppercase leading-4 tracking-wider text-slate-900 sm:text-xs md:text-sm md:tracking-widest">
                       {category.label}
                     </h3>
-                    <p className="mt-2 break-words text-xs leading-5 text-slate-500">{category.helper}</p>
+                    <p className="mt-1 break-words text-[11px] leading-4 text-slate-500 sm:mt-2 sm:text-xs sm:leading-5">{category.helper}</p>
                   </div>
                 </div>
 
@@ -266,7 +266,7 @@ export function IntakePortal() {
                     onBlur={(event) => setCount(category.id, Number(event.currentTarget.value))}
                     onFocus={(event) => event.currentTarget.select()}
                     disabled={isSubmitting}
-                    className="h-14 w-28 rounded-2xl border border-slate-200 bg-white px-3 text-center text-3xl font-black tabular-nums text-slate-950 shadow-xs outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="h-12 w-24 rounded-2xl border border-slate-200 bg-white px-2 text-center text-2xl font-black tabular-nums text-slate-950 shadow-xs outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:w-28 sm:px-3 sm:text-3xl"
                   />
                 </div>
               </article>
@@ -286,7 +286,7 @@ export function IntakePortal() {
           </div>
         )}
 
-        <div className="fixed bottom-0 left-0 z-50 w-full border-t border-slate-200 bg-white p-4 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] md:static md:mt-6 md:rounded-3xl md:border md:shadow-xs">
+        <div className="fixed bottom-16 left-0 z-50 w-full border-t border-slate-200 bg-white p-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] sm:p-4 md:static md:mt-6 md:rounded-3xl md:border md:shadow-xs">
           <div className="mx-auto flex max-w-6xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <button
               type="button"

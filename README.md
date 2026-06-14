@@ -106,7 +106,7 @@ The donation intake screen gives volunteers an easy way to record incoming items
 
 Donation quantity cards now use visual category tiles with centered foodbank graphics and a native numeric input anchored at the bottom of each card. Volunteers can tap directly into the white quantity box, type larger amounts with a keyboard or mobile keypad, use the browser's built-in number steppers for small changes, and rely on select-on-focus plus blur handling so the typed value is saved cleanly as soon as they leave the field.
 
-On mobile, the intake screen uses a fixed bottom action bar with a dynamic `Log X Donated Items` button and a discreet `Clear All` reset control. On desktop, the same action area returns to the normal page flow so office and partner users can scan the full category grid comfortably.
+On mobile, the intake screen uses a compact two-column category grid and a fixed bottom action bar with a dynamic `Log X Donated Items` button and a discreet `Clear All` reset control. The action bar is positioned above the mobile-only icon navigation, keeping both submission controls and staff shortcuts reachable without blocking the cards. On desktop, the text navigation and action area return to the normal page flow so office and partner users can scan the full category grid comfortably.
 
 ### Production Cleanup
 
@@ -195,3 +195,4 @@ The application build pipeline compiles into a static single-page web bundle dep
 npm run build
 npx firebase-tools deploy --project save-our-supper
 ```
+
