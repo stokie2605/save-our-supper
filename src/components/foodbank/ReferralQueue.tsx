@@ -14,11 +14,13 @@ type ReferralQueueItem = ReferralVoucher & {
   sourceCollection: 'referral_vouchers' | 'referrals';
   urgency?: 'Low' | 'Medium' | 'High';
   dietary_requirements?: string;
+  client_contact_info?: string;
 };
 
 type ReferralFormState = {
   agencyName: string;
   clientReference: string;
+  clientContactInfo: string;
   familySize: string;
   dietaryRequirements: string;
   urgency: 'Low' | 'Medium' | 'High';
@@ -27,6 +29,7 @@ type ReferralFormState = {
 const emptyReferralForm: ReferralFormState = {
   agencyName: '',
   clientReference: '',
+  clientContactInfo: '',
   familySize: '1',
   dietaryRequirements: '',
   urgency: 'Medium',
@@ -84,7 +87,7 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
   useEffect(() => {
     const vouchersQuery = query(
       collection(db, 'referral_vouchers'),
-      where('status', 'in', ['Pending Contact', 'Packing', 'pending']),
+      where('status', 'in', ['Pending Contact', 'Building', 'Packing', 'pending']),
     );
 
     const unsubscribe = onSnapshot(
@@ -122,6 +125,7 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
               status: data.status ?? 'Pending Contact',
               agency_name: data.agency_name,
               client_reference: data.client_reference,
+              client_contact_info: data.client_contact_info,
               family_size: Number(data.family_size) || 1,
               dietary_requirements: data.dietary_requirements,
               urgency: data.urgency,
@@ -202,6 +206,32 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
     }
   };
 
+  const handleCompleteSignOff = async (voucher: ReferralQueueItem) => {
+    setProcessingId(voucher.id);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      await updateDoc(doc(db, voucher.sourceCollection, voucher.id), {
+        status: 'COMPLETED',
+        completed_at: new Date().toISOString(),
+        completed_by: userId ?? 'unknown',
+      });
+
+      if (voucher.sourceCollection === 'referrals') {
+        setPartnerReferrals((current) => current.filter((item) => item.id !== voucher.id));
+      } else {
+        setVoucherItems((current) => current.filter((item) => item.id !== voucher.id));
+      }
+      setSuccessMessage('Referral completed and signed off.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not complete this referral.';
+      setError(message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const handleSubmitReferral = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -222,6 +252,7 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
       await addDoc(collection(db, 'referrals'), {
         agency_name: agencyName,
         client_reference: clientReference,
+        client_contact_info: formState.clientContactInfo.trim(),
         family_size: familySize,
         dietary_requirements: formState.dietaryRequirements.trim() || 'None listed',
         urgency: formState.urgency,
@@ -299,6 +330,16 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
               </label>
 
               <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+                Client Contact Info
+                <input
+                  value={formState.clientContactInfo}
+                  onChange={(event) => setFormState((current) => ({ ...current, clientContactInfo: event.target.value }))}
+                  placeholder="Phone, email, or safe contact note"
+                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500"
+                />
+              </label>
+
+              <label className="grid gap-1.5 text-sm font-bold text-slate-700">
                 Family Size
                 <input
                   type="number"
@@ -364,8 +405,7 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
           <div className="grid gap-6 md:grid-cols-2">
             {queueItems.map((voucher) => {
               const normalizedStatus = normalizeStatus(voucher.status);
-              const isPendingContact =
-                normalizedStatus === 'pending contact' || voucher.sourceCollection === 'referrals';
+              const isPendingContact = normalizedStatus === 'pending contact';
               const isBuilding = normalizedStatus === 'building' || normalizedStatus === 'in progress';
               const manifestItems = getManifestItems(voucher);
 
@@ -402,6 +442,10 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
                     {isPendingContact ? (
                       <div className="space-y-3 py-2">
                         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+                          <p className="font-black uppercase tracking-wider text-slate-400">Client contact info</p>
+                          <p className="mt-1 font-semibold">{voucher.client_contact_info || 'Not provided'}</p>
+                        </div>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
                           <p className="font-black uppercase tracking-wider text-slate-400">Dietary requirements</p>
                           <p className="mt-1 font-semibold">{voucher.dietary_requirements || 'None listed'}</p>
                         </div>
@@ -422,6 +466,29 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
                           className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {processingId === voucher.id ? 'Starting Workflow...' : isBuilding ? 'Workflow Started' : 'Contact Client & Build Parcel'}
+                        </button>
+                      </div>
+                    ) : isBuilding ? (
+                      <div className="space-y-3 py-2">
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+                          <p className="font-black uppercase tracking-wider text-slate-400">Client contact info</p>
+                          <p className="mt-1 font-semibold">{voucher.client_contact_info || 'Not provided'}</p>
+                        </div>
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-semibold text-emerald-800">
+                          <p className="font-black uppercase tracking-wider">Parcel build in progress</p>
+                          <ul className="mt-2 list-disc space-y-1 pl-4">
+                            <li>Client contact confirmed</li>
+                            <li>Parcel contents checked</li>
+                            <li>Ready for final sign-off</li>
+                          </ul>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleCompleteSignOff(voucher)}
+                          disabled={processingId === voucher.id}
+                          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {processingId === voucher.id ? 'Signing Off...' : 'Complete & Sign Off'}
                         </button>
                       </div>
                     ) : (

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { addDoc, collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebaseConfig';
 import type { UserRole } from '../../types/user';
-import { foodbankCategories } from './foodbankCategories';
 
 type CollectionPointStatus = 'clear' | 'full';
 
@@ -110,6 +109,14 @@ function statusBadgeClass(status: CollectionPointStatus) {
     : 'border-emerald-200 bg-emerald-50 text-emerald-800';
 }
 
+function formatInventoryLabel(value: string) {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' }: IntakePortalProps) {
   const [collectionPoints, setCollectionPoints] = useState<CollectionPoint[]>(defaultCollectionPoints);
   const [shortages, setShortages] = useState<ShortageItem[]>([]);
@@ -190,20 +197,21 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
     const unsubscribe = onSnapshot(
       collection(db, 'inventory'),
       (snapshot) => {
-        const stockById = new Map<string, number>();
-
-        snapshot.docs.forEach((stockSnapshot) => {
-          const data = stockSnapshot.data();
-          stockById.set(stockSnapshot.id, Number(data.current_quantity ?? data.quantity) || 0);
-        });
-
         setShortages(
-          foodbankCategories
-            .map((category) => ({
-              id: category.id,
-              label: category.label,
-              currentQuantity: stockById.get(category.id) ?? 0,
-            }))
+          snapshot.docs
+            .map((stockSnapshot) => {
+              const data = stockSnapshot.data();
+              const id = normalizeCollectionPointId(stockSnapshot.id);
+              return {
+                id,
+                label: typeof data.name === 'string' && data.name.trim()
+                  ? data.name
+                  : typeof data.label === 'string' && data.label.trim()
+                    ? data.label
+                    : formatInventoryLabel(id),
+                currentQuantity: Number(data.current_quantity ?? data.quantity) || 0,
+              };
+            })
             .filter((item) => item.currentQuantity <= lowStockThreshold)
             .sort((a, b) => a.currentQuantity - b.currentQuantity)
             .slice(0, 6),

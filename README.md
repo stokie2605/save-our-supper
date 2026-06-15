@@ -142,6 +142,12 @@ Administrator and moderator take-down actions now use a softer confirmation step
 
 Firestore rules were updated to permit these exact interaction paths: authenticated users can append one reply to a post, partners and staff can move pending referrals into the building workflow, and archive actions remain restricted to moderator-level profiles.
 
+### Schema Alignment: Live Bulletin Keys and Referral Sign-Off
+
+The Donations Page low-stock bulletin now maps directly from live `inventory` document IDs, so keys such as `breakfast_cereals`, `baby_items`, and `tinned_meat` display with friendly names only when their current count is at or below the shortage threshold.
+
+Partner referral intake now captures optional client contact information, prints it on the active queue card, and supports a `Building` to `COMPLETED` sign-off action. Completed referrals are removed from the active queue immediately, with Firestore rules allowing only the narrow workflow fields needed for this transition.
+
 The staff dashboard now uses a dark app-style control header with a neon `CONNECTED` hub chip, replacing the older web-style white hero block. A floating metric grid sits underneath with premium white cards for volunteers on shift, priority collection points, bins needing emptying, and hub link status, using large figures and compact metadata labels for a more native logistics-console feel.
 
 The Admin Panel now uses responsive mobile card views for both user access records and food stock adjustments. Desktop screens keep the wider tabular layouts, while phones render each user or stock item as a standalone stacked card with readable identifiers and fully visible action controls, removing horizontal scrolling from administrator workflows. User access cards now include stronger text hierarchy, a small activity-style sparkline, and rounded pill role selectors to match the app-like control surface.

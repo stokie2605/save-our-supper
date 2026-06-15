@@ -255,6 +255,34 @@ service cloud.firestore {
         && request.resource.data.workflow_started_at.size() > 0;
     }
 
+    function isReferralWorkflowComplete() {
+      return hasPartnerReferralAccess()
+        && resource.data.status == "Building"
+        && request.resource.data.status == "COMPLETED"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "completed_at",
+          "completed_by"
+        ])
+        && request.resource.data.completed_by == request.auth.uid
+        && request.resource.data.completed_at is string
+        && request.resource.data.completed_at.size() > 0;
+    }
+
+    function isVoucherWorkflowComplete() {
+      return hasFoodbankStaffAccess()
+        && resource.data.status == "Building"
+        && request.resource.data.status == "COMPLETED"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "completed_at",
+          "completed_by"
+        ])
+        && request.resource.data.completed_by == request.auth.uid
+        && request.resource.data.completed_at is string
+        && request.resource.data.completed_at.size() > 0;
+    }
+
     match /posts/{postId} {
       allow read: if isSignedIn();
       allow create: if isAdmin() || isOwnPostCreate();
@@ -287,7 +315,7 @@ service cloud.firestore {
     match /referral_vouchers/{voucherId} {
       allow read: if isSignedIn();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || isVoucherWorkflowStart();
+      allow update: if isAdmin() || isVoucherWorkflowStart() || isVoucherWorkflowComplete();
     }
 
     match /donations_receipts/{receiptId} {
@@ -314,6 +342,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           "agency_name",
           "client_reference",
+          "client_contact_info",
           "family_size",
           "dietary_requirements",
           "urgency",
@@ -330,7 +359,7 @@ service cloud.firestore {
         && request.resource.data.urgency in ["Low", "Medium", "High"]
         && request.resource.data.status == "Pending Contact"
         && request.resource.data.submitted_by == request.auth.uid;
-      allow update: if isAdmin() || isReferralWorkflowStart();
+      allow update: if isAdmin() || isReferralWorkflowStart() || isReferralWorkflowComplete();
       allow delete: if isAdmin();
     }
 
