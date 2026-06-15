@@ -42,9 +42,9 @@ To avoid silent access failures caused by small data formatting differences, rol
 * `isAdmin: true` is treated as an administrator profile.
 * Role strings are trimmed and lowercased before comparison.
 
-Accepted public/community users receive the `client` role by default. Client accounts are confined to Public Community Hub areas such as peer support posts, crisis links, and read-only community resources.
+The old `client` account tier has been removed. The public Community Hub is treated as a guest-facing resource space, while authenticated accounts use operational roles such as `partner`, `volunteer`, `moderator`, and `admin`.
 
-Operational staff areas are reserved for `volunteer`, `moderator`, and `admin` profiles. The Admin Panel remains restricted to `admin` only. If someone signs up as a future staff helper, they still starts as `client`; an administrator must manually elevate them from the Admin Panel.
+Operational staff areas are reserved for `volunteer`, `moderator`, and `admin` profiles. Partner profiles can submit and track referral requests. The Admin Panel remains restricted to `admin` only.
 
 ---
 
@@ -56,8 +56,8 @@ Every authenticated user should have a document in the root `users` collection w
 | :--- | :--- | :--- | :--- |
 | `uid` | `string` | `firebase-user-uid` | Must match the Firebase Auth user ID. |
 | `email` | `string` | `stokie2605@gmail.com` | Used for identity display and admin checks. |
-| `role` | `string` | `client` | Primary user role. New registrations default to `client`. |
-| `roles` | `array<string>` | `["client"]` | Optional compatibility role array. |
+| `role` | `string` | `partner` | Primary user role. New registrations default to `partner`. |
+| `roles` | `array<string>` | `["partner"]` | Optional compatibility role array. |
 | `isAdmin` | `boolean` | `false` | Explicit administrator flag. |
 | `isVolunteer` | `boolean` | `false` | Explicit staff-helper flag for elevated accounts. |
 | `organization_name` | `string` | `Alsager Central Hub` | Display name for the local hub or account. |
@@ -74,7 +74,8 @@ The temporary prototype rules that allowed open reads and writes have been remov
 
 * Users can read only their own profile document unless they are the verified admin.
 * Admins can list and manage user profiles.
-* Inventory, intakes, referral vouchers, and donation receipts require a signed-in Firebase user for reads.
+* Inventory can be read publicly for the donor-facing wishlist; write access remains admin-only.
+* Intakes, referral vouchers, and donation receipts require a signed-in Firebase user for reads.
 * Writes to operational collections are restricted to the admin email token.
 * Food posts require authentication for reads and creation.
 * Food post claiming is field-level restricted so a signed-in user can only move an available post to claimed using their own UID.
@@ -99,6 +100,18 @@ This means protected database access can no longer be bypassed by changing front
 ### Real-Time Food Bank Stock
 
 A welcoming live stock view shows what is currently available on the shelves. Food item names are displayed in plain English, such as *Breakfast Cereals*, *UHT Milk*, or *Tinned Meat*, rather than raw database codes like `breakfast_cereals`. The stock view updates from Firestore via real-time streams (`onSnapshot`), so adjustments populate instantly across panels without page refreshes. On mobile, the stock cards now render in a compact two-column grid with scaled labels and unit counts. Stock state is communicated through subtle card-level badges: `OK` for stable stock and `OUT` with a soft red tint when a category reaches zero. Stable cards use a soft emerald ring and deeper bespoke shadowing so stock health is visible at a glance.
+
+### Platform Overhaul V2: Curated Hub, Referral Lifecycle, and Security Alignment
+
+The public Community Hub has been pivoted away from an open chat-style feed into a curated three-column resource centre. It now presents a live `Most Needed This Week` wishlist from Firestore inventory, direct crisis support links, and staff-published kitchen tips with a controlled reply engine for useful community contributions.
+
+The original Collection Points Tracker remains preserved underneath the resource dashboard, keeping supermarket bins, church cabinets, and hub drop-off reporting available without mixing it into the kitchen tips area.
+
+The referral desk now supports a fuller lifecycle: `Pending Contact` -> `Building` -> `Ready for Collection` -> `COMPLETED`, plus a staff-only `BLOCKED` path with a reason note. Each transition writes a short audit history entry to the referral document so teams can see how the request moved through the desk.
+
+A new staff `Today` summary row aggregates live counts for pending referrals, parcels being built, parcels ready for collection, and critical low-stock categories. This gives internal users a fast operational snapshot before they open the detailed queue or inventory screens.
+
+Firestore security rules were aligned with this split: public guests can read only the inventory needed for the donor-facing wishlist and published kitchen tip records, while internal operational data stays behind Firebase Auth role checks.
 
 ### Button-Driven Supermarket Donations Tracking Grid
 
@@ -196,7 +209,7 @@ If a category document does not exist in Firestore, donation transactions initia
 
 ## Core Screens
 
-* **`CommunityHub`** - Standalone client-facing Community Feed with horizontal forum rows for peer notices.
+* **`CommunityHub`** - Curated public resource hub with live wishlist, crisis links, kitchen tips, and replies.
 * **`LiveInventory`** - Displays real-time hub provisions and shelf counts.
 * **`IntakePortal`** - Processes incoming community and corporate donations.
 * **`ReferralQueue`** - Tracks preparation, allocation, and client distribution streams.
@@ -207,9 +220,9 @@ If a category document does not exist in Firestore, donation transactions initia
 
 ## Public Community Hub
 
-Client-role users now land directly on a dedicated, ad-free Community Feed instead of the staff operations dashboard. This is the Decoupled Standalone Feed and Operations Portal Architecture: the public social noticeboard is kept separate from foodbank intake, stock, referral, and admin workflows.
+The public Community Hub now acts as a curated resource centre instead of an open social noticeboard. It keeps donor wishlist information, useful links, and kitchen guidance separate from foodbank intake, stock, referral, and admin workflows.
 
-The Community Feed uses a focused `max-w-4xl` reading layout with horizontal forum-style rows. Author, postcode, and timestamp sit inline, while each message is safely clamped to three readable lines so clients can scan local support notes quickly on mobile and desktop.
+Kitchen guidance is published by staff as official tip records, with compact replies underneath so useful community contributions can still be added without reopening a wide public chat feed.
 
 Operational users can still access the Community Feed from the main navigation, but Donations Page, Stock Inventory Page, and Referral Queue Page remain distinct foodbank-focused sections. This keeps peer support clean and approachable while preserving the stricter logistics portal for volunteers, moderators, and administrators.
 

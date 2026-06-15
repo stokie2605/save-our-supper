@@ -139,10 +139,10 @@ service cloud.firestore {
     }
 
 
-    function isOwnClientProfileCreate(userId) {
+    function isOwnPartnerProfileCreate(userId) {
       return isSignedIn()
         && request.auth.uid == userId
-        && request.resource.data.role == "client"
+        && request.resource.data.role == "partner"
         && request.resource.data.isAdmin == false
         && request.resource.data.isVolunteer == false;
     }
@@ -233,8 +233,10 @@ service cloud.firestore {
         && request.resource.data.status == "Building"
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "status",
+          "updated_at",
           "workflow_started_at",
-          "workflow_started_by"
+          "workflow_started_by",
+          "history"
         ])
         && request.resource.data.workflow_started_by == request.auth.uid
         && request.resource.data.workflow_started_at is string
@@ -247,22 +249,53 @@ service cloud.firestore {
         && request.resource.data.status == "Building"
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "status",
+          "updated_at",
           "workflow_started_at",
-          "workflow_started_by"
+          "workflow_started_by",
+          "history"
         ])
         && request.resource.data.workflow_started_by == request.auth.uid
         && request.resource.data.workflow_started_at is string
         && request.resource.data.workflow_started_at.size() > 0;
     }
 
-    function isReferralWorkflowComplete() {
+    function isReferralWorkflowReady() {
       return hasPartnerReferralAccess()
         && resource.data.status == "Building"
+        && request.resource.data.status == "Ready for Collection"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "updated_at",
+          "workflow_started_at",
+          "workflow_started_by",
+          "history"
+        ])
+        && request.resource.data.workflow_started_by == request.auth.uid;
+    }
+
+    function isVoucherWorkflowReady() {
+      return hasFoodbankStaffAccess()
+        && resource.data.status == "Building"
+        && request.resource.data.status == "Ready for Collection"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "updated_at",
+          "workflow_started_at",
+          "workflow_started_by",
+          "history"
+        ])
+        && request.resource.data.workflow_started_by == request.auth.uid;
+    }
+
+    function isReferralWorkflowComplete() {
+      return hasPartnerReferralAccess()
+        && resource.data.status in ["Building", "Ready for Collection"]
         && request.resource.data.status == "COMPLETED"
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "status",
           "completed_at",
-          "completed_by"
+          "completed_by",
+          "history"
         ])
         && request.resource.data.completed_by == request.auth.uid
         && request.resource.data.completed_at is string
@@ -271,20 +304,41 @@ service cloud.firestore {
 
     function isVoucherWorkflowComplete() {
       return hasFoodbankStaffAccess()
-        && resource.data.status == "Building"
+        && resource.data.status in ["Building", "Ready for Collection"]
         && request.resource.data.status == "COMPLETED"
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "status",
           "completed_at",
-          "completed_by"
+          "completed_by",
+          "history"
         ])
         && request.resource.data.completed_by == request.auth.uid
         && request.resource.data.completed_at is string
         && request.resource.data.completed_at.size() > 0;
     }
 
+    function isReferralWorkflowBlocked() {
+      return hasFoodbankStaffAccess()
+        && resource.data.status in ["Pending Contact", "Building", "Ready for Collection"]
+        && request.resource.data.status == "BLOCKED"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "blocked_reason",
+          "blocked_at",
+          "blocked_by",
+          "history"
+        ])
+        && request.resource.data.blocked_by == request.auth.uid
+        && request.resource.data.blocked_reason is string
+        && request.resource.data.blocked_reason.size() > 0;
+    }
+
     match /posts/{postId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn()
+        || (
+          resource.data.board_type == "kitchen_tip"
+          && resource.data.archived != true
+        );
       allow create: if isAdmin() || isOwnPostCreate();
       allow update: if isAdmin()
         || isAuthenticatedClaimUpdate()
@@ -298,12 +352,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
-      allow create: if isAdmin() || isOwnClientProfileCreate(userId);
+      allow create: if isAdmin() || isOwnPartnerProfileCreate(userId);
       allow update, delete: if isAdmin();
     }
 
     match /inventory/{itemId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
@@ -315,7 +369,7 @@ service cloud.firestore {
     match /referral_vouchers/{voucherId} {
       allow read: if isSignedIn();
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || isVoucherWorkflowStart() || isVoucherWorkflowComplete();
+      allow update: if isAdmin() || isVoucherWorkflowStart() || isVoucherWorkflowReady() || isVoucherWorkflowComplete() || isReferralWorkflowBlocked();
     }
 
     match /donations_receipts/{receiptId} {
@@ -359,7 +413,7 @@ service cloud.firestore {
         && request.resource.data.urgency in ["Low", "Medium", "High"]
         && request.resource.data.status == "Pending Contact"
         && request.resource.data.submitted_by == request.auth.uid;
-      allow update: if isAdmin() || isReferralWorkflowStart() || isReferralWorkflowComplete();
+      allow update: if isAdmin() || isReferralWorkflowStart() || isReferralWorkflowReady() || isReferralWorkflowComplete() || isReferralWorkflowBlocked();
       allow delete: if isAdmin();
     }
 

@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayUnion, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '../../lib/firebaseConfig';
 import { finalizeFoodParcelCollection } from '../../services/foodbankService';
 import { type ReferralVoucher, type VoucherRequirement } from '../../types/foodbank';
@@ -15,6 +15,8 @@ type ReferralQueueItem = ReferralVoucher & {
   urgency?: 'Low' | 'Medium' | 'High';
   dietary_requirements?: string;
   client_contact_info?: string;
+  history?: string[];
+  blocked_reason?: string;
 };
 
 type ReferralFormState = {
@@ -67,7 +69,7 @@ function urgencyClass(urgency: string | undefined) {
   return 'border-slate-200 bg-slate-50 text-slate-600';
 }
 
-export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQueueProps) {
+export default function ReferralQueue({ userId, userRole = 'partner' }: ReferralQueueProps) {
   const [queueItems, setQueueItems] = useState<ReferralQueueItem[]>([]);
   const [voucherItems, setVoucherItems] = useState<ReferralQueueItem[]>([]);
   const [partnerReferrals, setPartnerReferrals] = useState<ReferralQueueItem[]>([]);
@@ -78,6 +80,8 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [startedReferralId, setStartedReferralId] = useState<string | null>(null);
+  const [blockingReferralId, setBlockingReferralId] = useState<string | null>(null);
+  const [blockReasonById, setBlockReasonById] = useState<Record<string, string>>({});
 
   const canSubmitReferral = userRole === 'partner' || userRole === 'admin';
   const canFulfilVoucher = userRole === 'volunteer' || userRole === 'moderator' || userRole === 'admin';
@@ -87,7 +91,7 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
   useEffect(() => {
     const vouchersQuery = query(
       collection(db, 'referral_vouchers'),
-      where('status', 'in', ['Pending Contact', 'Building', 'Packing', 'pending']),
+      where('status', 'in', ['Pending Contact', 'Building', 'Ready for Collection', 'Packing', 'pending', 'BLOCKED']),
     );
 
     const unsubscribe = onSnapshot(
@@ -126,6 +130,8 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
               agency_name: data.agency_name,
               client_reference: data.client_reference,
               client_contact_info: data.client_contact_info,
+              history: Array.isArray(data.history) ? data.history.map(String) : [],
+              blocked_reason: typeof data.blocked_reason === 'string' ? data.blocked_reason : undefined,
               family_size: Number(data.family_size) || 1,
               dietary_requirements: data.dietary_requirements,
               urgency: data.urgency,
@@ -176,7 +182,7 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
     }
   };
 
-  const handleStartBuildingParcel = async (voucher: ReferralQueueItem) => {
+  const handleAdvanceReferralStatus = async (voucher: ReferralQueueItem, nextStatus: 'Building' | 'Ready for Collection' | 'COMPLETED') => {
     if (!canStartReferralWorkflow(voucher)) {
       setError('Your role can view this referral, but cannot start this workflow.');
       return;
@@ -187,45 +193,68 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
     setSuccessMessage(null);
 
     try {
-      const nextStatus = 'Building';
+      const now = new Date();
       const targetCollection = voucher.sourceCollection;
+      const historyEntry = `Moved to ${nextStatus} by ${userId ?? 'unknown'} at ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+      const nextPayload = nextStatus === 'COMPLETED'
+        ? {
+            status: nextStatus,
+            completed_at: now.toISOString(),
+            completed_by: userId ?? 'unknown',
+            history: arrayUnion(historyEntry),
+          }
+        : {
+            status: nextStatus,
+            updated_at: now.toISOString(),
+            workflow_started_at: nextStatus === 'Building' ? now.toISOString() : voucher.workflow_started_at ?? now.toISOString(),
+            workflow_started_by: userId ?? 'unknown',
+            history: arrayUnion(historyEntry),
+          };
 
-      await updateDoc(doc(db, targetCollection, voucher.id), {
-        status: nextStatus,
-        workflow_started_at: new Date().toISOString(),
-        workflow_started_by: userId ?? 'unknown',
-      });
+      await updateDoc(doc(db, targetCollection, voucher.id), nextPayload);
 
       setStartedReferralId(voucher.id);
-      setSuccessMessage('Referral moved into the parcel building workflow.');
+      setSuccessMessage(`Referral moved to ${nextStatus}.`);
+      if (nextStatus === 'COMPLETED') {
+        if (voucher.sourceCollection === 'referrals') {
+          setPartnerReferrals((current) => current.filter((item) => item.id !== voucher.id));
+        } else {
+          setVoucherItems((current) => current.filter((item) => item.id !== voucher.id));
+        }
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not start this parcel workflow.';
+      const message = err instanceof Error ? err.message : 'Could not update this parcel workflow.';
       setError(message);
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleCompleteSignOff = async (voucher: ReferralQueueItem) => {
+  const handleBlockReferral = async (voucher: ReferralQueueItem) => {
+    const reason = (blockReasonById[voucher.id] ?? '').trim();
+    if (!reason) {
+      setError('Add a short reason before marking this referral unable to fulfil.');
+      return;
+    }
+
     setProcessingId(voucher.id);
     setError(null);
     setSuccessMessage(null);
 
     try {
+      const now = new Date();
       await updateDoc(doc(db, voucher.sourceCollection, voucher.id), {
-        status: 'COMPLETED',
-        completed_at: new Date().toISOString(),
-        completed_by: userId ?? 'unknown',
+        status: 'BLOCKED',
+        blocked_reason: reason,
+        blocked_at: now.toISOString(),
+        blocked_by: userId ?? 'unknown',
+        history: arrayUnion(`Blocked by ${userId ?? 'unknown'} at ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}: ${reason}`),
       });
-
-      if (voucher.sourceCollection === 'referrals') {
-        setPartnerReferrals((current) => current.filter((item) => item.id !== voucher.id));
-      } else {
-        setVoucherItems((current) => current.filter((item) => item.id !== voucher.id));
-      }
-      setSuccessMessage('Referral completed and signed off.');
+      setBlockingReferralId(null);
+      setBlockReasonById((current) => ({ ...current, [voucher.id]: '' }));
+      setSuccessMessage('Referral marked as unable to fulfil.');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not complete this referral.';
+      const message = err instanceof Error ? err.message : 'Could not block this referral.';
       setError(message);
     } finally {
       setProcessingId(null);
@@ -407,6 +436,8 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
               const normalizedStatus = normalizeStatus(voucher.status);
               const isPendingContact = normalizedStatus === 'pending contact';
               const isBuilding = normalizedStatus === 'building' || normalizedStatus === 'in progress';
+              const isReadyForCollection = normalizedStatus === 'ready for collection';
+              const isBlocked = normalizedStatus === 'blocked';
               const manifestItems = getManifestItems(voucher);
 
               return (
@@ -461,35 +492,87 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
                         ) : null}
                         <button
                           type="button"
-                          onClick={() => void handleStartBuildingParcel(voucher)}
+                          onClick={() => void handleAdvanceReferralStatus(voucher, 'Building')}
                           disabled={processingId === voucher.id || isBuilding || !canStartReferralWorkflow(voucher)}
                           className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {processingId === voucher.id ? 'Starting Workflow...' : isBuilding ? 'Workflow Started' : 'Contact Client & Build Parcel'}
                         </button>
                       </div>
-                    ) : isBuilding ? (
+                    ) : isBuilding || isReadyForCollection || isBlocked ? (
                       <div className="space-y-3 py-2">
                         <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
                           <p className="font-black uppercase tracking-wider text-slate-400">Client contact info</p>
                           <p className="mt-1 font-semibold">{voucher.client_contact_info || 'Not provided'}</p>
                         </div>
                         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-semibold text-emerald-800">
-                          <p className="font-black uppercase tracking-wider">Parcel build in progress</p>
+                          <p className="font-black uppercase tracking-wider">
+                            {isReadyForCollection ? 'Parcel ready for collection' : isBlocked ? 'Unable to fulfil' : 'Parcel build in progress'}
+                          </p>
                           <ul className="mt-2 list-disc space-y-1 pl-4">
-                            <li>Client contact confirmed</li>
-                            <li>Parcel contents checked</li>
-                            <li>Ready for final sign-off</li>
+                            {isBlocked ? (
+                              <li>{voucher.blocked_reason || 'Awaiting follow-up note'}</li>
+                            ) : (
+                              <>
+                                <li>Client contact confirmed</li>
+                                <li>Parcel contents checked</li>
+                                <li>{isReadyForCollection ? 'Ready for hand-over' : 'Ready to mark for collection'}</li>
+                              </>
+                            )}
                           </ul>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleCompleteSignOff(voucher)}
-                          disabled={processingId === voucher.id}
-                          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-emerald-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {processingId === voucher.id ? 'Signing Off...' : 'Complete & Sign Off'}
-                        </button>
+                        {!isBlocked ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleAdvanceReferralStatus(voucher, isReadyForCollection ? 'COMPLETED' : 'Ready for Collection')}
+                            disabled={processingId === voucher.id}
+                            className={`mt-2 inline-flex w-full items-center justify-center rounded-xl px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+                              isReadyForCollection ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-900 hover:bg-emerald-600'
+                            }`}
+                          >
+                            {processingId === voucher.id
+                              ? 'Updating...'
+                              : isReadyForCollection
+                                ? 'Hand Over & Complete Sign Off'
+                                : 'Mark Ready for Collection'}
+                          </button>
+                        ) : null}
+                        {canFulfilVoucher && !isBlocked ? (
+                          <div className="rounded-2xl border border-red-100 bg-red-50 p-3">
+                            {blockingReferralId === voucher.id ? (
+                              <div className="grid gap-2">
+                                <input
+                                  value={blockReasonById[voucher.id] ?? ''}
+                                  onChange={(event) => setBlockReasonById((current) => ({ ...current, [voucher.id]: event.target.value }))}
+                                  placeholder="Reason, e.g. UHT milk unavailable"
+                                  className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold outline-none focus:border-red-400"
+                                />
+                                <div className="flex gap-2">
+                                  <button type="button" onClick={() => void handleBlockReferral(voucher)} className="rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black text-white">
+                                    Save Block
+                                  </button>
+                                  <button type="button" onClick={() => setBlockingReferralId(null)} className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-[11px] font-black text-red-700">
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button type="button" onClick={() => setBlockingReferralId(voucher.id)} className="text-xs font-black uppercase tracking-wider text-red-700">
+                                Unable to Fulfil
+                              </button>
+                            )}
+                          </div>
+                        ) : null}
+                        {voucher.history?.length ? (
+                          <div className="rounded-2xl border border-slate-100 bg-white px-3 py-2">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mini history</p>
+                            <ul className="mt-1 space-y-1">
+                              {voucher.history.slice(-3).map((entry, index) => (
+                                <li key={`${entry}-${index}`} className="text-xs font-semibold text-slate-500">{entry}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
                     ) : (
                       <div className="space-y-4">

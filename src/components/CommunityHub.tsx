@@ -1,116 +1,168 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { addDoc, arrayUnion, collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
-import { defaultHubCoordinates } from '../lib/posts';
 import type { UserRole } from '../types/user';
+import { IntakePortal } from './foodbank/IntakePortal';
 
 type CommunityHubProps = {
-  userId: string;
-  authorName: string;
+  userId?: string;
+  authorName?: string;
   postcode?: string;
   userRole?: UserRole;
 };
 
-type CommunityPost = {
+type WishlistItem = {
   id: string;
-  body: string;
-  authorName: string;
-  createdAt: string;
-  postcode?: string;
-  status?: string;
-  archived: boolean;
-  replies: CommunityReply[];
+  label: string;
+  currentQuantity: number;
 };
 
-type CommunityReply = {
+type TipReply = {
   body: string;
   authorName: string;
   authorId: string;
   createdAt: string;
 };
 
+type KitchenTip = {
+  id: string;
+  title: string;
+  body: string;
+  replies: TipReply[];
+  createdAt: string;
+  archived: boolean;
+};
+
+const lowStockThreshold = 20;
+
+const defaultKitchenTips: KitchenTip[] = [
+  {
+    id: 'default-tinned-tomatoes',
+    title: 'Nutritious meals from tinned tomatoes',
+    body: 'Tinned tomatoes can become pasta sauce, soup, chilli base, or a simple stew with beans and rice.',
+    replies: [],
+    createdAt: new Date(0).toISOString(),
+    archived: false,
+  },
+  {
+    id: 'default-uht-milk',
+    title: 'Making UHT milk go further',
+    body: 'UHT milk works well for porridge, custard, packet sauces, and hot drinks when fresh milk is limited.',
+    replies: [],
+    createdAt: new Date(0).toISOString(),
+    archived: false,
+  },
+  {
+    id: 'default-tinned-fish',
+    title: 'Simple protein from tinned fish',
+    body: 'Tinned tuna, salmon, and sardines can be mixed with pasta, rice, potatoes, or beans for quick filling meals.',
+    replies: [],
+    createdAt: new Date(0).toISOString(),
+    archived: false,
+  },
+];
+
+const resourceLinks = [
+  {
+    title: 'Alsager Central Hub Hours',
+    description: 'Opening times, drop-off guidance, and local hub notes.',
+    href: 'https://www.alsagerfoodbank.org.uk/',
+  },
+  {
+    title: 'Council Support Lines',
+    description: 'Local authority routes for urgent support and welfare advice.',
+    href: 'https://www.cheshireeast.gov.uk/',
+  },
+  {
+    title: 'Citizens Advice Crisis Pathways',
+    description: 'Benefits, debt, housing, and emergency advice routes.',
+    href: 'https://www.citizensadvice.org.uk/',
+  },
+];
 
 function getCreatedAt(value: unknown) {
-  if (typeof value === 'string' && value.trim()) {
-    return value;
-  }
-
+  if (typeof value === 'string' && value.trim()) return value;
   if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
     return value.toDate().toISOString();
   }
-
   return new Date().toISOString();
 }
 
-function formatPostDate(value: string) {
+function formatDisplayLabel(value: string) {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatTipDate(value: string) {
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return 'Recently';
-  }
-
-  return date.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  if (Number.isNaN(date.getTime()) || date.getTime() === 0) return 'Pinned guide';
+  return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-function maskPostcodeForCommunity(location: string, role: string) {
-  const canSeeFullPostcode = ['admin', 'mod', 'moderator', 'partner'].includes(role.toLowerCase().trim());
-
-  if (canSeeFullPostcode) {
-    return location;
-  }
-
-  return location.replace(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*\d[A-Z]{2}\b/gi, (_, outwardCode: string) =>
-    outwardCode.toUpperCase(),
-  );
-}
-
-function ArrowUpIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-export function CommunityHub({ userId, authorName, postcode = 'Local area', userRole = 'client' }: CommunityHubProps) {
-  const [posts, setPosts] = useState<CommunityPost[]>([]);
-  const [postText, setPostText] = useState('');
-  const [isPosting, setIsPosting] = useState(false);
-  const [activePostAction, setActivePostAction] = useState<string | null>(null);
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [replyingPostId, setReplyingPostId] = useState<string | null>(null);
-  const [replyTextByPost, setReplyTextByPost] = useState<Record<string, string>>({});
-  const [submittingReplyId, setSubmittingReplyId] = useState<string | null>(null);
-  const [pendingArchivePostId, setPendingArchivePostId] = useState<string | null>(null);
+export function CommunityHub({ userId, authorName = 'Community member', userRole }: CommunityHubProps) {
+  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [tips, setTips] = useState<KitchenTip[]>(defaultKitchenTips);
+  const [openTipId, setOpenTipId] = useState(defaultKitchenTips[0]?.id ?? '');
+  const [newTipTitle, setNewTipTitle] = useState('');
+  const [newTipBody, setNewTipBody] = useState('');
+  const [isPostingTip, setIsPostingTip] = useState(false);
+  const [replyingTipId, setReplyingTipId] = useState<string | null>(null);
+  const [replyTextByTip, setReplyTextByTip] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
-  const canModerate = userRole === 'admin' || userRole === 'moderator';
+
+  const canPostTips = userRole === 'admin' || userRole === 'moderator' || userRole === 'volunteer';
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
-      collection(db, 'posts'),
+      collection(db, 'inventory'),
       (snapshot) => {
-        const communityPosts = snapshot.docs
-          .map((documentSnapshot) => {
-            const data = documentSnapshot.data();
-            const body = String(data.description ?? data.body ?? data.title ?? '').trim();
-
+        const nextWishlist = snapshot.docs
+          .map((stockSnapshot) => {
+            const data = stockSnapshot.data();
             return {
-              id: documentSnapshot.id,
-              body,
-              authorName: String(data.author_name ?? data.authorName ?? 'Community member'),
+              id: stockSnapshot.id,
+              label: typeof data.label === 'string' && data.label.trim()
+                ? data.label
+                : typeof data.item_name === 'string' && data.item_name.trim()
+                  ? data.item_name
+                  : formatDisplayLabel(stockSnapshot.id),
+              currentQuantity: Number(data.current_quantity ?? data.quantity) || 0,
+            };
+          })
+          .filter((item) => item.currentQuantity <= lowStockThreshold)
+          .sort((a, b) => a.currentQuantity - b.currentQuantity);
+
+        setWishlist(nextWishlist);
+      },
+      (error) => {
+        console.error('Public wishlist stream failed:', error);
+        setWishlist([]);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      query(collection(db, 'posts'), where('board_type', '==', 'kitchen_tip')),
+      (snapshot) => {
+        const liveTips = snapshot.docs
+          .map((tipSnapshot) => {
+            const data = tipSnapshot.data();
+            return {
+              id: tipSnapshot.id,
+              title: String(data.title ?? 'Kitchen tip'),
+              body: String(data.body ?? data.description ?? '').trim(),
               createdAt: getCreatedAt(data.created_at ?? data.createdAt),
-              postcode: typeof data.postcode === 'string' ? data.postcode : undefined,
-              status: typeof data.status === 'string' ? data.status : 'available',
               archived: data.archived === true,
               replies: Array.isArray(data.replies)
                 ? data.replies
                     .map((reply) => {
-                      const replyData = reply && typeof reply === 'object' ? reply as Partial<CommunityReply> : {};
+                      const replyData = reply && typeof reply === 'object' ? reply as Partial<TipReply> : {};
                       return {
                         body: String(replyData.body ?? '').trim(),
                         authorName: String(replyData.authorName ?? 'Community member'),
@@ -120,340 +172,242 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area', user
                     })
                     .filter((reply) => reply.body.length > 0)
                 : [],
-            } satisfies CommunityPost;
+            } satisfies KitchenTip;
           })
-          .filter((post) => post.body.length > 0 && !post.archived)
+          .filter((tip): tip is KitchenTip => Boolean(tip && tip.body && !tip.archived))
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
-        setPosts(communityPosts);
+        setTips([...liveTips, ...defaultKitchenTips]);
       },
       (error) => {
-        console.error('Community noticeboard stream failed:', error);
-        setMessage({ tone: 'error', text: 'Could not load the community noticeboard right now.' });
+        console.error('Kitchen tips stream failed:', error);
       },
     );
 
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setShowScrollButton(window.scrollY > 400);
-    };
+  const activeTip = useMemo(() => tips.find((tip) => tip.id === openTipId) ?? tips[0], [openTipId, tips]);
 
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-
-  const shortPostcode = useMemo(() => postcode.trim().toUpperCase().split(/\s+/)[0] || 'LOCAL', [postcode]);
-
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleSubmitPost = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmitTip = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const body = postText.trim();
-
-    if (!body) {
-      setMessage({ tone: 'error', text: 'Write a short note before sharing it.' });
+    if (!canPostTips || !userId) return;
+    const title = newTipTitle.trim();
+    const body = newTipBody.trim();
+    if (!title || !body) {
+      setMessage({ tone: 'error', text: 'Add both a title and the tip text.' });
       return;
     }
 
-    setIsPosting(true);
+    setIsPostingTip(true);
     setMessage(null);
-
     try {
-      const now = new Date().toISOString();
-      const expiry = new Date();
-      expiry.setDate(expiry.getDate() + 30);
-
       await addDoc(collection(db, 'posts'), {
-        title: 'Community notice',
-        description: body,
+        title,
         body,
-        author_name: authorName || 'Community member',
+        description: body,
+        board_type: 'kitchen_tip',
+        category: 'kitchen_tip',
+        author_name: authorName,
         author_id: userId,
         donor_id: userId,
-        quantity: 'Community notice',
-        category: 'community-update',
-        board_type: 'citizen_post',
         status: 'available',
-        postcode: shortPostcode,
-        lat: defaultHubCoordinates.lat,
-        lon: defaultHubCoordinates.lon,
-        lng: defaultHubCoordinates.lon,
-        expiry_time: expiry.toISOString(),
-        expires_at: expiry.toISOString(),
-        created_at: now,
+        archived: false,
+        created_at: new Date().toISOString(),
       });
-
-      setPostText('');
-      setMessage({ tone: 'success', text: 'Your notice has been shared with the community.' });
+      setNewTipTitle('');
+      setNewTipBody('');
+      setMessage({ tone: 'success', text: 'Kitchen tip published.' });
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Could not share your notice right now.';
-      setMessage({ tone: 'error', text });
+      setMessage({ tone: 'error', text: error instanceof Error ? error.message : 'Could not publish this tip.' });
     } finally {
-      setIsPosting(false);
+      setIsPostingTip(false);
     }
   };
 
-  const handleSubmitReply = async (postId: string) => {
-    const body = (replyTextByPost[postId] ?? '').trim();
+  const handleSubmitReply = async (tip: KitchenTip) => {
+    if (!userId) {
+      setMessage({ tone: 'error', text: 'Please sign in before replying.' });
+      return;
+    }
+    const body = (replyTextByTip[tip.id] ?? '').trim();
     if (!body) {
       setMessage({ tone: 'error', text: 'Write a short reply before sending it.' });
       return;
     }
-
-    setSubmittingReplyId(postId);
-    setMessage(null);
+    if (tip.id.startsWith('default-')) {
+      setMessage({ tone: 'error', text: 'Replies can be added to live hub tips once staff publish them.' });
+      return;
+    }
 
     try {
-      await updateDoc(doc(db, 'posts', postId), {
+      await updateDoc(doc(db, 'posts', tip.id), {
         replies: arrayUnion({
           body,
-          authorName: authorName || 'Community member',
+          authorName,
           authorId: userId,
           createdAt: new Date().toISOString(),
         }),
       });
-      setReplyTextByPost((current) => ({ ...current, [postId]: '' }));
-      setReplyingPostId(null);
+      setReplyTextByTip((current) => ({ ...current, [tip.id]: '' }));
+      setReplyingTipId(null);
     } catch (error) {
-      const text = error instanceof Error ? error.message : 'Could not send this reply right now.';
-      setMessage({ tone: 'error', text });
-    } finally {
-      setSubmittingReplyId(null);
+      setMessage({ tone: 'error', text: error instanceof Error ? error.message : 'Could not send this reply.' });
     }
   };
 
-  const handleArchivePost = async (postId: string) => {
-    if (!canModerate) return;
-
-    setActivePostAction(`archive-${postId}`);
-    setMessage(null);
-
-    try {
-      await updateDoc(doc(db, 'posts', postId), {
-        archived: true,
-        archived_by: userId,
-        archived_at: new Date().toISOString(),
-      });
-      setMessage({ tone: 'success', text: 'The notice has been taken down from the public feed.' });
-      setPendingArchivePostId(null);
-    } catch (error) {
-      const text = error instanceof Error ? error.message : 'Could not take down this notice.';
-      setMessage({ tone: 'error', text });
-    } finally {
-      setActivePostAction(null);
-    }
-  };
-
-  const feedPanel = (
-    <section className="min-w-0 bg-white p-4 shadow-sm sm:rounded-3xl sm:border sm:border-slate-200 sm:p-5">
-      <div className="mb-4 min-w-0">
-        <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Community noticeboard</p>
-        <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">Share local support</h2>
-        <p className="mt-1 break-words text-sm leading-6 text-slate-500">
-          A quiet, ad-free place for useful tips, recipes, donation ideas, and neighbor-to-neighbor support.
+  return (
+    <main className="mx-auto grid w-full max-w-7xl min-w-0 gap-6 px-4 py-6">
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_8px_30px_rgb(0,0,0,0.06)]">
+        <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Public Community Hub</p>
+        <h1 className="mt-2 break-words text-3xl font-black tracking-tight text-brand-forest">Save Our Supper Resource Centre</h1>
+        <p className="mt-2 max-w-3xl break-words text-sm leading-6 text-slate-600">
+          A curated, ad-free place for current donation needs, local support links, and practical kitchen guidance.
         </p>
-      </div>
-
-      <form onSubmit={handleSubmitPost} className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <label className="grid gap-2">
-          <span className="text-sm font-bold text-slate-800">Share a tip or recipe...</span>
-          <textarea
-            value={postText}
-            onChange={(event) => setPostText(event.target.value)}
-            rows={4}
-            placeholder="Example: A simple meal idea, a local support tip, or something helpful for neighbours."
-            className="min-h-28 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base leading-7 text-slate-900 outline-none placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={isPosting}
-          className="mt-3 w-full rounded-2xl bg-slate-900 px-5 py-3 text-sm font-black text-white shadow-sm transition-all hover:bg-emerald-600 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto"
-        >
-          {isPosting ? 'Sharing...' : 'Share with the community'}
-        </button>
-      </form>
+      </section>
 
       {message ? (
-        <div
-          className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${
-            message.tone === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-              : 'border-red-200 bg-red-50 text-red-700'
-          }`}
-        >
+        <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${
+          message.tone === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-red-200 bg-red-50 text-red-700'
+        }`}>
           {message.text}
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-0">
-        {posts.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-10 text-center text-sm font-semibold text-slate-400">
-            No community notices yet. Be the first to share something useful.
+      <section className="grid gap-5 lg:grid-cols-3">
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Live Wishlist</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Most Needed This Week</h2>
+          <div className="mt-4 grid gap-2">
+            {wishlist.length === 0 ? (
+              <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-5 text-sm font-bold text-emerald-700">
+                No urgent shortages showing right now.
+              </p>
+            ) : (
+              wishlist.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50/60 px-3 py-3">
+                  <span className="break-words text-sm font-black text-slate-800">{item.label}</span>
+                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-black text-amber-800">{item.currentQuantity}</span>
+                </div>
+              ))
+            )}
           </div>
-        ) : (
-          posts.map((post) => {
-            const isClaimed = post.status === 'claimed';
-            const displayPostcode = post.postcode ? maskPostcodeForCommunity(post.postcode, userRole) : undefined;
+        </article>
 
-            return (
-              <article
-                key={post.id}
-                className={`flex w-full flex-col gap-1 border-b border-gray-100 bg-white px-4 py-3 text-left transition-colors ${
-                  isClaimed ? 'bg-slate-50/70 text-slate-400' : ''
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-teal-700">Local Help</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Crisis Resources</h2>
+          <div className="mt-4 grid gap-3">
+            {resourceLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition-colors hover:border-emerald-200 hover:bg-emerald-50"
+              >
+                <span className="block text-sm font-black text-slate-900">{link.title}</span>
+                <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{link.description}</span>
+              </a>
+            ))}
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-amber-700">Kitchen Tips & Tricks</p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Useful Food Ideas</h2>
+
+          {canPostTips ? (
+            <form onSubmit={handleSubmitTip} className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <input
+                value={newTipTitle}
+                onChange={(event) => setNewTipTitle(event.target.value)}
+                placeholder="Tip title"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold outline-none focus:border-emerald-500"
+              />
+              <textarea
+                value={newTipBody}
+                onChange={(event) => setNewTipBody(event.target.value)}
+                placeholder="Add a short practical kitchen tip..."
+                rows={3}
+                className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500"
+              />
+              <button type="submit" disabled={isPostingTip} className="mt-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white hover:bg-emerald-600 disabled:opacity-50">
+                {isPostingTip ? 'Posting...' : 'Post Official Tip'}
+              </button>
+            </form>
+          ) : null}
+
+          <div className="mt-4 grid gap-2">
+            {tips.map((tip) => (
+              <button
+                key={tip.id}
+                type="button"
+                onClick={() => setOpenTipId(tip.id)}
+                className={`rounded-2xl border px-3 py-3 text-left transition-colors ${
+                  activeTip?.id === tip.id ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
-                <div className="flex min-w-0 items-start justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-gray-500 md:text-sm">
-                    <span className="min-w-0 break-words font-semibold text-emerald-700">{post.authorName}</span>
-                    {displayPostcode ? (
-                      <>
-                        <span aria-hidden="true">&bull;</span>
-                        <span className="max-w-full break-words uppercase tracking-wide">{displayPostcode}</span>
-                      </>
-                    ) : null}
-                    <span aria-hidden="true">&bull;</span>
-                    <span className="shrink-0">{formatPostDate(post.createdAt)}</span>
-                    {isClaimed ? (
-                      <>
-                        <span aria-hidden="true">&bull;</span>
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-700">
-                          Claimed
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
+                <span className="block text-sm font-black text-slate-900">{tip.title}</span>
+                <span className="mt-1 block text-[11px] font-bold uppercase tracking-wider text-slate-400">{formatTipDate(tip.createdAt)}</span>
+              </button>
+            ))}
+          </div>
 
-                  {canModerate ? (
-                    <button
-                      type="button"
-                      onClick={() => setPendingArchivePostId(post.id)}
-                      className="shrink-0 rounded-full border border-red-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-red-600 transition-colors hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Take Down
-                    </button>
-                  ) : null}
-                </div>
-
-                <p className={`line-clamp-3 break-words pt-0.5 text-sm leading-relaxed md:text-base ${
-                  isClaimed ? 'text-slate-400' : 'text-gray-800'
-                }`}>
-                  {post.body}
-                </p>
-
-                {pendingArchivePostId === post.id ? (
-                  <div className="mt-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800">
-                    <p>Are you sure you want to archive this post?</p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleArchivePost(post.id)}
-                        disabled={activePostAction === `archive-${post.id}`}
-                        className="rounded-full bg-red-600 px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-white disabled:opacity-50"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPendingArchivePostId(null)}
-                        className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-wider text-red-700"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {post.replies.length > 0 ? (
-                  <ul className="mt-2 space-y-1 border-l-2 border-emerald-100 pl-3">
-                    {post.replies.map((reply, index) => (
-                      <li key={`${reply.createdAt}-${index}`} className="break-words text-xs leading-5 text-slate-600">
-                        <span className="font-bold text-emerald-700">{reply.authorName}: </span>
-                        {reply.body}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-
-                <div className="mt-1">
+          {activeTip ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-base font-black text-slate-950">{activeTip.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-700">{activeTip.body}</p>
+              {activeTip.replies.length > 0 ? (
+                <ul className="mt-3 space-y-1 border-l-2 border-emerald-100 pl-3">
+                  {activeTip.replies.map((reply, index) => (
+                    <li key={`${reply.createdAt}-${index}`} className="break-words text-xs leading-5 text-slate-600">
+                      <span className="font-bold text-emerald-700">{reply.authorName}: </span>
+                      {reply.body}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setReplyingTipId((current) => current === activeTip.id ? null : activeTip.id)}
+                className="mt-3 text-xs font-bold text-slate-500 underline-offset-4 hover:text-emerald-700 hover:underline"
+              >
+                Reply
+              </button>
+              {replyingTipId === activeTip.id ? (
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={replyTextByTip[activeTip.id] ?? ''}
+                    onChange={(event) => setReplyTextByTip((current) => ({ ...current, [activeTip.id]: event.target.value }))}
+                    placeholder="Add a helpful reply..."
+                    className="min-w-0 flex-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-500"
+                  />
                   <button
                     type="button"
-                    onClick={() => setReplyingPostId((current) => current === post.id ? null : post.id)}
-                    className="text-xs font-bold text-slate-500 underline-offset-4 hover:text-emerald-700 hover:underline"
+                    onClick={() => void handleSubmitReply(activeTip)}
+                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-emerald-600"
                   >
-                    Reply
+                    Send
                   </button>
                 </div>
+              ) : null}
+            </div>
+          ) : null}
+        </article>
+      </section>
 
-                {replyingPostId === post.id ? (
-                  <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                    <input
-                      value={replyTextByPost[post.id] ?? ''}
-                      onChange={(event) => setReplyTextByPost((current) => ({ ...current, [post.id]: event.target.value }))}
-                      placeholder="Write a helpful reply..."
-                      className="min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void handleSubmitReply(post.id)}
-                      disabled={submittingReplyId === post.id}
-                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
-                    >
-                      {submittingReplyId === post.id ? 'Sending...' : 'Send'}
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })
-        )}
-      </div>
-    </section>
-  );
-
-
-  return (
-    <main className="mx-auto grid w-full max-w-4xl min-w-0 gap-5 px-4 py-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Community Feed</p>
-        <h1 className="mt-2 break-words text-3xl font-black tracking-tight text-brand-forest">Welcome to Save Our Supper</h1>
-        <p className="mt-2 max-w-3xl break-words text-base leading-7 text-slate-600">
-          A calm place to share practical food support and local notes without the foodbank operations dashboard around it.
-        </p>
-      </div>
-
-      {feedPanel}
-
-      {showScrollButton ? (
-        <button
-          type="button"
-          onClick={scrollToTop}
-          className="fixed bottom-6 right-6 z-50 grid h-12 w-12 place-items-center rounded-full border border-emerald-200 bg-white text-emerald-700 shadow-[0_12px_30px_rgba(15,23,42,0.18)] transition-all hover:-translate-y-0.5 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-          aria-label="Back to top"
-          title="Back to top"
-        >
-          <ArrowUpIcon />
-        </button>
-      ) : null}
+      {userId ? (
+        <section>
+          <IntakePortal userId={userId} userRole={userRole ?? 'partner'} />
+        </section>
+      ) : (
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 text-sm font-semibold leading-6 text-slate-600 shadow-sm">
+          Sign in to report full collection bins or access the live collection points tracker.
+        </section>
+      )}
     </main>
   );
 }
 
 export default CommunityHub;
-
-
-
-
-
-
-
-
-

@@ -3,10 +3,9 @@ import { collection, getDocs, updateDoc, doc, onSnapshot, setDoc, increment } fr
 import { db } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
-const roleOptions: UserRole[] = ['client', 'partner', 'volunteer', 'moderator', 'admin'];
+const roleOptions: UserRole[] = ['partner', 'volunteer', 'moderator', 'admin'];
 
 const roleBadgeClass: Record<UserRole, string> = {
-  client: 'border-slate-200 bg-slate-50 text-slate-600',
   partner: 'border-indigo-200 bg-indigo-50 text-indigo-700',
   volunteer: 'border-teal-200 bg-teal-50 text-teal-700',
   moderator: 'border-amber-200 bg-amber-50 text-amber-700',
@@ -41,11 +40,10 @@ function normalizeCategoryId(value: string) {
 
 function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
   const userData = data && typeof data === 'object' ? (data as Partial<UserProfile> & { organization_name?: string; displayName?: string }) : {};
-  const roleCandidates: UserRole[] = ['client', 'volunteer', 'moderator', 'admin'];
-  const normalizedRawRole = String(userData.role ?? 'client').toLowerCase().trim();
+  const roleCandidates: UserRole[] = ['partner', 'volunteer', 'moderator', 'admin'];
+  const normalizedRawRole = String(userData.role ?? 'partner').toLowerCase().trim();
   const rawRole = normalizedRawRole === 'mod' ? 'moderator' : normalizedRawRole as UserRole;
-  const nextRoleCandidates: UserRole[] = [...roleCandidates, 'partner'];
-  const role = nextRoleCandidates.includes(rawRole) ? rawRole : 'client';
+  const role = roleCandidates.includes(rawRole) ? rawRole : 'partner';
 
   return {
     uid: userData.uid ?? documentId,

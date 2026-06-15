@@ -117,7 +117,7 @@ function formatInventoryLabel(value: string) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' }: IntakePortalProps) {
+export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'partner' }: IntakePortalProps) {
   const [collectionPoints, setCollectionPoints] = useState<CollectionPoint[]>(defaultCollectionPoints);
   const [shortages, setShortages] = useState<ShortageItem[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<CollectionPoint | null>(null);

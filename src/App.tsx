@@ -16,6 +16,7 @@ import { AuthGuard } from './components/auth/AuthGuard';
 import { IntakePortal } from './components/foodbank/IntakePortal';
 import ReferralQueue from './components/foodbank/ReferralQueue';
 import LiveInventory from './components/foodbank/LiveInventory';
+import StaffTodaySummary from './components/foodbank/StaffTodaySummary';
 import {
   claimFirebaseSupper as claimSupper,
   completeFirebaseClaim as completeClaim,
@@ -257,7 +258,7 @@ export default function App() {
                 ? 'partner'
               : normalizedRoles.includes('volunteer') || data.isVolunteer === true
                 ? 'volunteer'
-                : 'client';
+                : 'partner';
         const isAdminProfile = normalizedRole === 'admin';
         const normalizedProfile: UserProfile = {
           id: userId,
@@ -285,7 +286,7 @@ export default function App() {
           tier: fallbackEmail === 'stokie2605@gmail.com' ? 'distribution_hub' : 'grassroots_partner',
           primary_location: 'ST7',
           contact_phone: null,
-          role: fallbackEmail === 'stokie2605@gmail.com' ? 'admin' : 'client',
+          role: fallbackEmail === 'stokie2605@gmail.com' ? 'admin' : 'partner',
         };
 
         setProfile(fallbackProfile);
@@ -621,8 +622,8 @@ export default function App() {
         await setDoc(doc(db, 'users', credential.user.uid), {
             uid: credential.user.uid,
             email: credential.user.email,
-            role: 'client',
-            roles: ['client'],
+            role: 'partner',
+            roles: ['partner'],
             isAdmin: false,
             isVolunteer: false,
             organization_name: 'Community member',
@@ -650,6 +651,7 @@ export default function App() {
   if (!session) {
     return (
       <AppShell>
+        <CommunityHub />
         <div className="mx-auto w-full min-w-0 max-w-md rounded-3xl border border-brand-slateSoft bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-6 min-w-0">
             <div className="mb-3 inline-flex rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
@@ -748,40 +750,6 @@ export default function App() {
     );
   }
 
-  if (profile.role === 'client') {
-    return (
-      <AppShell>
-        <div className="mb-4 min-w-0 rounded-3xl border border-slate-200/70 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] sm:p-5">
-          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="mb-3 inline-flex rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
-                Community client space
-              </div>
-              <h1 className="break-words text-2xl font-black tracking-tight text-brand-forest sm:text-3xl">Save Our Supper</h1>
-              <p className="mt-2 max-w-2xl break-words text-sm leading-6 text-slate-500 sm:text-base">
-                Peer support, useful crisis links, and donation needs for the local community.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="w-full rounded-xl border border-brand-slateSoft bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm sm:w-auto"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-
-        <CommunityHub
-          userId={session.user.id}
-          authorName={profile.organization_name || session.user.email || 'Community member'}
-          postcode={profile.primary_location}
-          userRole={profile.role}
-        />
-      </AppShell>
-    );
-  }
-
   return (
     <AppShell>
       {/* ─── APP HEADER ─── */}
@@ -844,6 +812,8 @@ export default function App() {
           <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Hub Link</p>
         </div>
       </div>
+
+      {isHubManager ? <StaffTodaySummary /> : null}
 
       {/* ─── 📍 VISUAL TAB SWITCHER SYSTEM ─── */}
       <div className="mb-6 hidden min-w-0 gap-2 rounded-2xl bg-slate-100 p-1.5 md:flex md:flex-wrap md:items-center">

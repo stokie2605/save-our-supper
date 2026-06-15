@@ -43,10 +43,6 @@ function normalizeRoleValue(roleValue: unknown): UserRole | null {
     return 'volunteer';
   }
 
-  if (normalizedRoles.includes('client') || normalizedRoles.includes('user')) {
-    return 'client';
-  }
-
   return null;
 }
 
@@ -176,7 +172,7 @@ export function AuthGuard({
         <h2 className="mt-2 text-2xl font-black tracking-tight text-red-900">Staff access required</h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-red-700">
           {guardState.error ??
-            `Your current role is "${guardState.profile?.role ?? 'unknown'}", Client accounts are limited to the Public Community Hub unless an administrator upgrades the account.`}
+            `Your current role is "${guardState.profile?.role ?? 'unknown'}". Staff-only screens require a partner, volunteer, moderator, or administrator profile.`}
         </p>
         <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-red-500">
           Returning you to the public community feed...

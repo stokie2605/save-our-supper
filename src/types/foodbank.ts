@@ -31,12 +31,13 @@ export type VoucherRequirement = {
 
 export type ReferralVoucher = {
   id: string;
-  status: 'Pending Contact' | 'Packing' | 'Collected' | 'pending' | 'completed' | 'fulfilled' | 'Fulfilled';
+  status: 'Pending Contact' | 'Building' | 'Ready for Collection' | 'COMPLETED' | 'BLOCKED' | 'Packing' | 'Collected' | 'pending' | 'completed' | 'fulfilled' | 'Fulfilled';
   agency_id?: string;
   agency_name?: string;
   client_reference?: string;
   client_name?: string;
   client_phone?: string;
+  client_contact_info?: string;
   family_size?: number;
   receiver_id?: string;
   household_name?: string;
@@ -45,6 +46,10 @@ export type ReferralVoucher = {
   collected_at?: string;
   fulfilledAt?: string;
   fulfilled_at?: string;
+  workflow_started_at?: string;
+  workflow_started_by?: string;
+  history?: string[];
+  blocked_reason?: string;
 };
 
 export type DonationIntakeReceipt = DonationIntakeData & {
