@@ -126,6 +126,7 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
 
   const canLogCollections = ['volunteer', 'moderator', 'admin'].includes(userRole);
   const canEditDonationsPage = ['admin', 'moderator'].includes(userRole);
+  const canEditBulletin = userRole === 'admin';
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -330,7 +331,7 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
   };
 
   const handleSaveBulletin = async () => {
-    if (!canEditDonationsPage) return;
+    if (!canEditBulletin) return;
 
     const nextText = draftBulletinText.trim();
     if (!nextText) {
@@ -504,7 +505,7 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
               <p className="text-xs font-black uppercase tracking-widest text-amber-700">Live Shortages Bulletin</p>
               <h2 className="mt-2 break-words text-xl font-black tracking-tight text-slate-950">Urgent Needs</h2>
             </div>
-            {canEditDonationsPage ? (
+            {canEditBulletin ? (
               <button
                 type="button"
                 onClick={() => {

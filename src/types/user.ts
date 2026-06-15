@@ -1,4 +1,4 @@
-export type UserRole = 'client' | 'volunteer' | 'moderator' | 'admin';
+export type UserRole = 'client' | 'partner' | 'volunteer' | 'moderator' | 'admin';
 
 export type UserProfile = {
   uid: string;

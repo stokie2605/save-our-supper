@@ -111,6 +111,7 @@ const dietaryOptions = ['Vegan', 'Vegetarian', 'Gluten-Free', 'Nut-Free'];
 const communityUpdateCategory = 'community-update';
 const showLegacyCommunityBoard = false;
 const foodbankAccessRoles = ['volunteer', 'moderator', 'admin'] as const;
+const referralAccessRoles = ['partner', 'volunteer', 'moderator', 'admin'] as const;
 const adminAccessRoles = ['admin'] as const;
 
 const getPostcodePrefix = (postcode?: string | null) => {
@@ -250,8 +251,10 @@ export default function App() {
           ? 'admin'
           : normalizedRoles.includes('admin')
             ? 'admin'
-            : normalizedRoles.includes('moderator')
+            : normalizedRoles.includes('moderator') || normalizedRoles.includes('mod')
               ? 'moderator'
+              : normalizedRoles.includes('partner')
+                ? 'partner'
               : normalizedRoles.includes('volunteer') || data.isVolunteer === true
                 ? 'volunteer'
                 : 'client';
@@ -721,7 +724,7 @@ export default function App() {
     );
   }
 
-  const isStaffProfile = profile?.role === 'volunteer' || profile?.role === 'moderator' || profile?.role === 'admin';
+  const isStaffProfile = profile?.role === 'partner' || profile?.role === 'volunteer' || profile?.role === 'moderator' || profile?.role === 'admin';
   const isHubManager = profile?.tier === 'distribution_hub' || isStaffProfile;
   const isCommercialDonor = profile?.tier === 'commercial_donor';
   const activeLocationLabel = profile?.primary_location || settingsLocation || defaultPostLocation.postcode;
@@ -1063,10 +1066,10 @@ export default function App() {
             <AuthGuard
               uid={session?.user?.id}
               fallbackEmail={session?.user?.email}
-              allowedRoles={foodbankAccessRoles}
+              allowedRoles={referralAccessRoles}
               onAccessDenied={redirectToPublicFeed}
             >
-              <ReferralQueue />
+              <ReferralQueue userId={session.user.id} userRole={profile.role} />
             </AuthGuard>
           ) : null}
 

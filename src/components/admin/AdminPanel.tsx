@@ -3,10 +3,11 @@ import { collection, getDocs, updateDoc, doc, onSnapshot, setDoc, increment } fr
 import { db } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
-const roleOptions: UserRole[] = ['client', 'volunteer', 'moderator', 'admin'];
+const roleOptions: UserRole[] = ['client', 'partner', 'volunteer', 'moderator', 'admin'];
 
 const roleBadgeClass: Record<UserRole, string> = {
   client: 'border-slate-200 bg-slate-50 text-slate-600',
+  partner: 'border-indigo-200 bg-indigo-50 text-indigo-700',
   volunteer: 'border-teal-200 bg-teal-50 text-teal-700',
   moderator: 'border-amber-200 bg-amber-50 text-amber-700',
   admin: 'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -16,6 +17,14 @@ interface StockItem {
   id: string;
   label: string;
   current_quantity: number;
+}
+
+interface ModerationPost {
+  id: string;
+  authorName: string;
+  body: string;
+  archived: boolean;
+  createdAt?: string;
 }
 
 function formatDisplayLabel(value: string | undefined) {
@@ -33,8 +42,10 @@ function normalizeCategoryId(value: string) {
 function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
   const userData = data && typeof data === 'object' ? (data as Partial<UserProfile> & { organization_name?: string; displayName?: string }) : {};
   const roleCandidates: UserRole[] = ['client', 'volunteer', 'moderator', 'admin'];
-  const rawRole = String(userData.role ?? 'client').toLowerCase().trim() as UserRole;
-  const role = roleCandidates.includes(rawRole) ? rawRole : 'client';
+  const normalizedRawRole = String(userData.role ?? 'client').toLowerCase().trim();
+  const rawRole = normalizedRawRole === 'mod' ? 'moderator' : normalizedRawRole as UserRole;
+  const nextRoleCandidates: UserRole[] = [...roleCandidates, 'partner'];
+  const role = nextRoleCandidates.includes(rawRole) ? rawRole : 'client';
 
   return {
     uid: userData.uid ?? documentId,
@@ -46,7 +57,7 @@ function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
 
 export function AdminPanel() {
   // Navigation State
-  const [adminTab, setAdminTab] = useState<'users' | 'inventory'>('users');
+  const [adminTab, setAdminTab] = useState<'users' | 'inventory' | 'moderation'>('users');
 
   // User State
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -60,6 +71,13 @@ export function AdminPanel() {
   const [newStockLabel, setNewStockLabel] = useState('');
   const [newStockQty, setNewStockQuantity] = useState('0');
   const [actionItemRef, setActionItemRef] = useState<string | null>(null);
+
+  // Moderation Vault State
+  const [moderationPosts, setModerationPosts] = useState<ModerationPost[]>([]);
+  const [moderationLoading, setModerationLoading] = useState(true);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingPostText, setEditingPostText] = useState('');
+  const [updatingPostId, setUpdatingPostId] = useState<string | null>(null);
 
   // Error/Success Notification States
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +105,38 @@ export function AdminPanel() {
     }
     void fetchUsers();
     return () => { isMounted = false; };
+  }, []);
+
+  // Lifecycle: Subscribe to all community posts for moderation, including archived entries.
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'posts'),
+      (snapshot) => {
+        const nextPosts = snapshot.docs
+          .map((postDoc) => {
+            const data = postDoc.data();
+            return {
+              id: postDoc.id,
+              authorName: String(data.author_name ?? data.authorName ?? 'Community member'),
+              body: String(data.body ?? data.description ?? data.title ?? '').trim(),
+              archived: data.archived === true,
+              createdAt: typeof data.created_at === 'string' ? data.created_at : undefined,
+            } satisfies ModerationPost;
+          })
+          .filter((post) => post.body.length > 0)
+          .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? '')));
+
+        setModerationPosts(nextPosts);
+        setModerationLoading(false);
+      },
+      (err) => {
+        console.error('Moderation vault stream failed:', err);
+        setError('Could not load community moderation records.');
+        setModerationLoading(false);
+      },
+    );
+
+    return () => unsubscribe();
   }, []);
 
   // Lifecycle: Subscribe Live to Inventory Changes
@@ -133,6 +183,58 @@ export function AdminPanel() {
       setError(err instanceof Error ? err.message : 'Unable to update user role.');
     } finally {
       setUpdatingUid(null);
+    }
+  };
+
+  const handleStartEditingPost = (post: ModerationPost) => {
+    setEditingPostId(post.id);
+    setEditingPostText(post.body);
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleSavePostText = async (postId: string) => {
+    const nextText = editingPostText.trim();
+    if (!nextText) {
+      setError('Community post text cannot be blank.');
+      return;
+    }
+
+    setUpdatingPostId(postId);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await updateDoc(doc(db, 'posts', postId), {
+        body: nextText,
+        description: nextText,
+        moderation_updated_at: new Date().toISOString(),
+      });
+      setEditingPostId(null);
+      setEditingPostText('');
+      setSuccess('Community post updated.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update this community post.');
+    } finally {
+      setUpdatingPostId(null);
+    }
+  };
+
+  const handleTogglePostArchive = async (post: ModerationPost) => {
+    setUpdatingPostId(post.id);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      await updateDoc(doc(db, 'posts', post.id), {
+        archived: !post.archived,
+        moderation_updated_at: new Date().toISOString(),
+      });
+      setSuccess(post.archived ? 'Community post restored.' : 'Community post archived.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update this post status.');
+    } finally {
+      setUpdatingPostId(null);
     }
   };
 
@@ -220,6 +322,15 @@ export function AdminPanel() {
             >
               Food Stock
             </button>
+            <button
+              type="button"
+              onClick={() => setAdminTab('moderation')}
+              className={`rounded-lg px-4 py-2 text-xs font-black uppercase tracking-wider transition-all ${
+                adminTab === 'moderation' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Moderation Vault
+            </button>
           </div>
         </div>
 
@@ -278,7 +389,7 @@ export function AdminPanel() {
                         >
                           {roleOptions.map((role) => (
                             <option key={role} value={role}>
-                              {updatingUid === user.uid ? 'Updating...' : role}
+                              {updatingUid === user.uid ? 'Updating...' : role === 'moderator' ? 'mod' : role}
                             </option>
                           ))}
                         </select>
@@ -336,7 +447,7 @@ export function AdminPanel() {
                           >
                             {roleOptions.map((role) => (
                               <option key={role} value={role}>
-                                {updatingUid === user.uid ? 'Updating...' : role}
+                                {updatingUid === user.uid ? 'Updating...' : role === 'moderator' ? 'mod' : role}
                               </option>
                             ))}
                           </select>
@@ -347,6 +458,94 @@ export function AdminPanel() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {adminTab === 'moderation' && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-3">
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4">
+              <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">Global Moderation Vault</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Review every Community Feed entry, including archived posts hidden from the public noticeboard.
+              </p>
+            </div>
+
+            {moderationLoading ? (
+              <div className="rounded-xl border border-slate-100 bg-white p-8 text-center text-sm font-semibold text-slate-400">
+                Loading community feed entries...
+              </div>
+            ) : moderationPosts.length === 0 ? (
+              <div className="rounded-xl border border-slate-100 bg-white p-8 text-center text-sm font-semibold text-slate-400">
+                No community posts found.
+              </div>
+            ) : (
+              <div className="grid gap-3">
+                {moderationPosts.map((post) => (
+                  <article key={post.id} className={`rounded-2xl border bg-white p-4 shadow-sm ${post.archived ? 'border-red-100 bg-red-50/20' : 'border-slate-100'}`}>
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black uppercase tracking-widest text-slate-400">{post.authorName}</p>
+                        <p className="mt-1 break-all font-mono text-[11px] font-bold text-slate-400">{post.id}</p>
+                      </div>
+                      <span className={`w-fit rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wider ${post.archived ? 'border-red-200 bg-red-50 text-red-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                        {post.archived ? 'Archived' : 'Live'}
+                      </span>
+                    </div>
+
+                    {editingPostId === post.id ? (
+                      <div className="mt-3">
+                        <textarea
+                          value={editingPostText}
+                          onChange={(event) => setEditingPostText(event.target.value)}
+                          rows={4}
+                          className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold leading-6 text-slate-900 outline-none focus:border-emerald-500"
+                        />
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleSavePostText(post.id)}
+                            disabled={updatingPostId === post.id}
+                            className="rounded-full bg-slate-900 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+                          >
+                            Save Text
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingPostId(null);
+                              setEditingPostText('');
+                            }}
+                            className="rounded-full border border-slate-200 px-3 py-2 text-xs font-black text-slate-600 hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-3 break-words text-sm leading-6 text-slate-700">{post.body}</p>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditingPost(post)}
+                        className="rounded-full border border-slate-200 px-3 py-2 text-xs font-black text-slate-700 transition-colors hover:bg-slate-50"
+                      >
+                        Edit Text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleTogglePostArchive(post)}
+                        disabled={updatingPostId === post.id}
+                        className={`rounded-full px-3 py-2 text-xs font-black text-white transition-colors disabled:opacity-50 ${post.archived ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+                      >
+                        {post.archived ? 'Restore' : 'Archive'}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

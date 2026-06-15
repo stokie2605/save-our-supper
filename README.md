@@ -122,6 +122,16 @@ The Donations Page tracker now normalizes collection point document IDs before a
 
 The Community Feed now includes a floating `Back to top` control that appears after scrolling down the noticeboard. It uses a small circular button in the bottom-right corner and smoothly returns the user to the top of the page.
 
+### System Overhaul: Linked Dynamic Inventory Shortages, Secure Partner Referrals, and Admin Command Vault
+
+The Donations Page shortage bulletin now listens to the live `inventory` collection and automatically shows items at or below 20 units. When an administrator adjusts stock levels from the Inventory page, the Donations Page bulletin updates in real time without hardcoded item lists.
+
+The platform now recognizes a `partner` role for external referral agencies. Partner users can access the Referral Queue Page and submit anonymous referral requests into the Firestore `referrals` collection with agency name, client reference, family size, dietary notes, and urgency. These referrals appear alongside existing food parcel vouchers so volunteers can see incoming partner demand in one place.
+
+The Admin Panel has been expanded into a multi-tab command hub. User Access now includes the partner role, Food Stock remains available for live stock adjustments, and the new Global Moderation Vault streams all Community Feed entries, including archived posts. Administrators can edit post text, archive live posts, and restore hidden posts from one central moderation view.
+
+Firestore rules were extended to allow partner referral creation and referral reads while keeping user role edits, settings changes, and global moderation powers restricted to administrator-level access.
+
 The staff dashboard now uses a dark app-style control header with a neon `CONNECTED` hub chip, replacing the older web-style white hero block. A floating metric grid sits underneath with premium white cards for volunteers on shift, priority collection points, bins needing emptying, and hub link status, using large figures and compact metadata labels for a more native logistics-console feel.
 
 The Admin Panel now uses responsive mobile card views for both user access records and food stock adjustments. Desktop screens keep the wider tabular layouts, while phones render each user or stock item as a standalone stacked card with readable identifiers and fully visible action controls, removing horizontal scrolling from administrator workflows. User access cards now include stronger text hierarchy, a small activity-style sparkline, and rounded pill role selectors to match the app-like control surface.

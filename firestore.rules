@@ -36,6 +36,15 @@ service cloud.firestore {
         );
     }
 
+    function hasPartnerReferralAccess() {
+      return hasFoodbankStaffAccess()
+        || (
+          isSignedIn()
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["partner"]
+        );
+    }
+
     function isKnownCollectionPoint(pointId) {
       return pointId in [
         "sainsburys_local_bin",
@@ -104,7 +113,7 @@ service cloud.firestore {
     }
 
     function isDonationBulletinWrite(settingId) {
-      return hasModeratorAccess()
+      return isAdmin()
         && settingId == "bulletin"
         && request.resource.data.keys().hasOnly([
           "text",
@@ -253,6 +262,31 @@ service cloud.firestore {
     match /donation_logs/{logId} {
       allow read: if hasFoodbankStaffAccess();
       allow create: if hasFoodbankStaffAccess();
+      allow update, delete: if isAdmin();
+    }
+
+    match /referrals/{referralId} {
+      allow read: if hasPartnerReferralAccess();
+      allow create: if hasPartnerReferralAccess()
+        && request.resource.data.keys().hasOnly([
+          "agency_name",
+          "client_reference",
+          "family_size",
+          "dietary_requirements",
+          "urgency",
+          "status",
+          "submitted_by",
+          "created_at"
+        ])
+        && request.resource.data.agency_name is string
+        && request.resource.data.agency_name.size() > 0
+        && request.resource.data.client_reference is string
+        && request.resource.data.client_reference.size() > 0
+        && request.resource.data.family_size is int
+        && request.resource.data.family_size >= 1
+        && request.resource.data.urgency in ["Low", "Medium", "High"]
+        && request.resource.data.status == "Pending Contact"
+        && request.resource.data.submitted_by == request.auth.uid;
       allow update, delete: if isAdmin();
     }
 

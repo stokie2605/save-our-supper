@@ -31,8 +31,12 @@ function normalizeRoleValue(roleValue: unknown): UserRole | null {
     return 'admin';
   }
 
-  if (normalizedRoles.includes('moderator')) {
+  if (normalizedRoles.includes('moderator') || normalizedRoles.includes('mod')) {
     return 'moderator';
+  }
+
+  if (normalizedRoles.includes('partner')) {
+    return 'partner';
   }
 
   if (normalizedRoles.includes('volunteer')) {
