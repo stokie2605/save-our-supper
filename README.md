@@ -181,6 +181,12 @@ Administrators and moderators see a discreet `Take Down` control on each row. Th
 
 The Firestore rules protect these actions with field-level checks. Verification updates may only change `verifiedCount` and `verified_at`, claim actions must follow the existing availability transition, and moderation archive actions are limited to admin or moderator profiles.
 
+### Security: Added Role-Based Postcode Masking to Community Feed Entries
+
+Community Feed location labels now protect client privacy by masking full UK postcodes for standard client accounts. Clients only see the broad outward area code, such as `ST7`, while privileged roles such as administrators, moderators, and partners can still see the full stored location where operationally appropriate.
+
+The masking happens in the feed row display layer, preserving the original database value while keeping the public noticeboard safer and less personally identifying.
+
 ---
 
 ## Development

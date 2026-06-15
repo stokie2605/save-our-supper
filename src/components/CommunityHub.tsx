@@ -50,6 +50,18 @@ function formatPostDate(value: string) {
   });
 }
 
+function maskPostcodeForCommunity(location: string, role: string) {
+  const canSeeFullPostcode = ['admin', 'mod', 'moderator', 'partner'].includes(role.toLowerCase().trim());
+
+  if (canSeeFullPostcode) {
+    return location;
+  }
+
+  return location.replace(/\b([A-Z]{1,2}\d[A-Z\d]?)\s*\d[A-Z]{2}\b/gi, (_, outwardCode: string) =>
+    outwardCode.toUpperCase(),
+  );
+}
+
 function CheckIcon() {
   return (
     <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -266,6 +278,7 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area', user
         ) : (
           posts.map((post) => {
             const isClaimed = post.status === 'claimed';
+            const displayPostcode = post.postcode ? maskPostcodeForCommunity(post.postcode, userRole) : undefined;
 
             return (
               <article
@@ -277,10 +290,10 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area', user
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-gray-500 md:text-sm">
                     <span className="min-w-0 break-words font-semibold text-emerald-700">{post.authorName}</span>
-                    {post.postcode ? (
+                    {displayPostcode ? (
                       <>
                         <span aria-hidden="true">&bull;</span>
-                        <span className="shrink-0 uppercase tracking-wide">{post.postcode}</span>
+                        <span className="max-w-full break-words uppercase tracking-wide">{displayPostcode}</span>
                       </>
                     ) : null}
                     <span aria-hidden="true">&bull;</span>
