@@ -323,6 +323,15 @@ export default function App() {
   useEffect(() => {
     let isMounted = true;
 
+    if (!session?.user?.id) {
+      feedRequestIdRef.current += 1;
+      setPosts([]);
+      setLoading(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
     async function fetchFirebaseFeed() {
       const requestId = feedRequestIdRef.current + 1;
       feedRequestIdRef.current = requestId;
@@ -349,7 +358,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, [searchRadiusMiles, userCoordinates.lat, userCoordinates.lon]);
+  }, [searchRadiusMiles, session?.user?.id, userCoordinates.lat, userCoordinates.lon]);
 
   useEffect(() => {
     if (!session?.user?.id) {

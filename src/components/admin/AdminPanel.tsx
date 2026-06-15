@@ -35,7 +35,12 @@ function formatDisplayLabel(value: string | undefined) {
 }
 
 function normalizeCategoryId(value: string) {
-  return value.trim().toUpperCase().replace(/[\s-]+/g, '_');
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[/]+/g, ' ')
+    .replace(/[_\s-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
 }
 
 function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
@@ -547,54 +552,61 @@ export function AdminPanel() {
           </div>
         )}
 
-                {adminTab === 'inventory' && (
-          <div className="grid gap-6 lg:grid-cols-3">
+        {adminTab === 'inventory' && (
+          <div className="grid gap-5">
 
             {/* SUB-SECTION 1: CATEGORY PROVISIONING FORM */}
-            <div className="border border-slate-200 bg-slate-50/50 rounded-2xl p-5 h-fit">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider mb-1">Add a Food Item</h3>
-              <p className="text-xs text-slate-500 mb-4 font-medium">Add a new donation item to the stock list.</p>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+              <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">Add a Food Item</h3>
+                  <p className="text-xs font-medium text-slate-500">Add a new donation item to the stock list.</p>
+                </div>
+                <span className="w-fit rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                  Admin stock setup
+                </span>
+              </div>
 
-              <form onSubmit={handleCreateCategory} className="space-y-3.5">
-                <label className="block text-xs font-bold text-slate-700">
+              <form onSubmit={handleCreateCategory} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto] md:items-end">
+                <label className="block min-w-0 text-xs font-bold text-slate-700">
                   Food item name
                   <input
                     type="text"
                     value={newStockId}
                     onChange={(e) => setNewStockId(e.target.value)}
-                    placeholder="e.g. Breakfast cereal"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500"
+                    placeholder="e.g. Breakfast cereals"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500"
                     required
                   />
                 </label>
 
-                <label className="block text-xs font-bold text-slate-700">
+                <label className="block min-w-0 text-xs font-bold text-slate-700">
                   Friendly display name
                   <input
                     type="text"
                     value={newStockLabel}
                     onChange={(e) => setNewStockLabel(e.target.value)}
-                    placeholder="e.g. Cereal boxes"
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500"
+                    placeholder="e.g. Breakfast Cereals"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-emerald-500"
                     required
                   />
                 </label>
 
-                <label className="block text-xs font-bold text-slate-700">
-                  Starting quantity
+                <label className="block min-w-0 text-xs font-bold text-slate-700">
+                  Starting qty
                   <input
                     type="number"
                     min="0"
                     value={newStockQty}
                     onChange={(e) => setNewStockQuantity(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500"
+                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500"
                     required
                   />
                 </label>
 
                 <button
                   type="submit"
-                  className="w-full mt-2 rounded-xl bg-slate-950 hover:bg-emerald-600 font-bold text-xs uppercase tracking-wider text-white py-2.5 shadow-sm transition-all"
+                  className="h-11 rounded-xl bg-slate-950 px-5 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-emerald-600"
                 >
                   Add Food Item
                 </button>
@@ -602,7 +614,7 @@ export function AdminPanel() {
             </div>
 
             {/* Food stock adjustment controls */}
-            <div className="lg:col-span-2 border border-slate-200 rounded-2xl overflow-hidden">
+            <div className="overflow-hidden rounded-2xl border border-slate-200">
               <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Current Hub Allocations</h3>
               </div>

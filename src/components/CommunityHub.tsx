@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { addDoc, arrayUnion, collection, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
+import { addDoc, arrayUnion, collection, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
 import type { UserRole } from '../types/user';
 import { IntakePortal } from './foodbank/IntakePortal';
@@ -148,7 +148,7 @@ export function CommunityHub({ userId, authorName = 'Community member', userRole
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
-      query(collection(db, 'posts'), where('board_type', '==', 'kitchen_tip')),
+      collection(db, 'kitchen_tips'),
       (snapshot) => {
         const liveTips = snapshot.docs
           .map((tipSnapshot) => {
@@ -202,16 +202,11 @@ export function CommunityHub({ userId, authorName = 'Community member', userRole
     setIsPostingTip(true);
     setMessage(null);
     try {
-      await addDoc(collection(db, 'posts'), {
+      await addDoc(collection(db, 'kitchen_tips'), {
         title,
         body,
-        description: body,
-        board_type: 'kitchen_tip',
-        category: 'kitchen_tip',
         author_name: authorName,
         author_id: userId,
-        donor_id: userId,
-        status: 'available',
         archived: false,
         created_at: new Date().toISOString(),
       });
@@ -241,7 +236,7 @@ export function CommunityHub({ userId, authorName = 'Community member', userRole
     }
 
     try {
-      await updateDoc(doc(db, 'posts', tip.id), {
+      await updateDoc(doc(db, 'kitchen_tips', tip.id), {
         replies: arrayUnion({
           body,
           authorName,

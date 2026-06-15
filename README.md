@@ -113,6 +113,13 @@ A new staff `Today` summary row aggregates live counts for pending referrals, pa
 
 Firestore security rules were aligned with this split: public guests can read only the inventory needed for the donor-facing wishlist and published kitchen tip records, while internal operational data stays behind Firebase Auth role checks.
 
+### Permission Fix: Public Hub Streams and Horizontal Admin Stock Entry
+
+The signed-out Community Hub now avoids protected legacy nearby-food/geohash feed queries. When no Firebase session exists, the app clears the old operational feed state instead of attempting a restricted `posts` radius lookup, preventing guest incognito views from triggering Firestore permission errors.
+
+Kitchen tips have been moved onto a dedicated `kitchen_tips` collection. Public users can read published tips safely, while creating staff tips and appending replies remain constrained by Firestore role rules. The public wishlist continues to read from `inventory`, giving guest visitors useful donation guidance without exposing internal referral or intake data.
+
+The Admin Panel food stock setup has been refactored into a compact horizontal action row above the current hub allocations list. Admin-created stock keys are normalized to lowercase `snake_case`, so labels such as `Breakfast Cereals` consistently target database IDs such as `breakfast_cereals` instead of creating mismatched uppercase records.
 ### Button-Driven Supermarket Donations Tracking Grid
 
 The Donations Page now focuses on fixed real-world collection points rather than complex driver tracking. It gives the foodbank team a simple two-column operations view: the main tracker lists local donation bins and drop-off points, while the right-hand bulletin highlights urgent live stock shortages.
