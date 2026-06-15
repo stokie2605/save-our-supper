@@ -130,7 +130,9 @@ The Open Food Facts request is explicitly sent in CORS mode and the scanner now 
 
 A local deterministic keyword dictionary maps product names to the food bank's normalized Firestore inventory keys, including categories such as `baby_items`, `baked_beans`, `breakfast_cereals`, `pasta_rice`, `soup`, `tinned_fish`, `tinned_fruit`, `tinned_meat`, `toiletries`, and `uht_milk`. If no safe match is found, administrators choose from the category dropdown manually.
 
-The scanner never auto-increments stock. It only writes `increment(1)` to `current_quantity` and `quantity` after an administrator confirms the suggestion, while the manual exact overwrite controls remain available as the trusted correction system.
+The scanner never auto-increments stock. It only writes the confirmed `increment(quantity)` value to `current_quantity` and `quantity` after an administrator confirms the suggestion, while the manual exact overwrite controls remain available as the trusted correction system.
+
+Scanner confirmations now support bulk intake quantities. Staff can scan one product, type the number of matching items being added, and confirm a single atomic Firestore increment for that exact amount instead of repeating the same scan item-by-item.
 ### Admin Stock Overwrite Controls and Strict Item ID Sanitization
 
 The Admin Panel Food Stock view now uses a true inline allocation manager row for adding new food bank items. Food item name, friendly display name, starting quantity, and the submit action sit together in one horizontal control strip on desktop while still stacking cleanly on smaller screens.

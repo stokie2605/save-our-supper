@@ -109,6 +109,7 @@ export function AdminPanel() {
   const [scannerActive, setScannerActive] = useState(false);
   const [scannerStatus, setScannerStatus] = useState('Scanner is idle.');
   const [scannerSuggestion, setScannerSuggestion] = useState<BarcodeSuggestion | null>(null);
+  const [scanQty, setScanQty] = useState('1');
   const [confirmingScan, setConfirmingScan] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const barcodeCooldownUntilRef = useRef(0);
@@ -270,6 +271,7 @@ export function AdminPanel() {
         matchedCategoryId: matchedCategory?.id ?? null,
         selectedCategoryId: matchedCategory?.id ?? scannerCategories[0].id,
       });
+      setScanQty('1');
       setScannerStatus(matchedCategory ? `Suggested ${matchedCategory.label}. Confirm before adding.` : 'No confident category match. Choose a category before adding.');
     } catch (err) {
       setScannerStatus(err instanceof Error ? err.message : 'Barcode lookup failed. Please use manual stock controls.');
@@ -333,6 +335,9 @@ export function AdminPanel() {
   const handleConfirmScannedItem = async () => {
     if (!scannerSuggestion) return;
 
+    const parsedScanQty = Number.parseInt(scanQty, 10);
+    const safeScanQty = Number.isFinite(parsedScanQty) && parsedScanQty > 0 ? parsedScanQty : 1;
+
     setConfirmingScan(true);
     setError(null);
     setSuccess(null);
@@ -340,11 +345,12 @@ export function AdminPanel() {
     try {
       const selectedCategory = scannerCategories.find((category) => category.id === scannerSuggestion.selectedCategoryId);
       await updateDoc(doc(db, 'inventory', scannerSuggestion.selectedCategoryId), {
-        current_quantity: increment(1),
-        quantity: increment(1),
+        current_quantity: increment(safeScanQty),
+        quantity: increment(safeScanQty),
       });
-      setSuccess(`Added 1 to ${selectedCategory?.label ?? formatDisplayLabel(scannerSuggestion.selectedCategoryId)} from scan: ${scannerSuggestion.productName}.`);
+      setSuccess(`Added ${safeScanQty} to ${selectedCategory?.label ?? formatDisplayLabel(scannerSuggestion.selectedCategoryId)} from scan: ${scannerSuggestion.productName}.`);
       setScannerSuggestion(null);
+      setScanQty('1');
       scheduleScannerResume(1200);
     } catch (err) {
       setError('Could not add scanned item to stock. Use manual controls if needed.');
@@ -355,6 +361,7 @@ export function AdminPanel() {
 
   const handleCancelScannedItem = () => {
     setScannerSuggestion(null);
+    setScanQty('1');
     setScannerStatus('Scan cancelled. Scanner will resume.');
     scheduleScannerResume(800);
   };
@@ -874,6 +881,30 @@ export function AdminPanel() {
                             </label>
                           )}
 
+                          <label className="mt-3 flex flex-col gap-1 text-xs font-bold text-slate-700 sm:flex-row sm:items-center sm:justify-between">
+                            Quantity to Add
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              inputMode="numeric"
+                              value={scanQty}
+                              onFocus={(event) => event.currentTarget.select()}
+                              onChange={(event) => {
+                                const nextValue = event.target.value;
+                                if (nextValue === '' || /^\d+$/.test(nextValue)) {
+                                  setScanQty(nextValue);
+                                }
+                              }}
+                              onBlur={() => {
+                                const parsedScanQty = Number.parseInt(scanQty, 10);
+                                setScanQty(Number.isFinite(parsedScanQty) && parsedScanQty > 0 ? String(parsedScanQty) : '1');
+                              }}
+                              className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-sm font-black text-emerald-900 outline-none focus:border-emerald-500 focus:bg-white sm:w-28"
+                              aria-label="Quantity to add from scanned barcode"
+                            />
+                          </label>
+
                           <div className="mt-4 flex flex-wrap gap-2">
                             <button
                               type="button"
@@ -881,7 +912,7 @@ export function AdminPanel() {
                               disabled={confirmingScan}
                               className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
                             >
-                              Add 1 to {scannerCategories.find((category) => category.id === scannerSuggestion.selectedCategoryId)?.label ?? 'Selected Category'}
+                              Add {Number.parseInt(scanQty, 10) > 0 ? Number.parseInt(scanQty, 10) : 1} to {scannerCategories.find((category) => category.id === scannerSuggestion.selectedCategoryId)?.label ?? 'Selected Category'}
                             </button>
                             <button
                               type="button"
