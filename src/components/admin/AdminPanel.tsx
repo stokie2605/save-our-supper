@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { collection, getDocs, updateDoc, doc, onSnapshot, setDoc, increment } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
@@ -38,9 +38,10 @@ function normalizeCategoryId(value: string) {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[/]+/g, ' ')
+    .replace(/[\\/]+/g, ' ')
+    .replace(/[^a-z0-9\s_-]/g, '')
     .replace(/[_\s-]+/g, '_')
-    .replace(/[^a-z0-9_]/g, '');
+    .replace(/^_+|_+$/g, '');
 }
 
 function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
@@ -73,6 +74,7 @@ export function AdminPanel() {
   const [newStockId, setNewStockId] = useState('');
   const [newStockLabel, setNewStockLabel] = useState('');
   const [newStockQty, setNewStockQuantity] = useState('0');
+  const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
   const [actionItemRef, setActionItemRef] = useState<string | null>(null);
 
   // Moderation Vault State
@@ -157,6 +159,7 @@ export function AdminPanel() {
         }) as StockItem[];
         stockItems.sort((a, b) => formatDisplayLabel(a.label).localeCompare(formatDisplayLabel(b.label)));
         setInventory(stockItems);
+        setStockInputs(Object.fromEntries(stockItems.map((item) => [item.id, String(item.current_quantity)])));
         setInventoryLoading(false);
       },
       (err) => {
@@ -240,19 +243,29 @@ export function AdminPanel() {
       setUpdatingPostId(null);
     }
   };
+  // Handler: Exact stock overwrite for correcting live shelf counts.
+  const handleSetStock = async (itemId: string) => {
+    const rawQuantity = stockInputs[itemId] ?? '0';
+    const parsedQuantity = Number.parseInt(rawQuantity, 10);
 
-  // Handler: Atomic Increment/Decrement Adjustments
-  const handleModifyStock = async (itemId: string, delta: number) => {
+    if (!Number.isFinite(parsedQuantity) || parsedQuantity < 0) {
+      setError('Please enter a whole number of 0 or above.');
+      return;
+    }
+
     setActionItemRef(itemId);
     setError(null);
     setSuccess(null);
+
     try {
       const itemDoc = doc(db, 'inventory', itemId);
       await updateDoc(itemDoc, {
-        current_quantity: increment(delta)
+        current_quantity: parsedQuantity,
+        quantity: parsedQuantity,
       });
+      setSuccess(`Updated stock count to ${parsedQuantity} units.`);
     } catch (err) {
-      setError('Could not update this food item count.');
+      setError('Could not overwrite this food item count.');
     } finally {
       setActionItemRef(null);
     }
@@ -277,7 +290,8 @@ export function AdminPanel() {
       const docRef = doc(db, 'inventory', sanitizedId);
       await setDoc(docRef, {
         label: sanitizedLabel,
-        current_quantity: parsedQty
+        current_quantity: parsedQty,
+        quantity: parsedQty,
       });
       setSuccess(`Added "${sanitizedLabel}" to the food bank stock list.`);
       setNewStockId('');
@@ -567,8 +581,8 @@ export function AdminPanel() {
                 </span>
               </div>
 
-              <form onSubmit={handleCreateCategory} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto] md:items-end">
-                <label className="block min-w-0 text-xs font-bold text-slate-700">
+              <form onSubmit={handleCreateCategory} className="flex flex-col gap-3 xl:flex-row xl:items-end">
+                <label className="block min-w-0 text-xs font-bold text-slate-700 xl:flex-1">
                   Food item name
                   <input
                     type="text"
@@ -580,7 +594,7 @@ export function AdminPanel() {
                   />
                 </label>
 
-                <label className="block min-w-0 text-xs font-bold text-slate-700">
+                <label className="block min-w-0 text-xs font-bold text-slate-700 xl:flex-1">
                   Friendly display name
                   <input
                     type="text"
@@ -592,7 +606,7 @@ export function AdminPanel() {
                   />
                 </label>
 
-                <label className="block min-w-0 text-xs font-bold text-slate-700">
+                <label className="block min-w-0 text-xs font-bold text-slate-700 xl:w-36 xl:flex-none">
                   Starting qty
                   <input
                     type="number"
@@ -606,7 +620,7 @@ export function AdminPanel() {
 
                 <button
                   type="submit"
-                  className="h-11 rounded-xl bg-slate-950 px-5 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-emerald-600"
+                  className="h-11 shrink-0 rounded-xl bg-slate-950 px-5 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-all hover:bg-emerald-600"
                 >
                   Add Food Item
                 </button>
@@ -642,38 +656,23 @@ export function AdminPanel() {
                             {item.current_quantity} units
                           </span>
                         </div>
-                        <div className="mt-4 grid grid-cols-4 gap-2">
+                        <div className="mt-4 flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={stockInputs[item.id] ?? String(item.current_quantity)}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onChange={(event) => setStockInputs((current) => ({ ...current, [item.id]: event.target.value }))}
+                            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center text-sm font-black text-slate-900 outline-none focus:border-emerald-500 focus:bg-white"
+                            aria-label={`Set stock count for ${formatDisplayLabel(item.label || item.id)}`}
+                          />
                           <button
                             type="button"
-                            onClick={() => void handleModifyStock(item.id, -10)}
-                            disabled={actionItemRef === item.id || item.current_quantity < 10}
-                            className="rounded-lg bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-red-600 hover:text-white disabled:opacity-40"
-                          >
-                            -10
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleModifyStock(item.id, -1)}
-                            disabled={actionItemRef === item.id || item.current_quantity === 0}
-                            className="rounded-lg bg-slate-100 px-2 py-2 text-xs font-bold text-slate-700 transition-all hover:bg-red-500 hover:text-white disabled:opacity-40"
-                          >
-                            -1
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleModifyStock(item.id, 1)}
+                            onClick={() => void handleSetStock(item.id)}
                             disabled={actionItemRef === item.id}
-                            className="rounded-lg bg-slate-900 px-2 py-2 text-xs font-bold text-white transition-all hover:bg-emerald-600 disabled:opacity-40"
+                            className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-600 disabled:opacity-40"
                           >
-                            +1
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleModifyStock(item.id, 10)}
-                            disabled={actionItemRef === item.id}
-                            className="rounded-lg bg-slate-900 px-2 py-2 text-xs font-bold text-white transition-all hover:bg-emerald-600 disabled:opacity-40"
-                          >
-                            +10
+                            Set
                           </button>
                         </div>
                       </article>
@@ -697,38 +696,26 @@ export function AdminPanel() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 self-end sm:self-center">
+                        <div className="flex w-full items-center gap-2 sm:w-auto sm:self-center">
+                          <span className="hidden rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-700 sm:inline-flex">
+                            {item.current_quantity} now
+                          </span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={stockInputs[item.id] ?? String(item.current_quantity)}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onChange={(event) => setStockInputs((current) => ({ ...current, [item.id]: event.target.value }))}
+                            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-sm font-black text-slate-900 outline-none focus:border-emerald-500 sm:w-28 sm:flex-none"
+                            aria-label={`Set stock count for ${formatDisplayLabel(item.label || item.id)}`}
+                          />
                           <button
                             type="button"
-                            onClick={() => void handleModifyStock(item.id, -10)}
-                            disabled={actionItemRef === item.id || item.current_quantity < 10}
-                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-red-600 hover:text-white disabled:opacity-40"
-                          >
-                            -10
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleModifyStock(item.id, -1)}
-                            disabled={actionItemRef === item.id || item.current_quantity === 0}
-                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-red-500 hover:text-white disabled:opacity-40"
-                          >
-                            -1
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleModifyStock(item.id, 1)}
+                            onClick={() => void handleSetStock(item.id)}
                             disabled={actionItemRef === item.id}
-                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-emerald-600 hover:text-white disabled:opacity-40"
+                            className="shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-600 disabled:opacity-40"
                           >
-                            +1
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void handleModifyStock(item.id, 10)}
-                            disabled={actionItemRef === item.id}
-                            className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700 transition-all hover:bg-emerald-600 hover:text-white disabled:opacity-40"
-                          >
-                            +10
+                            Update
                           </button>
                         </div>
                       </div>

@@ -120,6 +120,13 @@ The signed-out Community Hub now avoids protected legacy nearby-food/geohash fee
 Kitchen tips have been moved onto a dedicated `kitchen_tips` collection. Public users can read published tips safely, while creating staff tips and appending replies remain constrained by Firestore role rules. The public wishlist continues to read from `inventory`, giving guest visitors useful donation guidance without exposing internal referral or intake data.
 
 The Admin Panel food stock setup has been refactored into a compact horizontal action row above the current hub allocations list. Admin-created stock keys are normalized to lowercase `snake_case`, so labels such as `Breakfast Cereals` consistently target database IDs such as `breakfast_cereals` instead of creating mismatched uppercase records.
+### Admin Stock Overwrite Controls and Strict Item ID Sanitization
+
+The Admin Panel Food Stock view now uses a true inline allocation manager row for adding new food bank items. Food item name, friendly display name, starting quantity, and the submit action sit together in one horizontal control strip on desktop while still stacking cleanly on smaller screens.
+
+The old `-10`, `-1`, `+1`, and `+10` adjustment buttons have been replaced with exact numeric overwrite controls. Administrators can type the corrected shelf count directly beside an item and press `Set` or `Update`; Firestore then writes that exact value to both `current_quantity` and `quantity`, making stock corrections faster and less error-prone.
+
+New inventory document IDs now pass through a stricter sanitizer: text is lowercased, slashes are treated as separators, special characters are removed, and whitespace is collapsed into `snake_case`. For example, `Tea / Coffee` becomes `tea_coffee`, matching the clean Firestore inventory key pattern.
 ### Button-Driven Supermarket Donations Tracking Grid
 
 The Donations Page now focuses on fixed real-world collection points rather than complex driver tracking. It gives the foodbank team a simple two-column operations view: the main tracker lists local donation bins and drop-off points, while the right-hand bulletin highlights urgent live stock shortages.
