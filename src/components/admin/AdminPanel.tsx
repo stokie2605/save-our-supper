@@ -114,6 +114,7 @@ export function AdminPanel() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const barcodeCooldownUntilRef = useRef(0);
   const resumeTimeoutRef = useRef<number | null>(null);
+  const addFoodFormRef = useRef<HTMLDivElement | null>(null);
 
   // Moderation Vault State
   const [moderationPosts, setModerationPosts] = useState<ModerationPost[]>([]);
@@ -364,6 +365,25 @@ export function AdminPanel() {
     setScanQty('1');
     setScannerStatus('Scan cancelled. Scanner will resume.');
     scheduleScannerResume(800);
+  };
+
+  const handleOpenUnmatchedScanInAddForm = () => {
+    if (!scannerSuggestion) return;
+
+    const parsedScanQty = Number.parseInt(scanQty, 10);
+    const safeScanQty = Number.isFinite(parsedScanQty) && parsedScanQty > 0 ? parsedScanQty : 1;
+
+    setNewStockId(normalizeCategoryId(scannerSuggestion.productName));
+    setNewStockLabel(scannerSuggestion.productName);
+    setNewStockQuantity(String(safeScanQty));
+    setScannerSuggestion(null);
+    setScanQty('1');
+    setScannerStatus('Product moved into the Add Food Item form. Review and save when ready.');
+    scheduleScannerResume(800);
+
+    window.setTimeout(() => {
+      addFoodFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
   };
   // Handler: Modify User Privilege Tiers
   const handleRoleChange = async (user: UserProfile, nextRole: UserRole) => {
@@ -764,7 +784,7 @@ export function AdminPanel() {
           <div className="grid gap-5">
 
             {/* SUB-SECTION 1: CATEGORY PROVISIONING FORM */}
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
+            <div ref={addFoodFormRef} className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4">
               <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">Add a Food Item</h3>
@@ -922,6 +942,16 @@ export function AdminPanel() {
                             >
                               Cancel
                             </button>
+                            {!scannerSuggestion.matchedCategoryId ? (
+                              <button
+                                type="button"
+                                onClick={handleOpenUnmatchedScanInAddForm}
+                                disabled={confirmingScan}
+                                className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-2 text-xs font-black uppercase tracking-wider text-teal-800 hover:bg-teal-100 disabled:opacity-50"
+                              >
+                                Open in Add Food Item Form
+                              </button>
+                            ) : null}
                           </div>
                         </div>
                       ) : null}
