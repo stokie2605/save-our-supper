@@ -52,6 +52,7 @@ export default function LiveInventory() {
           });
         });
 
+        const knownCategoryIds = new Set(foodbankCategories.map((category) => category.id));
         const stockItems = foodbankCategories.map((category) => {
           const trackedItem = stockById.get(category.id);
 
@@ -62,8 +63,11 @@ export default function LiveInventory() {
             last_updated: trackedItem?.last_updated,
           };
         });
+        const dynamicStockItems = Array.from(stockById.values())
+          .filter((item) => !knownCategoryIds.has(normalizeInventoryId(item.id)))
+          .sort((a, b) => formatDisplayLabel(a.label).localeCompare(formatDisplayLabel(b.label)));
 
-        setInventory(stockItems);
+        setInventory([...stockItems, ...dynamicStockItems]);
         setLoading(false);
       },
       (err) => {

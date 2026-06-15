@@ -101,6 +101,8 @@ This means protected database access can no longer be bypassed by changing front
 
 A welcoming live stock view shows what is currently available on the shelves. Food item names are displayed in plain English, such as *Breakfast Cereals*, *UHT Milk*, or *Tinned Meat*, rather than raw database codes like `breakfast_cereals`. The stock view updates from Firestore via real-time streams (`onSnapshot`), so adjustments populate instantly across panels without page refreshes. On mobile, the stock cards now render in a compact two-column grid with scaled labels and unit counts. Stock state is communicated through subtle card-level badges: `OK` for stable stock and `OUT` with a soft red tint when a category reaches zero. Stable cards use a soft emerald ring and deeper bespoke shadowing so stock health is visible at a glance.
 
+The main stock grid now merges the standard foodbank category order with every live document in the Firestore `inventory` collection. Newly created items from barcode fallback workflows, such as `sliced_white_bread`, appear automatically as stock cards instead of being hidden by the original fixed category list.
+
 ### Platform Overhaul V2: Curated Hub, Referral Lifecycle, and Security Alignment
 
 The public Community Hub has been pivoted away from an open chat-style feed into a curated three-column resource centre. It now presents a live `Most Needed This Week` wishlist from Firestore inventory, direct crisis support links, and staff-published kitchen tips with a controlled reply engine for useful community contributions.
