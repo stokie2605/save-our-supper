@@ -77,6 +77,46 @@ service cloud.firestore {
         && request.resource.data.updated_at.size() > 0;
     }
 
+    function hasValidCollectionPointAdminTextPayload(pointId) {
+      return hasModeratorAccess()
+        && isKnownCollectionPoint(pointId)
+        && request.resource.data.keys().hasOnly([
+          "name",
+          "address",
+          "notes",
+          "updated_at"
+        ])
+        && request.resource.data.updated_at is string
+        && request.resource.data.updated_at.size() > 0;
+    }
+
+    function isCollectionPointAdminTextUpdate(pointId) {
+      return hasModeratorAccess()
+        && isKnownCollectionPoint(pointId)
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "name",
+          "address",
+          "notes",
+          "updated_at"
+        ])
+        && request.resource.data.updated_at is string
+        && request.resource.data.updated_at.size() > 0;
+    }
+
+    function isDonationBulletinWrite(settingId) {
+      return hasModeratorAccess()
+        && settingId == "bulletin"
+        && request.resource.data.keys().hasOnly([
+          "text",
+          "updated_at",
+          "updated_by"
+        ])
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.updated_at is string
+        && request.resource.data.updated_at.size() > 0;
+    }
+
     function existingVerifiedCount() {
       return "verifiedCount" in resource.data && resource.data.verifiedCount is int
         ? resource.data.verifiedCount
@@ -204,9 +244,9 @@ service cloud.firestore {
     }
 
     match /donation_collection_points/{pointId} {
-      allow read: if isSignedIn();
-      allow create: if hasValidCollectionPointCreatePayload(pointId);
-      allow update: if isCollectionPointStatusUpdate(pointId);
+      allow read: if true;
+      allow create: if hasValidCollectionPointCreatePayload(pointId) || hasValidCollectionPointAdminTextPayload(pointId);
+      allow update: if isCollectionPointStatusUpdate(pointId) || isCollectionPointAdminTextUpdate(pointId);
       allow delete: if isAdmin();
     }
 
@@ -214,6 +254,12 @@ service cloud.firestore {
       allow read: if hasFoodbankStaffAccess();
       allow create: if hasFoodbankStaffAccess();
       allow update, delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if settingId == "bulletin";
+      allow create, update: if isDonationBulletinWrite(settingId);
+      allow delete: if isAdmin();
     }
 
     match /{document=**} {

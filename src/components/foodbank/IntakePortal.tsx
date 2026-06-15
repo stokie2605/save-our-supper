@@ -29,7 +29,9 @@ interface IntakePortalProps {
 
 const collectionPointsCollection = 'donation_collection_points';
 const donationLogsCollection = 'donation_logs';
+const bulletinDocumentPath = ['settings', 'bulletin'] as const;
 const lowStockThreshold = 20;
+const defaultBulletinText = 'Urgent Needs: UHT Milk, Canned Soup, Tinned Meat, and Breakfast Cereals.';
 
 const defaultCollectionPoints: CollectionPoint[] = [
   {
@@ -94,11 +96,18 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
   const [collectionPoints, setCollectionPoints] = useState<CollectionPoint[]>(defaultCollectionPoints);
   const [shortages, setShortages] = useState<ShortageItem[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<CollectionPoint | null>(null);
+  const [renamingPoint, setRenamingPoint] = useState<CollectionPoint | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const [bagsCollected, setBagsCollected] = useState('1');
+  const [bulletinText, setBulletinText] = useState(defaultBulletinText);
+  const [draftBulletinText, setDraftBulletinText] = useState(defaultBulletinText);
+  const [isEditingBulletin, setIsEditingBulletin] = useState(false);
   const [activePointId, setActivePointId] = useState<string | null>(null);
+  const [isSavingBulletin, setIsSavingBulletin] = useState(false);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   const canLogCollections = ['volunteer', 'moderator', 'admin'].includes(userRole);
+  const canEditDonationsPage = ['admin', 'moderator'].includes(userRole);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -133,6 +142,25 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, ...bulletinDocumentPath),
+      (snapshot) => {
+        const data = snapshot.data();
+        const nextText = typeof data?.text === 'string' && data.text.trim() ? data.text : defaultBulletinText;
+        setBulletinText(nextText);
+        if (!isEditingBulletin) {
+          setDraftBulletinText(nextText);
+        }
+      },
+      (error) => {
+        console.error('Donation bulletin stream failed:', error);
+      },
+    );
+
+    return () => unsubscribe();
+  }, [isEditingBulletin]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -214,6 +242,80 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
     setSelectedPoint(point);
     setBagsCollected('1');
     setMessage(null);
+  };
+
+  const openRenameModal = (point: CollectionPoint) => {
+    setRenamingPoint(point);
+    setRenameValue(point.name);
+    setMessage(null);
+  };
+
+  const closeRenameModal = () => {
+    setRenamingPoint(null);
+    setRenameValue('');
+  };
+
+  const handleRenamePoint = async () => {
+    if (!renamingPoint || !canEditDonationsPage) return;
+
+    const nextName = renameValue.trim();
+    if (!nextName) {
+      setMessage({ tone: 'error', text: 'Collection point name cannot be blank.' });
+      return;
+    }
+
+    setActivePointId(renamingPoint.id);
+    setMessage(null);
+
+    try {
+      await setDoc(
+        doc(db, collectionPointsCollection, renamingPoint.id),
+        {
+          name: nextName,
+          updated_at: new Date().toISOString(),
+        },
+        { merge: true },
+      );
+      setMessage({ tone: 'success', text: `${renamingPoint.name} has been renamed.` });
+      closeRenameModal();
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'Could not rename this collection point.';
+      setMessage({ tone: 'error', text });
+    } finally {
+      setActivePointId(null);
+    }
+  };
+
+  const handleSaveBulletin = async () => {
+    if (!canEditDonationsPage) return;
+
+    const nextText = draftBulletinText.trim();
+    if (!nextText) {
+      setMessage({ tone: 'error', text: 'Bulletin text cannot be blank.' });
+      return;
+    }
+
+    setIsSavingBulletin(true);
+    setMessage(null);
+
+    try {
+      await setDoc(
+        doc(db, ...bulletinDocumentPath),
+        {
+          text: nextText,
+          updated_at: new Date().toISOString(),
+          updated_by: userId ?? 'unknown',
+        },
+        { merge: true },
+      );
+      setIsEditingBulletin(false);
+      setMessage({ tone: 'success', text: 'Donation bulletin updated for everyone.' });
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'Could not update the donation bulletin.';
+      setMessage({ tone: 'error', text });
+    } finally {
+      setIsSavingBulletin(false);
+    }
   };
 
   const closeCollectionModal = () => {
@@ -301,6 +403,15 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
                 <div className="min-w-0">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <h3 className="break-words text-sm font-black text-slate-900 sm:text-base">{point.name}</h3>
+                    {canEditDonationsPage ? (
+                      <button
+                        type="button"
+                        onClick={() => openRenameModal(point)}
+                        className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-colors hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                      >
+                        Rename
+                      </button>
+                    ) : null}
                     <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${statusBadgeClass(point.status)}`}>
                       <span className={`h-2 w-2 rounded-full ${point.status === 'full' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                       {point.status === 'full' ? 'Full / Needs Emptying' : 'Clear / Checked'}
@@ -340,8 +451,54 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
 
       <aside className="min-w-0 md:col-span-1">
         <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] md:sticky md:top-24">
-          <p className="text-xs font-black uppercase tracking-widest text-amber-700">Live Shortages Bulletin</p>
-          <h2 className="mt-2 break-words text-xl font-black tracking-tight text-slate-950">Urgent Needs</h2>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-black uppercase tracking-widest text-amber-700">Live Shortages Bulletin</p>
+              <h2 className="mt-2 break-words text-xl font-black tracking-tight text-slate-950">Urgent Needs</h2>
+            </div>
+            {canEditDonationsPage ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftBulletinText(bulletinText);
+                  setIsEditingBulletin((current) => !current);
+                }}
+                className="shrink-0 rounded-full border border-amber-200 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-amber-700 transition-colors hover:bg-amber-100"
+              >
+                {isEditingBulletin ? 'Close' : 'Edit Bulletin'}
+              </button>
+            ) : null}
+          </div>
+
+          {isEditingBulletin ? (
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-white p-3">
+              <label className="grid gap-2 text-xs font-black uppercase tracking-widest text-slate-500">
+                Bulletin text
+                <textarea
+                  value={draftBulletinText}
+                  onChange={(event) => setDraftBulletinText(event.target.value)}
+                  rows={5}
+                  className="min-h-28 resize-none rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold normal-case leading-6 tracking-normal text-slate-800 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={handleSaveBulletin}
+                disabled={isSavingBulletin}
+                className="mt-3 w-full rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-black text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isSavingBulletin ? 'Saving...' : 'Save Bulletin'}
+              </button>
+            </div>
+          ) : (
+            <p className="mt-3 whitespace-pre-line break-words rounded-2xl border border-amber-100 bg-white px-3 py-3 text-sm font-bold leading-6 text-slate-700">
+              {bulletinText}
+            </p>
+          )}
+
+          <p className="mt-4 break-words text-xs font-bold uppercase tracking-wider text-amber-700">
+            Automatic low-stock signal
+          </p>
           <p className="mt-1 break-words text-sm leading-6 text-slate-600">
             Items at or below {lowStockThreshold} units, ready to share with local donors.
           </p>
@@ -408,6 +565,46 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
               <button
                 type="button"
                 onClick={closeCollectionModal}
+                className="rounded-2xl px-4 py-3 text-sm font-black text-slate-400 transition-colors hover:text-slate-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {renamingPoint ? (
+        <div className="fixed inset-0 z-[5000] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-md rounded-t-3xl border border-slate-200 bg-white p-5 shadow-xl sm:rounded-3xl">
+            <div className="mb-4">
+              <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Rename collection point</p>
+              <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">{renamingPoint.name}</h2>
+              <p className="mt-1 break-words text-sm text-slate-500">Update the visible row name without changing source code.</p>
+            </div>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Visible location name
+              <input
+                value={renameValue}
+                onChange={(event) => setRenameValue(event.target.value)}
+                onFocus={(event) => event.currentTarget.select()}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-black text-slate-950 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </label>
+
+            <div className="mt-5 grid gap-2">
+              <button
+                type="button"
+                onClick={handleRenamePoint}
+                disabled={activePointId === renamingPoint.id}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save Name
+              </button>
+              <button
+                type="button"
+                onClick={closeRenameModal}
                 className="rounded-2xl px-4 py-3 text-sm font-black text-slate-400 transition-colors hover:text-slate-700"
               >
                 Cancel

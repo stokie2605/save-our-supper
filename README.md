@@ -108,6 +108,14 @@ Each collection point row represents a physical place such as Sainsbury's Local 
 
 The collection point status engine uses compact row badges for `Clear / Checked` and `Full / Needs Emptying`, keeping the workflow close to how local foodbank volunteers actually check bins and clear supermarket donation cages. Firestore rules restrict collection point writes to known fixed point IDs and status fields only, while donation log creation remains limited to foodbank staff roles.
 
+### Added Inline Admin Editing for Bulletin Content and Location Renaming
+
+Donations Page text is no longer locked inside source code. The live shortages bulletin reads from `settings/bulletin`, and administrators or moderators can edit the bulletin directly from the right-hand panel. Updates are written back to Firestore and stream instantly to everyone viewing the page.
+
+Collection point rows also support inline administration. The visible location name is read from `donation_collection_points/{pointId}` when present, with sensible default fallbacks for a fresh deployment. Admin and moderator users can rename a collection point through a compact modal without changing application code.
+
+Firestore rules allow public reads for the Donations Page display records, while write operations for bulletin text and collection point naming remain restricted to moderator or administrator profiles. Status reporting remains constrained to known fixed collection point IDs and limited status fields.
+
 The staff dashboard now uses a dark app-style control header with a neon `CONNECTED` hub chip, replacing the older web-style white hero block. A floating metric grid sits underneath with premium white cards for volunteers on shift, priority collection points, bins needing emptying, and hub link status, using large figures and compact metadata labels for a more native logistics-console feel.
 
 The Admin Panel now uses responsive mobile card views for both user access records and food stock adjustments. Desktop screens keep the wider tabular layouts, while phones render each user or stock item as a standalone stacked card with readable identifiers and fully visible action controls, removing horizontal scrolling from administrator workflows. User access cards now include stronger text hierarchy, a small activity-style sparkline, and rounded pill role selectors to match the app-like control surface.
