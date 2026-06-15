@@ -137,6 +137,8 @@ The scanner never auto-increments stock. It only writes the confirmed `increment
 Scanner confirmations now support bulk intake quantities. Staff can scan one product, type the number of matching items being added, and confirm a single atomic Firestore increment for that exact amount instead of repeating the same scan item-by-item.
 
 Unmatched barcode results can now be handed directly into the Add Food Item form. The product name is converted into a clean `snake_case` item key, the friendly display name is preserved from the lookup result, and the scanned quantity is copied into the starting stock field for administrator review before creation.
+
+Scanner pause recovery is explicit: confirming a stock addition, cancelling a suggestion, or moving an unmatched item into the Add Food Item form clears the paused state and schedules the camera to resume automatically.
 ### Admin Stock Overwrite Controls and Strict Item ID Sanitization
 
 The Admin Panel Food Stock view now uses a true inline allocation manager row for adding new food bank items. Food item name, friendly display name, starting quantity, and the submit action sit together in one horizontal control strip on desktop while still stacking cleanly on smaller screens.

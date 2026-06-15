@@ -110,8 +110,10 @@ export function AdminPanel() {
   const [scannerStatus, setScannerStatus] = useState('Scanner is idle.');
   const [scannerSuggestion, setScannerSuggestion] = useState<BarcodeSuggestion | null>(null);
   const [scanQty, setScanQty] = useState('1');
+  const [scannerPaused, setScannerPaused] = useState(false);
   const [confirmingScan, setConfirmingScan] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerSuggestionRef = useRef<BarcodeSuggestion | null>(null);
   const barcodeCooldownUntilRef = useRef(0);
   const resumeTimeoutRef = useRef<number | null>(null);
   const addFoodFormRef = useRef<HTMLDivElement | null>(null);
@@ -210,12 +212,17 @@ export function AdminPanel() {
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    scannerSuggestionRef.current = scannerSuggestion;
+  }, [scannerSuggestion]);
+
   const resumeScanner = () => {
     const scanner = scannerRef.current;
-    if (!scanner || !scannerActive || scannerSuggestion) return;
+    if (!scanner || !scannerActive || scannerSuggestionRef.current) return;
 
     try {
       scanner.resume();
+      setScannerPaused(false);
       setScannerStatus('Scanner ready. Hold a barcode inside the square.');
     } catch (err) {
       console.error('Scanner resume failed:', err);
@@ -241,6 +248,7 @@ export function AdminPanel() {
 
     try {
       scannerRef.current?.pause(true);
+      setScannerPaused(true);
     } catch (err) {
       console.error('Scanner pause failed:', err);
     }
@@ -266,12 +274,14 @@ export function AdminPanel() {
         : `Unknown product (${barcode})`;
       const matchedCategory = matchCategoryFromProductName(productName);
 
-      setScannerSuggestion({
+      const nextSuggestion = {
         barcode,
         productName,
         matchedCategoryId: matchedCategory?.id ?? null,
         selectedCategoryId: matchedCategory?.id ?? scannerCategories[0].id,
-      });
+      };
+      scannerSuggestionRef.current = nextSuggestion;
+      setScannerSuggestion(nextSuggestion);
       setScanQty('1');
       setScannerStatus(matchedCategory ? `Suggested ${matchedCategory.label}. Confirm before adding.` : 'No confident category match. Choose a category before adding.');
     } catch (err) {
@@ -350,8 +360,10 @@ export function AdminPanel() {
         quantity: increment(safeScanQty),
       });
       setSuccess(`Added ${safeScanQty} to ${selectedCategory?.label ?? formatDisplayLabel(scannerSuggestion.selectedCategoryId)} from scan: ${scannerSuggestion.productName}.`);
+      scannerSuggestionRef.current = null;
       setScannerSuggestion(null);
       setScanQty('1');
+      setScannerPaused(false);
       scheduleScannerResume(1200);
     } catch (err) {
       setError('Could not add scanned item to stock. Use manual controls if needed.');
@@ -361,8 +373,10 @@ export function AdminPanel() {
   };
 
   const handleCancelScannedItem = () => {
+    scannerSuggestionRef.current = null;
     setScannerSuggestion(null);
     setScanQty('1');
+    setScannerPaused(false);
     setScannerStatus('Scan cancelled. Scanner will resume.');
     scheduleScannerResume(800);
   };
@@ -376,8 +390,10 @@ export function AdminPanel() {
     setNewStockId(normalizeCategoryId(scannerSuggestion.productName));
     setNewStockLabel(scannerSuggestion.productName);
     setNewStockQuantity(String(safeScanQty));
+    scannerSuggestionRef.current = null;
     setScannerSuggestion(null);
     setScanQty('1');
+    setScannerPaused(false);
     setScannerStatus('Product moved into the Add Food Item form. Review and save when ready.');
     scheduleScannerResume(800);
 
@@ -871,7 +887,14 @@ export function AdminPanel() {
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[10px] font-black uppercase tracking-widest text-teal-700">Barcode automation</p>
-                      <p className="mt-2 text-sm font-bold text-slate-800">{scannerStatus}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-bold text-slate-800">{scannerStatus}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                          scannerPaused ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                        }`}>
+                          {scannerPaused ? 'Paused' : 'Live'}
+                        </span>
+                      </div>
                       <p className="mt-2 text-xs leading-5 text-slate-500">
                         Scans EAN-13, EAN-8, and UPC-A retail barcodes. A product lookup only suggests a category; stock changes happen after you confirm.
                       </p>
