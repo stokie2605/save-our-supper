@@ -116,6 +116,12 @@ Collection point rows also support inline administration. The visible location n
 
 Firestore rules allow public reads for the Donations Page display records, while write operations for bulletin text and collection point naming remain restricted to moderator or administrator profiles. Status reporting remains constrained to known fixed collection point IDs and limited status fields.
 
+### Bugfix: Resolved Array Sorting Crash on IntakePortal and Added Floating Navigation to Community Feed
+
+The Donations Page tracker now normalizes collection point document IDs before any Firestore write and uses safe timestamp fallbacks when sorting live rows. This prevents fallback seed rows or missing `updated_at` values from crashing the page when a user taps `Report Full`.
+
+The Community Feed now includes a floating `Back to top` control that appears after scrolling down the noticeboard. It uses a small circular button in the bottom-right corner and smoothly returns the user to the top of the page.
+
 The staff dashboard now uses a dark app-style control header with a neon `CONNECTED` hub chip, replacing the older web-style white hero block. A floating metric grid sits underneath with premium white cards for volunteers on shift, priority collection points, bins needing emptying, and hub link status, using large figures and compact metadata labels for a more native logistics-console feel.
 
 The Admin Panel now uses responsive mobile card views for both user access records and food stock adjustments. Desktop screens keep the wider tabular layouts, while phones render each user or stock item as a standalone stacked card with readable identifiers and fully visible action controls, removing horizontal scrolling from administrator workflows. User access cards now include stronger text hierarchy, a small activity-style sparkline, and rounded pill role selectors to match the app-like control surface.

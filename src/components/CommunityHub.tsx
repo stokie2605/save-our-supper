@@ -79,11 +79,20 @@ function PackageIcon() {
   );
 }
 
+function ArrowUpIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 19V5M6 11l6-6 6 6" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function CommunityHub({ userId, authorName, postcode = 'Local area', userRole = 'client' }: CommunityHubProps) {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [postText, setPostText] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   const [activePostAction, setActivePostAction] = useState<string | null>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const canModerate = userRole === 'admin' || userRole === 'moderator';
 
@@ -121,8 +130,23 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area', user
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollButton(window.scrollY > 400);
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
 
   const shortPostcode = useMemo(() => postcode.trim().toUpperCase().split(/\s+/)[0] || 'LOCAL', [postcode]);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSubmitPost = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -366,6 +390,18 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area', user
       </div>
 
       {feedPanel}
+
+      {showScrollButton ? (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          className="fixed bottom-6 right-6 z-50 grid h-12 w-12 place-items-center rounded-full border border-emerald-200 bg-white text-emerald-700 shadow-[0_12px_30px_rgba(15,23,42,0.18)] transition-all hover:-translate-y-0.5 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+          aria-label="Back to top"
+          title="Back to top"
+        >
+          <ArrowUpIcon />
+        </button>
+      ) : null}
     </main>
   );
 }

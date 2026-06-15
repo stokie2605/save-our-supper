@@ -68,6 +68,24 @@ function normalizeStatus(value: unknown): CollectionPointStatus {
   return String(value).toLowerCase().trim() === 'full' ? 'full' : 'clear';
 }
 
+function normalizeCollectionPointId(value: unknown) {
+  return String(value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[/]+/g, ' ')
+    .replace(/[_\s-]+/g, '_')
+    .replace(/[^a-z0-9_]/g, '');
+}
+
+function getSortableTimestamp(value: unknown) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return new Date(0).getTime();
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? new Date(0).getTime() : timestamp;
+}
+
 function formatUpdatedAt(value?: string) {
   if (!value) {
     return 'Not checked yet';
@@ -117,8 +135,9 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
 
         snapshot.docs.forEach((pointSnapshot) => {
           const data = pointSnapshot.data();
-          livePoints.set(pointSnapshot.id, {
-            id: pointSnapshot.id,
+          const safePointId = normalizeCollectionPointId(pointSnapshot.id);
+          livePoints.set(safePointId, {
+            id: safePointId,
             name: typeof data.name === 'string' ? data.name : undefined,
             address: typeof data.address === 'string' ? data.address : undefined,
             notes: typeof data.notes === 'string' ? data.notes : undefined,
@@ -128,10 +147,14 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
         });
 
         setCollectionPoints(
-          defaultCollectionPoints.map((point) => ({
-            ...point,
-            ...livePoints.get(point.id),
-          })),
+          defaultCollectionPoints.map((point) => {
+            const safePointId = normalizeCollectionPointId(point.id);
+            return {
+              ...point,
+              id: safePointId,
+              ...livePoints.get(safePointId),
+            };
+          }),
         );
       },
       (error) => {
@@ -196,28 +219,43 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
   const sortedCollectionPoints = useMemo(
     () =>
       [...collectionPoints].sort((a, b) => {
-        if (a.status !== b.status) {
-          return a.status === 'full' ? -1 : 1;
+        const aStatus = normalizeStatus(a.status);
+        const bStatus = normalizeStatus(b.status);
+
+        if (aStatus !== bStatus) {
+          return aStatus === 'full' ? -1 : 1;
         }
-        return a.name.localeCompare(b.name);
+
+        const latestUpdateSort = getSortableTimestamp(b.updated_at) - getSortableTimestamp(a.updated_at);
+        if (latestUpdateSort !== 0) {
+          return latestUpdateSort;
+        }
+
+        return String(a.name ?? '').localeCompare(String(b.name ?? ''));
       }),
     [collectionPoints],
   );
 
-  const fullPointCount = sortedCollectionPoints.filter((point) => point.status === 'full').length;
+  const fullPointCount = sortedCollectionPoints.filter((point) => normalizeStatus(point.status) === 'full').length;
 
   useEffect(() => {
     onQueuedItemsChange?.(fullPointCount);
   }, [fullPointCount, onQueuedItemsChange]);
 
   const updateCollectionPointStatus = async (point: CollectionPoint, status: CollectionPointStatus) => {
-    setActivePointId(point.id);
+    const safePointId = normalizeCollectionPointId(point.id);
+    if (!safePointId) {
+      setMessage({ tone: 'error', text: 'This collection point is missing a safe database ID.' });
+      return;
+    }
+
+    setActivePointId(safePointId);
     setMessage(null);
 
     try {
       const updatedAt = new Date().toISOString();
       await setDoc(
-        doc(db, collectionPointsCollection, point.id),
+        doc(db, collectionPointsCollection, safePointId),
         {
           status,
           priority: status === 'full' ? 1 : 0,
@@ -257,19 +295,24 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
 
   const handleRenamePoint = async () => {
     if (!renamingPoint || !canEditDonationsPage) return;
+    const safePointId = normalizeCollectionPointId(renamingPoint.id);
 
     const nextName = renameValue.trim();
     if (!nextName) {
       setMessage({ tone: 'error', text: 'Collection point name cannot be blank.' });
       return;
     }
+    if (!safePointId) {
+      setMessage({ tone: 'error', text: 'This collection point is missing a safe database ID.' });
+      return;
+    }
 
-    setActivePointId(renamingPoint.id);
+    setActivePointId(safePointId);
     setMessage(null);
 
     try {
       await setDoc(
-        doc(db, collectionPointsCollection, renamingPoint.id),
+        doc(db, collectionPointsCollection, safePointId),
         {
           name: nextName,
           updated_at: new Date().toISOString(),
@@ -325,20 +368,25 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
 
   const handleLogCollection = async () => {
     if (!selectedPoint) return;
+    const safePointId = normalizeCollectionPointId(selectedPoint.id);
 
     const count = Math.max(0, Math.trunc(Number(bagsCollected)));
     if (count <= 0) {
       setMessage({ tone: 'error', text: 'Enter how many bags or boxes were collected.' });
       return;
     }
+    if (!safePointId) {
+      setMessage({ tone: 'error', text: 'This collection point is missing a safe database ID.' });
+      return;
+    }
 
-    setActivePointId(selectedPoint.id);
+    setActivePointId(safePointId);
     setMessage(null);
 
     try {
       const collectedAt = new Date().toISOString();
       await addDoc(collection(db, donationLogsCollection), {
-        collection_point_id: selectedPoint.id,
+        collection_point_id: safePointId,
         collection_point_name: selectedPoint.name,
         bags_collected: count,
         status_before: selectedPoint.status,
@@ -348,7 +396,7 @@ export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' 
       });
 
       await setDoc(
-        doc(db, collectionPointsCollection, selectedPoint.id),
+        doc(db, collectionPointsCollection, safePointId),
         {
           status: 'clear',
           priority: 0,
