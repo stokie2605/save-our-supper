@@ -773,6 +773,7 @@ export default function App() {
           userId={session.user.id}
           authorName={profile.organization_name || session.user.email || 'Community member'}
           postcode={profile.primary_location}
+          userRole={profile.role}
         />
       </AppShell>
     );
@@ -1036,6 +1037,7 @@ export default function App() {
           userId={session.user.id}
           authorName={profile.organization_name || session.user.email || 'Community member'}
           postcode={profile.primary_location}
+          userRole={profile.role}
         />
       )}
 

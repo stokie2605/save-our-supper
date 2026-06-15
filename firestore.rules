@@ -11,6 +11,24 @@ service cloud.firestore {
         && request.auth.token.email == "stokie2605@gmail.com";
     }
 
+    function hasModeratorAccess() {
+      return isAdmin()
+        || (
+          isSignedIn()
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["admin", "moderator", "mod"]
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+          )
+        );
+    }
+
+    function existingVerifiedCount() {
+      return "verifiedCount" in resource.data && resource.data.verifiedCount is int
+        ? resource.data.verifiedCount
+        : 0;
+    }
+
 
     function isOwnClientProfileCreate(userId) {
       return isSignedIn()
@@ -60,10 +78,47 @@ service cloud.firestore {
         && request.resource.data.completed_at.size() > 0;
     }
 
+    function isAuthenticatedVerificationUpdate() {
+      return isSignedIn()
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "verifiedCount",
+          "verified_at"
+        ])
+        && request.resource.data.diff(resource.data).changedKeys().hasAll([
+          "verifiedCount",
+          "verified_at"
+        ])
+        && request.resource.data.verifiedCount == existingVerifiedCount() + 1
+        && request.resource.data.verified_at is string
+        && request.resource.data.verified_at.size() > 0;
+    }
+
+    function isModeratorArchiveUpdate() {
+      return hasModeratorAccess()
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "archived",
+          "archived_by",
+          "archived_at"
+        ])
+        && request.resource.data.diff(resource.data).changedKeys().hasAll([
+          "archived",
+          "archived_by",
+          "archived_at"
+        ])
+        && request.resource.data.archived == true
+        && request.resource.data.archived_by == request.auth.uid
+        && request.resource.data.archived_at is string
+        && request.resource.data.archived_at.size() > 0;
+    }
+
     match /posts/{postId} {
       allow read: if isSignedIn();
       allow create: if isAdmin() || isOwnPostCreate();
-      allow update: if isAdmin() || isAuthenticatedClaimUpdate() || isAuthenticatedCompletionUpdate();
+      allow update: if isAdmin()
+        || isAuthenticatedClaimUpdate()
+        || isAuthenticatedCompletionUpdate()
+        || isAuthenticatedVerificationUpdate()
+        || isModeratorArchiveUpdate();
       allow delete: if isAdmin();
     }
 

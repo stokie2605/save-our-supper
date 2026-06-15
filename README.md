@@ -173,6 +173,14 @@ The Community Feed uses a focused `max-w-4xl` reading layout with horizontal for
 
 Operational users can still access the Community Feed from the main navigation, but Donations Page, Stock Inventory Page, and Referral Queue Page remain distinct foodbank-focused sections. This keeps peer support clean and approachable while preserving the stricter logistics portal for volunteers, moderators, and administrators.
 
+### Added Admin/Mod Take Down and Community Availability Verifications
+
+Community Feed rows now include lightweight action controls without returning to a bulky social-media layout. Signed-in users can tap `Verify` to increment a Firestore `verifiedCount`, signalling that a notice still looks useful or available. They can also mark a notice as `claimed`, which updates the row status and visually softens it so others can scan past items that are no longer available.
+
+Administrators and moderators see a discreet `Take Down` control on each row. This does not hard-delete the document; it writes an `archived: true` flag with audit fields so the public feed hides the notice while keeping a reversible moderation trail in Firestore.
+
+The Firestore rules protect these actions with field-level checks. Verification updates may only change `verifiedCount` and `verified_at`, claim actions must follow the existing availability transition, and moderation archive actions are limited to admin or moderator profiles.
+
 ---
 
 ## Development

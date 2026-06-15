@@ -1,12 +1,14 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, onSnapshot } from 'firebase/firestore';
+import { addDoc, collection, doc, increment, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebaseConfig';
 import { defaultHubCoordinates } from '../lib/posts';
+import type { UserRole } from '../types/user';
 
 type CommunityHubProps = {
   userId: string;
   authorName: string;
   postcode?: string;
+  userRole?: UserRole;
 };
 
 type CommunityPost = {
@@ -15,6 +17,9 @@ type CommunityPost = {
   authorName: string;
   createdAt: string;
   postcode?: string;
+  status?: string;
+  verifiedCount: number;
+  archived: boolean;
 };
 
 
@@ -45,11 +50,30 @@ function formatPostDate(value: string) {
   });
 }
 
-export function CommunityHub({ userId, authorName, postcode = 'Local area' }: CommunityHubProps) {
+function CheckIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function PackageIcon() {
+  return (
+    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m3 7.5 9-4 9 4-9 4-9-4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M3 7.5v9l9 4 9-4v-9M12 11.5v9" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function CommunityHub({ userId, authorName, postcode = 'Local area', userRole = 'client' }: CommunityHubProps) {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [postText, setPostText] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  const [activePostAction, setActivePostAction] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const canModerate = userRole === 'admin' || userRole === 'moderator';
 
   useEffect(() => {
     const unsubscribe = onSnapshot(
@@ -66,9 +90,12 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
               authorName: String(data.author_name ?? data.authorName ?? 'Community member'),
               createdAt: getCreatedAt(data.created_at ?? data.createdAt),
               postcode: typeof data.postcode === 'string' ? data.postcode : undefined,
+              status: typeof data.status === 'string' ? data.status : 'available',
+              verifiedCount: Number(data.verifiedCount ?? 0),
+              archived: data.archived === true,
             } satisfies CommunityPost;
           })
-          .filter((post) => post.body.length > 0)
+          .filter((post) => post.body.length > 0 && !post.archived)
           .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
         setPosts(communityPosts);
@@ -132,6 +159,63 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
     }
   };
 
+  const handleVerifyPost = async (postId: string) => {
+    setActivePostAction(`verify-${postId}`);
+    setMessage(null);
+
+    try {
+      await updateDoc(doc(db, 'posts', postId), {
+        verifiedCount: increment(1),
+        verified_at: new Date().toISOString(),
+      });
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'Could not verify this notice right now.';
+      setMessage({ tone: 'error', text });
+    } finally {
+      setActivePostAction(null);
+    }
+  };
+
+  const handleClaimPost = async (postId: string) => {
+    setActivePostAction(`claim-${postId}`);
+    setMessage(null);
+
+    try {
+      await updateDoc(doc(db, 'posts', postId), {
+        status: 'claimed',
+        receiver_id: userId,
+        claimed_at: new Date().toISOString(),
+      });
+      setMessage({ tone: 'success', text: 'Marked as claimed so the community knows it has gone.' });
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'Could not mark this notice as claimed.';
+      setMessage({ tone: 'error', text });
+    } finally {
+      setActivePostAction(null);
+    }
+  };
+
+  const handleArchivePost = async (postId: string) => {
+    if (!canModerate) return;
+
+    setActivePostAction(`archive-${postId}`);
+    setMessage(null);
+
+    try {
+      await updateDoc(doc(db, 'posts', postId), {
+        archived: true,
+        archived_by: userId,
+        archived_at: new Date().toISOString(),
+      });
+      setMessage({ tone: 'success', text: 'The notice has been taken down from the public feed.' });
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'Could not take down this notice.';
+      setMessage({ tone: 'error', text });
+    } finally {
+      setActivePostAction(null);
+    }
+  };
+
   const feedPanel = (
     <section className="min-w-0 bg-white p-4 shadow-sm sm:rounded-3xl sm:border sm:border-slate-200 sm:p-5">
       <div className="mb-4 min-w-0">
@@ -180,22 +264,78 @@ export function CommunityHub({ userId, authorName, postcode = 'Local area' }: Co
             No community notices yet. Be the first to share something useful.
           </div>
         ) : (
-          posts.map((post) => (
-            <article key={post.id} className="flex w-full flex-col gap-1 border-b border-gray-100 bg-white px-4 py-3 text-left">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-gray-500 md:text-sm">
-                <span className="min-w-0 break-words font-semibold text-emerald-700">{post.authorName}</span>
-                {post.postcode ? (
-                  <>
+          posts.map((post) => {
+            const isClaimed = post.status === 'claimed';
+
+            return (
+              <article
+                key={post.id}
+                className={`flex w-full flex-col gap-1 border-b border-gray-100 bg-white px-4 py-3 text-left transition-colors ${
+                  isClaimed ? 'bg-slate-50/70 text-slate-400' : ''
+                }`}
+              >
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs font-medium text-gray-500 md:text-sm">
+                    <span className="min-w-0 break-words font-semibold text-emerald-700">{post.authorName}</span>
+                    {post.postcode ? (
+                      <>
+                        <span aria-hidden="true">&bull;</span>
+                        <span className="shrink-0 uppercase tracking-wide">{post.postcode}</span>
+                      </>
+                    ) : null}
                     <span aria-hidden="true">&bull;</span>
-                    <span className="shrink-0 uppercase tracking-wide">{post.postcode}</span>
-                  </>
-                ) : null}
-                <span aria-hidden="true">&bull;</span>
-                <span className="shrink-0">{formatPostDate(post.createdAt)}</span>
-              </div>
-              <p className="line-clamp-3 break-words pt-0.5 text-sm leading-relaxed text-gray-800 md:text-base">{post.body}</p>
-            </article>
-          ))
+                    <span className="shrink-0">{formatPostDate(post.createdAt)}</span>
+                    {isClaimed ? (
+                      <>
+                        <span aria-hidden="true">&bull;</span>
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-700">
+                          Claimed
+                        </span>
+                      </>
+                    ) : null}
+                  </div>
+
+                  {canModerate ? (
+                    <button
+                      type="button"
+                      onClick={() => handleArchivePost(post.id)}
+                      disabled={activePostAction === `archive-${post.id}`}
+                      className="shrink-0 rounded-full border border-red-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-red-600 transition-colors hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Take Down
+                    </button>
+                  ) : null}
+                </div>
+
+                <p className={`line-clamp-3 break-words pt-0.5 text-sm leading-relaxed md:text-base ${
+                  isClaimed ? 'text-slate-400' : 'text-gray-800'
+                }`}>
+                  {post.body}
+                </p>
+
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleVerifyPost(post.id)}
+                    disabled={activePostAction === `verify-${post.id}` || isClaimed}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 px-2.5 py-1 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <CheckIcon />
+                    Verify{post.verifiedCount > 0 ? ` ${post.verifiedCount}` : ''}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleClaimPost(post.id)}
+                    disabled={activePostAction === `claim-${post.id}` || isClaimed}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 px-2.5 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <PackageIcon />
+                    {isClaimed ? 'Claimed' : 'Claimed?'}
+                  </button>
+                </div>
+              </article>
+            );
+          })
         )}
       </div>
     </section>
