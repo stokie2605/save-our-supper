@@ -23,6 +23,60 @@ service cloud.firestore {
         );
     }
 
+    function hasFoodbankStaffAccess() {
+      return isAdmin()
+        || (
+          isSignedIn()
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["admin", "moderator", "mod", "volunteer"]
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+            || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isVolunteer == true
+          )
+        );
+    }
+
+    function isKnownCollectionPoint(pointId) {
+      return pointId in [
+        "sainsburys_local_bin",
+        "asda_cage",
+        "church_cabinet",
+        "main_hub_drop_off"
+      ];
+    }
+
+    function hasValidCollectionPointCreatePayload(pointId) {
+      return isSignedIn()
+        && isKnownCollectionPoint(pointId)
+        && request.resource.data.keys().hasOnly([
+          "status",
+          "priority",
+          "updated_at",
+          "reported_at",
+          "collected_at"
+        ])
+        && request.resource.data.status in ["clear", "full"]
+        && request.resource.data.priority in [0, 1]
+        && request.resource.data.updated_at is string
+        && request.resource.data.updated_at.size() > 0;
+    }
+
+    function isCollectionPointStatusUpdate(pointId) {
+      return isSignedIn()
+        && isKnownCollectionPoint(pointId)
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "priority",
+          "updated_at",
+          "reported_at",
+          "collected_at"
+        ])
+        && request.resource.data.status in ["clear", "full"]
+        && request.resource.data.priority in [0, 1]
+        && request.resource.data.updated_at is string
+        && request.resource.data.updated_at.size() > 0;
+    }
+
     function existingVerifiedCount() {
       return "verifiedCount" in resource.data && resource.data.verifiedCount is int
         ? resource.data.verifiedCount
@@ -147,6 +201,19 @@ service cloud.firestore {
     match /donations_receipts/{receiptId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isAdmin();
+    }
+
+    match /donation_collection_points/{pointId} {
+      allow read: if isSignedIn();
+      allow create: if hasValidCollectionPointCreatePayload(pointId);
+      allow update: if isCollectionPointStatusUpdate(pointId);
+      allow delete: if isAdmin();
+    }
+
+    match /donation_logs/{logId} {
+      allow read: if hasFoodbankStaffAccess();
+      allow create: if hasFoodbankStaffAccess();
+      allow update, delete: if isAdmin();
     }
 
     match /{document=**} {

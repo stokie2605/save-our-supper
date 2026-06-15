@@ -830,11 +830,11 @@ export default function App() {
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
           <p className="text-4xl font-black tracking-tight text-slate-800">{donationSessionTotal}</p>
-          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Active Sessions</p>
+          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Priority Points</p>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
           <p className="text-4xl font-black tracking-tight text-slate-800">{donationSessionTotal}</p>
-          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Items Logged</p>
+          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Needs Emptying</p>
         </div>
         <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
           <p className="text-4xl font-black tracking-tight text-emerald-500">OK</p>
@@ -1051,7 +1051,11 @@ export default function App() {
               allowedRoles={foodbankAccessRoles}
               onAccessDenied={redirectToPublicFeed}
             >
-              <IntakePortal onQueuedItemsChange={setDonationSessionTotal} />
+              <IntakePortal
+                onQueuedItemsChange={setDonationSessionTotal}
+                userId={session.user.id}
+                userRole={profile.role}
+              />
             </AuthGuard>
           ) : null}
 

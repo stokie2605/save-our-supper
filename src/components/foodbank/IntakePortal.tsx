@@ -1,336 +1,423 @@
 import { useEffect, useMemo, useState } from 'react';
-import { processDonationIntake } from '../../services/foodbankService';
-import type { DonationIntakeData, DonationIntakeItem } from '../../types/foodbank';
-import { foodbankCategories, type FoodbankCategory } from './foodbankCategories';
+import { addDoc, collection, doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebaseConfig';
+import type { UserRole } from '../../types/user';
+import { foodbankCategories } from './foodbankCategories';
 
-type ItemsReceivedState = Record<string, number>;
+type CollectionPointStatus = 'clear' | 'full';
+
+type CollectionPoint = {
+  id: string;
+  name: string;
+  address: string;
+  notes: string;
+  status: CollectionPointStatus;
+  updated_at?: string;
+};
+
+type ShortageItem = {
+  id: string;
+  label: string;
+  currentQuantity: number;
+};
 
 interface IntakePortalProps {
   onQueuedItemsChange?: (totalItems: number) => void;
+  userId?: string;
+  userRole?: UserRole;
 }
 
-function LogDonationIcon({ className = 'h-5 w-5' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M9 12.75 11.25 15 15 9.75M4.5 6.75A2.25 2.25 0 0 1 6.75 4.5h10.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25V6.75Z"
-        stroke="currentColor"
-        strokeWidth="1.9"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+const collectionPointsCollection = 'donation_collection_points';
+const donationLogsCollection = 'donation_logs';
+const lowStockThreshold = 20;
+
+const defaultCollectionPoints: CollectionPoint[] = [
+  {
+    id: 'sainsburys_local_bin',
+    name: "Sainsbury's Local Bin",
+    address: 'Crewe Road, Alsager',
+    notes: 'Front-of-store donation bin',
+    status: 'clear',
+  },
+  {
+    id: 'asda_cage',
+    name: 'Asda Cage',
+    address: 'Lawton Road, Alsager',
+    notes: 'Supermarket cage collection point',
+    status: 'clear',
+  },
+  {
+    id: 'church_cabinet',
+    name: 'Church Cabinet',
+    address: 'Alsager community churches',
+    notes: 'Small cabinet drops from local volunteers',
+    status: 'clear',
+  },
+  {
+    id: 'main_hub_drop_off',
+    name: 'Main Hub Drop-off',
+    address: 'Alsager Central Hub',
+    notes: 'Direct donations handed to the foodbank team',
+    status: 'clear',
+  },
+];
+
+function normalizeStatus(value: unknown): CollectionPointStatus {
+  return String(value).toLowerCase().trim() === 'full' ? 'full' : 'clear';
 }
 
-function CategoryGraphic({ category }: { category: FoodbankCategory }) {
-  const iconClass = 'h-14 w-14 text-slate-900 sm:h-16 sm:w-16 md:h-20 md:w-20';
-  const accentClass = 'text-emerald-500';
-
-  if (category.visual === 'milk') {
-    return (
-      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
-        <path d="M35 12h26l6 14v52a8 8 0 0 1-8 8H37a8 8 0 0 1-8-8V26l6-14Z" fill="currentColor" opacity="0.08" />
-        <path d="M35 12h26l6 14v52a8 8 0 0 1-8 8H37a8 8 0 0 1-8-8V26l6-14Z" stroke="currentColor" strokeWidth="4" />
-        <path d="M35 12h26M29 28h38M37 48h22" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-        <path d="M39 58h18v16H39z" className={accentClass} fill="currentColor" opacity="0.35" />
-      </svg>
-    );
+function formatUpdatedAt(value?: string) {
+  if (!value) {
+    return 'Not checked yet';
   }
 
-  if (category.visual === 'mug') {
-    return (
-      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
-        <path d="M24 34h42v30a18 18 0 0 1-18 18h-6a18 18 0 0 1-18-18V34Z" fill="currentColor" opacity="0.08" />
-        <path d="M24 34h42v30a18 18 0 0 1-18 18h-6a18 18 0 0 1-18-18V34Z" stroke="currentColor" strokeWidth="4" />
-        <path d="M66 42h8a10 10 0 0 1 0 20h-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-        <path d="M36 22c-4-5 4-7 0-12M50 22c-4-5 4-7 0-12" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-      </svg>
-    );
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'Recently updated';
   }
 
-  if (['fish', 'pet'].includes(category.visual)) {
-    return (
-      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
-        <path d="M18 50c12-18 34-24 54-6l12-10v32L72 56c-20 18-42 12-54-6Z" fill="currentColor" opacity="0.08" />
-        <path d="M18 50c12-18 34-24 54-6l12-10v32L72 56c-20 18-42 12-54-6Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
-        <circle cx="35" cy="48" r="3" fill="currentColor" />
-        <path d="M52 38c-6 8-6 16 0 24" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-      </svg>
-    );
-  }
-
-  if (category.visual === 'toiletries') {
-    return (
-      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
-        <path d="M34 24h28v10H34zM28 34h40v44a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8V34Z" fill="currentColor" opacity="0.08" />
-        <path d="M34 24h28v10H34zM28 34h40v44a8 8 0 0 1-8 8H36a8 8 0 0 1-8-8V34Z" stroke="currentColor" strokeWidth="4" />
-        <path d="M40 60h16M48 52v16" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-      </svg>
-    );
-  }
-
-  if (category.visual === 'baby') {
-    return (
-      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
-        <path d="M30 34h36l-6 48H36L30 34Z" fill="currentColor" opacity="0.08" />
-        <path d="M30 34h36l-6 48H36L30 34Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
-        <path d="M38 34c0-12 20-12 20 0" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-        <circle cx="42" cy="56" r="3" className={accentClass} fill="currentColor" />
-        <circle cx="54" cy="56" r="3" className={accentClass} fill="currentColor" />
-      </svg>
-    );
-  }
-
-  if (['pasta', 'jar', 'beans', 'meat', 'veg', 'pudding', 'fruit'].includes(category.visual)) {
-    return (
-      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
-        <path d="M28 22h40v12H28zM32 34h32v44a8 8 0 0 1-8 8H40a8 8 0 0 1-8-8V34Z" fill="currentColor" opacity="0.08" />
-        <path d="M28 22h40v12H28zM32 34h32v44a8 8 0 0 1-8 8H40a8 8 0 0 1-8-8V34Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
-        <path d="M38 50h20v18H38z" className={accentClass} fill="currentColor" opacity="0.35" />
-        <path d="M40 60h16" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-      </svg>
-    );
-  }
-
-  if (category.visual === 'snacks') {
-    return (
-      <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
-        <path d="M26 26h44l-6 56H32L26 26Z" fill="currentColor" opacity="0.08" />
-        <path d="M26 26h44l-6 56H32L26 26Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
-        <path d="M36 42h24M38 56h20" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg className={iconClass} viewBox="0 0 96 96" fill="none" aria-hidden="true">
-      <path d="M24 30h48v44a10 10 0 0 1-10 10H34a10 10 0 0 1-10-10V30Z" fill="currentColor" opacity="0.08" />
-      <path d="M24 30h48v44a10 10 0 0 1-10 10H34a10 10 0 0 1-10-10V30Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" />
-      <path d="M34 30c0-12 28-12 28 0" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-      <path d="M38 52h20" className={accentClass} stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
-    </svg>
-  );
+  return date.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
-const sourceTypes = ['Supermarket', 'Walk-in', 'Cafe / Restaurant', 'Community Drive', 'Other'];
+function statusBadgeClass(status: CollectionPointStatus) {
+  return status === 'full'
+    ? 'border-amber-200 bg-amber-50 text-amber-800'
+    : 'border-emerald-200 bg-emerald-50 text-emerald-800';
+}
 
-const initialItemsReceived = foodbankCategories.reduce<ItemsReceivedState>((acc, category) => {
-  acc[category.id] = 0;
-  return acc;
-}, {});
-
-export function IntakePortal({ onQueuedItemsChange }: IntakePortalProps) {
-  const [sourceType, setSourceType] = useState(sourceTypes[0]);
-  const [sourceName, setSourceName] = useState('');
-  const [itemsReceived, setItemsReceived] = useState<ItemsReceivedState>(initialItemsReceived);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function IntakePortal({ onQueuedItemsChange, userId, userRole = 'client' }: IntakePortalProps) {
+  const [collectionPoints, setCollectionPoints] = useState<CollectionPoint[]>(defaultCollectionPoints);
+  const [shortages, setShortages] = useState<ShortageItem[]>([]);
+  const [selectedPoint, setSelectedPoint] = useState<CollectionPoint | null>(null);
+  const [bagsCollected, setBagsCollected] = useState('1');
+  const [activePointId, setActivePointId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
-  const totalItems = useMemo(
-    () => Object.values(itemsReceived).reduce((total, count) => total + count, 0),
-    [itemsReceived],
-  );
+  const canLogCollections = ['volunteer', 'moderator', 'admin'].includes(userRole);
 
   useEffect(() => {
-    onQueuedItemsChange?.(totalItems);
-  }, [onQueuedItemsChange, totalItems]);
+    const unsubscribe = onSnapshot(
+      collection(db, collectionPointsCollection),
+      (snapshot) => {
+        const livePoints = new Map<string, Partial<CollectionPoint>>();
 
-  const setCount = (categoryId: string, nextValue: number) => {
+        snapshot.docs.forEach((pointSnapshot) => {
+          const data = pointSnapshot.data();
+          livePoints.set(pointSnapshot.id, {
+            id: pointSnapshot.id,
+            name: typeof data.name === 'string' ? data.name : undefined,
+            address: typeof data.address === 'string' ? data.address : undefined,
+            notes: typeof data.notes === 'string' ? data.notes : undefined,
+            status: normalizeStatus(data.status),
+            updated_at: typeof data.updated_at === 'string' ? data.updated_at : undefined,
+          });
+        });
+
+        setCollectionPoints(
+          defaultCollectionPoints.map((point) => ({
+            ...point,
+            ...livePoints.get(point.id),
+          })),
+        );
+      },
+      (error) => {
+        console.error('Collection point stream failed:', error);
+        setMessage({ tone: 'error', text: 'Could not load collection point statuses right now.' });
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'inventory'),
+      (snapshot) => {
+        const stockById = new Map<string, number>();
+
+        snapshot.docs.forEach((stockSnapshot) => {
+          const data = stockSnapshot.data();
+          stockById.set(stockSnapshot.id, Number(data.current_quantity ?? data.quantity) || 0);
+        });
+
+        setShortages(
+          foodbankCategories
+            .map((category) => ({
+              id: category.id,
+              label: category.label,
+              currentQuantity: stockById.get(category.id) ?? 0,
+            }))
+            .filter((item) => item.currentQuantity <= lowStockThreshold)
+            .sort((a, b) => a.currentQuantity - b.currentQuantity)
+            .slice(0, 6),
+        );
+      },
+      (error) => {
+        console.error('Shortages stream failed:', error);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const sortedCollectionPoints = useMemo(
+    () =>
+      [...collectionPoints].sort((a, b) => {
+        if (a.status !== b.status) {
+          return a.status === 'full' ? -1 : 1;
+        }
+        return a.name.localeCompare(b.name);
+      }),
+    [collectionPoints],
+  );
+
+  const fullPointCount = sortedCollectionPoints.filter((point) => point.status === 'full').length;
+
+  useEffect(() => {
+    onQueuedItemsChange?.(fullPointCount);
+  }, [fullPointCount, onQueuedItemsChange]);
+
+  const updateCollectionPointStatus = async (point: CollectionPoint, status: CollectionPointStatus) => {
+    setActivePointId(point.id);
     setMessage(null);
-    setItemsReceived((current) => ({
-      ...current,
-      [categoryId]: Math.max(0, Math.trunc(Number.isFinite(nextValue) ? nextValue : 0)),
-    }));
+
+    try {
+      const updatedAt = new Date().toISOString();
+      await setDoc(
+        doc(db, collectionPointsCollection, point.id),
+        {
+          status,
+          priority: status === 'full' ? 1 : 0,
+          updated_at: updatedAt,
+          reported_at: status === 'full' ? updatedAt : point.updated_at ?? updatedAt,
+        },
+        { merge: true },
+      );
+      setMessage({
+        tone: 'success',
+        text: status === 'full' ? `${point.name} has been moved to the top of the collection queue.` : `${point.name} has been reset to clear.`,
+      });
+    } catch (error) {
+      const text = error instanceof Error ? error.message : 'Could not update this collection point.';
+      setMessage({ tone: 'error', text });
+    } finally {
+      setActivePointId(null);
+    }
   };
 
-  const clearAll = () => {
-    setItemsReceived(initialItemsReceived);
+  const openCollectionModal = (point: CollectionPoint) => {
+    setSelectedPoint(point);
+    setBagsCollected('1');
     setMessage(null);
   };
 
-  const resetForm = () => {
-    setSourceType(sourceTypes[0]);
-    setSourceName('');
-    setItemsReceived(initialItemsReceived);
+  const closeCollectionModal = () => {
+    setSelectedPoint(null);
+    setBagsCollected('1');
   };
 
-  const handleSubmit = async () => {
-    if (totalItems === 0) {
-      setMessage({ tone: 'error', text: 'Add at least one item before logging a donation.' });
+  const handleLogCollection = async () => {
+    if (!selectedPoint) return;
+
+    const count = Math.max(0, Math.trunc(Number(bagsCollected)));
+    if (count <= 0) {
+      setMessage({ tone: 'error', text: 'Enter how many bags or boxes were collected.' });
       return;
     }
 
-    const items: DonationIntakeItem[] = foodbankCategories
-      .map((category) => ({
-        inventory_item_id: category.id,
-        quantity: itemsReceived[category.id] ?? 0,
-        label: category.label,
-      }))
-      .filter((item) => item.quantity > 0);
-
-    const intakeData: DonationIntakeData = {
-      donor_id: sourceName.trim() || sourceType,
-      donor_name: sourceName.trim() || sourceType,
-      source_type: sourceType,
-      source_name: sourceName.trim(),
-      items,
-    };
+    setActivePointId(selectedPoint.id);
+    setMessage(null);
 
     try {
-      setIsSubmitting(true);
-      setMessage(null);
-      const receiptId = await processDonationIntake(intakeData);
-      resetForm();
-      setMessage({ tone: 'success', text: `Donation logged successfully. Receipt ${receiptId}.` });
+      const collectedAt = new Date().toISOString();
+      await addDoc(collection(db, donationLogsCollection), {
+        collection_point_id: selectedPoint.id,
+        collection_point_name: selectedPoint.name,
+        bags_collected: count,
+        status_before: selectedPoint.status,
+        collected_by: userId ?? 'unknown',
+        collected_at: collectedAt,
+        created_at: serverTimestamp(),
+      });
+
+      await setDoc(
+        doc(db, collectionPointsCollection, selectedPoint.id),
+        {
+          status: 'clear',
+          priority: 0,
+          collected_at: collectedAt,
+          updated_at: collectedAt,
+        },
+        { merge: true },
+      );
+
+      setMessage({ tone: 'success', text: `${count} ${count === 1 ? 'bag/box' : 'bags/boxes'} logged from ${selectedPoint.name}.` });
+      closeCollectionModal();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unable to log donation right now.';
-      setMessage({ tone: 'error', text: errorMessage });
+      const text = error instanceof Error ? error.message : 'Could not log this collection.';
+      setMessage({ tone: 'error', text });
     } finally {
-      setIsSubmitting(false);
+      setActivePointId(null);
     }
   };
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-200/70 bg-white pb-44 shadow-[0_8px_30px_rgb(0,0,0,0.06)] md:pb-0">
-      <div className="h-2 bg-gradient-to-r from-emerald-400 to-teal-500" />
-      <div className="p-4 sm:p-6">
-        <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-widest text-teal-700">Food donations</p>
-            <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
-              Donation Drop-Off Log
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-              Quickly record food given by supermarkets, local groups, churches, and walk-in donors.
+    <main className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-3">
+      <section className="min-w-0 md:col-span-2">
+        <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] sm:p-5">
+          <div className="mb-5 border-b border-slate-100 pb-4">
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Donations Page</p>
+            <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">Collection Points Tracker</h2>
+            <p className="mt-1 break-words text-sm leading-6 text-slate-500">
+              Keep local supermarket bins, church cabinets, and hub drop-offs simple: report full, collect, reset clear.
             </p>
           </div>
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Items queued</p>
-            <p className="text-3xl font-black text-brand-forest">{totalItems}</p>
-          </div>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-[minmax(0,220px)_minmax(0,1fr)]">
-          <label className="block min-w-0">
-            <span className="text-sm font-bold text-slate-700">Where did it come from?</span>
-            <select
-              value={sourceType}
-              onChange={(event) => setSourceType(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+          {message ? (
+            <div
+              className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                message.tone === 'success'
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                  : 'border-red-200 bg-red-50 text-red-700'
+              }`}
             >
-              {sourceTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </label>
+              {message.text}
+            </div>
+          ) : null}
 
-          <label className="block min-w-0">
-            <span className="text-sm font-bold text-slate-700">Name of shop, group, or donor</span>
-            <input
-              value={sourceName}
-              onChange={(event) => setSourceName(event.target.value)}
-              placeholder="e.g. Local Tesco, church collection, walk-in donor"
-              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-            />
-          </label>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-5">
-          {foodbankCategories.map((category) => {
-            const count = itemsReceived[category.id] ?? 0;
-
-            return (
+          <div className="grid gap-3">
+            {sortedCollectionPoints.map((point) => (
               <article
-                key={category.id}
-                className={`relative flex min-h-56 min-w-0 flex-col rounded-3xl border border-slate-100/80 bg-white p-4 text-center shadow-sm transition-all duration-300 hover:border-emerald-200 sm:min-h-64 md:min-h-72 ${
-                  count > 0 ? 'animate-pulse ring-2 ring-emerald-300/70 shadow-[0_0_30px_rgba(16,185,129,0.18)]' : ''
+                key={point.id}
+                className={`flex min-w-0 flex-col gap-3 rounded-2xl border bg-white p-3 shadow-sm transition-colors sm:flex-row sm:items-center sm:justify-between ${
+                  point.status === 'full' ? 'border-amber-200 ring-1 ring-amber-100' : 'border-slate-100'
                 }`}
               >
-                {count > 0 ? (
-                  <span className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-[11px] font-black text-white shadow-sm">
-                    OK
-                  </span>
-                ) : null}
-                <div className="flex flex-1 flex-col items-center justify-center gap-2 sm:gap-3">
-                  <div className="grid h-20 w-20 place-items-center rounded-3xl border border-slate-100 bg-slate-50 shadow-inner sm:h-24 sm:w-24 md:h-28 md:w-28 md:rounded-[2rem]">
-                    <CategoryGraphic category={category} />
+                <div className="min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h3 className="break-words text-sm font-black text-slate-900 sm:text-base">{point.name}</h3>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${statusBadgeClass(point.status)}`}>
+                      <span className={`h-2 w-2 rounded-full ${point.status === 'full' ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                      {point.status === 'full' ? 'Full / Needs Emptying' : 'Clear / Checked'}
+                    </span>
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="break-words text-[11px] font-black uppercase leading-4 tracking-wider text-slate-900 sm:text-xs md:text-sm md:tracking-widest">
-                      {category.label}
-                    </h3>
-                    <p className="mt-1 break-words text-[11px] leading-4 text-slate-500 sm:mt-2 sm:text-xs sm:leading-5">{category.helper}</p>
-                  </div>
+                  <p className="mt-1 break-words text-sm font-semibold text-slate-500">{point.address}</p>
+                  <p className="mt-1 break-words text-xs leading-5 text-slate-400">
+                    {point.notes} &bull; {formatUpdatedAt(point.updated_at)}
+                  </p>
                 </div>
 
-                <div className="mt-5 flex w-full justify-center">
-                  <label className="sr-only" htmlFor={`quantity-${category.id}`}>
-                    {category.label} quantity
-                  </label>
-                  <input
-                    id={`quantity-${category.id}`}
-                    type="number"
-                    min={0}
-                    step={1}
-                    inputMode="numeric"
-                    value={count}
-                    onChange={(event) => setCount(category.id, Number(event.target.value))}
-                    onBlur={(event) => setCount(category.id, Number(event.currentTarget.value))}
-                    onFocus={(event) => event.currentTarget.select()}
-                    disabled={isSubmitting}
-                    className="h-12 w-full rounded-full border border-slate-800 bg-slate-900 p-2 text-center font-mono text-2xl font-black tracking-wide text-white shadow-inner outline-none transition-all focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400 disabled:cursor-not-allowed disabled:opacity-60 sm:h-14 sm:text-3xl"
-                  />
+                <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => updateCollectionPointStatus(point, 'full')}
+                    disabled={activePointId === point.id}
+                    className="rounded-full border border-amber-200 px-3 py-2 text-xs font-black text-amber-700 transition-colors hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Report Full
+                  </button>
+                  {canLogCollections ? (
+                    <button
+                      type="button"
+                      onClick={() => openCollectionModal(point)}
+                      disabled={activePointId === point.id}
+                      className="rounded-full bg-slate-900 px-3 py-2 text-xs font-black text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Log Collection
+                    </button>
+                  ) : null}
                 </div>
               </article>
-            );
-          })}
-        </div>
-
-        {message && (
-          <div
-            className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-semibold ${
-              message.tone === 'success'
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                : 'border-red-200 bg-red-50 text-red-700'
-            }`}
-          >
-            {message.text}
-          </div>
-        )}
-
-        <div className="fixed bottom-16 left-0 z-50 w-full border-t border-slate-200 bg-white p-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] sm:p-4 md:static md:mt-6 md:rounded-3xl md:border md:shadow-xs">
-          <div className="mx-auto flex max-w-6xl flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <button
-              type="button"
-              onClick={clearAll}
-              disabled={isSubmitting || totalItems === 0}
-              className="text-sm font-black text-slate-500 underline-offset-4 transition-colors hover:text-red-600 hover:underline disabled:cursor-not-allowed disabled:text-slate-300"
-            >
-              Clear All
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting || totalItems === 0}
-              className="inline-flex w-full items-center justify-center gap-3 rounded-3xl bg-slate-900 px-6 py-4 text-lg font-black text-white shadow-sm transition-all hover:bg-emerald-600 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500 md:w-auto md:min-w-80"
-            >
-              <LogDonationIcon />
-              {isSubmitting ? 'Logging Donation...' : `Log ${totalItems} Donated ${totalItems === 1 ? 'Item' : 'Items'}`}
-            </button>
+            ))}
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <aside className="min-w-0 md:col-span-1">
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] md:sticky md:top-24">
+          <p className="text-xs font-black uppercase tracking-widest text-amber-700">Live Shortages Bulletin</p>
+          <h2 className="mt-2 break-words text-xl font-black tracking-tight text-slate-950">Urgent Needs</h2>
+          <p className="mt-1 break-words text-sm leading-6 text-slate-600">
+            Items at or below {lowStockThreshold} units, ready to share with local donors.
+          </p>
+
+          <div className="mt-4 grid gap-2">
+            {shortages.length === 0 ? (
+              <div className="rounded-2xl border border-emerald-200 bg-white px-4 py-5 text-sm font-bold text-emerald-700">
+                No urgent shortages showing right now.
+              </div>
+            ) : (
+              shortages.map((item) => (
+                <div key={item.id} className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-white px-3 py-3">
+                  <span className="min-w-0 break-words text-sm font-black text-slate-800">{item.label}</span>
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">
+                    {item.currentQuantity}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {selectedPoint ? (
+        <div className="fixed inset-0 z-[5000] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
+          <div className="w-full max-w-md rounded-t-3xl border border-slate-200 bg-white p-5 shadow-xl sm:rounded-3xl">
+            <div className="mb-4">
+              <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Log Collection</p>
+              <h2 className="mt-2 break-words text-2xl font-black tracking-tight text-slate-950">{selectedPoint.name}</h2>
+              <p className="mt-1 break-words text-sm text-slate-500">Record what was collected, then reset the point to clear.</p>
+            </div>
+
+            <label className="grid gap-2 text-sm font-bold text-slate-700">
+              Bags/Boxes Collected (Count)
+              <input
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                value={bagsCollected}
+                onChange={(event) => setBagsCollected(event.target.value)}
+                onFocus={(event) => event.currentTarget.select()}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-2xl font-black text-slate-950 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+              />
+            </label>
+
+            <div className="mt-5 grid gap-2">
+              <button
+                type="button"
+                onClick={handleLogCollection}
+                disabled={activePointId === selectedPoint.id}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Save Log & Reset Status to Clear
+              </button>
+              <button
+                type="button"
+                onClick={() => updateCollectionPointStatus(selectedPoint, 'clear').then(closeCollectionModal)}
+                disabled={activePointId === selectedPoint.id}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Reset Status to Clear
+              </button>
+              <button
+                type="button"
+                onClick={closeCollectionModal}
+                className="rounded-2xl px-4 py-3 text-sm font-black text-slate-400 transition-colors hover:text-slate-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </main>
   );
 }
 
 export default IntakePortal;
-
-
-
-
-
-
