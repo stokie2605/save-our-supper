@@ -120,6 +120,15 @@ The signed-out Community Hub now avoids protected legacy nearby-food/geohash fee
 Kitchen tips have been moved onto a dedicated `kitchen_tips` collection. Public users can read published tips safely, while creating staff tips and appending replies remain constrained by Firestore role rules. The public wishlist continues to read from `inventory`, giving guest visitors useful donation guidance without exposing internal referral or intake data.
 
 The Admin Panel food stock setup has been refactored into a compact horizontal action row above the current hub allocations list. Admin-created stock keys are normalized to lowercase `snake_case`, so labels such as `Breakfast Cereals` consistently target database IDs such as `breakfast_cereals` instead of creating mismatched uppercase records.
+### Safe Barcode Scanner with Category Confirmation
+
+The Admin Panel Food Stock view now includes an optional barcode automation layer using `html5-qrcode`. Administrators can launch a 250px camera scanner from the Current Hub Allocations section to read standard retail barcode formats such as EAN-13, EAN-8, and UPC-A.
+
+Scanned barcodes are looked up through the zero-key Open Food Facts product API. The scanner uses a three-second cooldown to prevent accidental duplicate reads, pauses after each successful scan, and displays the raw detected product name before any stock change is made.
+
+A local deterministic keyword dictionary maps product names to the food bank's normalized Firestore inventory keys, including categories such as `baby_items`, `baked_beans`, `breakfast_cereals`, `pasta_rice`, `soup`, `tinned_fish`, `tinned_fruit`, `tinned_meat`, `toiletries`, and `uht_milk`. If no safe match is found, administrators choose from the category dropdown manually.
+
+The scanner never auto-increments stock. It only writes `increment(1)` to `current_quantity` and `quantity` after an administrator confirms the suggestion, while the manual exact overwrite controls remain available as the trusted correction system.
 ### Admin Stock Overwrite Controls and Strict Item ID Sanitization
 
 The Admin Panel Food Stock view now uses a true inline allocation manager row for adding new food bank items. Food item name, friendly display name, starting quantity, and the submit action sit together in one horizontal control strip on desktop while still stacking cleanly on smaller screens.

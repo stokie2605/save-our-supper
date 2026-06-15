@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { collection, getDocs, updateDoc, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { useEffect, useRef, useState } from 'react';
+import { collection, getDocs, updateDoc, doc, onSnapshot, setDoc, increment } from 'firebase/firestore';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { db } from '../../lib/firebaseConfig';
 import type { UserProfile, UserRole } from '../../types/user';
 
@@ -17,6 +18,13 @@ interface StockItem {
   label: string;
   current_quantity: number;
 }
+
+type BarcodeSuggestion = {
+  barcode: string;
+  productName: string;
+  matchedCategoryId: string | null;
+  selectedCategoryId: string;
+};
 
 interface ModerationPost {
   id: string;
@@ -42,6 +50,28 @@ function normalizeCategoryId(value: string) {
     .replace(/[^a-z0-9\s_-]/g, '')
     .replace(/[_\s-]+/g, '_')
     .replace(/^_+|_+$/g, '');
+}
+
+const scannerElementId = 'admin-barcode-scanner-reader';
+const scannerCategories = [
+  { id: 'baby_items', label: 'Baby Items', keywords: ['baby', 'infant', 'nappy'] },
+  { id: 'baked_beans', label: 'Baked Beans', keywords: ['bean', 'baked'] },
+  { id: 'breakfast_cereals', label: 'Breakfast Cereals', keywords: ['cereal', 'flakes', 'wheat'] },
+  { id: 'pasta_rice', label: 'Pasta / Rice', keywords: ['pasta', 'rice', 'spaghetti'] },
+  { id: 'pet_food', label: 'Pet Food', keywords: ['pet', 'dog', 'cat'] },
+  { id: 'soup', label: 'Soup', keywords: ['soup', 'broth'] },
+  { id: 'tinned_fish', label: 'Tinned Fish', keywords: ['fish', 'tuna', 'salmon'] },
+  { id: 'tinned_fruit', label: 'Tinned Fruit', keywords: ['fruit', 'peach', 'pineapple'] },
+  { id: 'tinned_meat', label: 'Tinned Meat', keywords: ['meat', 'ham', 'beef'] },
+  { id: 'toiletries', label: 'Toiletries', keywords: ['shower', 'soap', 'paste', 'toilet'] },
+  { id: 'uht_milk', label: 'UHT Milk', keywords: ['milk', 'uht'] },
+];
+
+function matchCategoryFromProductName(productName: string) {
+  const normalizedProductName = productName.toLowerCase();
+  return scannerCategories.find((category) =>
+    category.keywords.some((keyword) => normalizedProductName.includes(keyword)),
+  ) ?? null;
 }
 
 function normalizeUserDocument(documentId: string, data: unknown): UserProfile {
@@ -76,6 +106,13 @@ export function AdminPanel() {
   const [newStockQty, setNewStockQuantity] = useState('0');
   const [stockInputs, setStockInputs] = useState<Record<string, string>>({});
   const [actionItemRef, setActionItemRef] = useState<string | null>(null);
+  const [scannerActive, setScannerActive] = useState(false);
+  const [scannerStatus, setScannerStatus] = useState('Scanner is idle.');
+  const [scannerSuggestion, setScannerSuggestion] = useState<BarcodeSuggestion | null>(null);
+  const [confirmingScan, setConfirmingScan] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const barcodeCooldownUntilRef = useRef(0);
+  const resumeTimeoutRef = useRef<number | null>(null);
 
   // Moderation Vault State
   const [moderationPosts, setModerationPosts] = useState<ModerationPost[]>([]);
@@ -171,6 +208,156 @@ export function AdminPanel() {
     return () => unsubscribe();
   }, []);
 
+  const resumeScanner = () => {
+    const scanner = scannerRef.current;
+    if (!scanner || !scannerActive || scannerSuggestion) return;
+
+    try {
+      scanner.resume();
+      setScannerStatus('Scanner ready. Hold a barcode inside the square.');
+    } catch (err) {
+      console.error('Scanner resume failed:', err);
+    }
+  };
+
+  const scheduleScannerResume = (delayMs = 1200) => {
+    if (resumeTimeoutRef.current !== null) {
+      window.clearTimeout(resumeTimeoutRef.current);
+    }
+    resumeTimeoutRef.current = window.setTimeout(() => {
+      resumeTimeoutRef.current = null;
+      resumeScanner();
+    }, delayMs);
+  };
+
+  const handleBarcodeDetected = async (decodedText: string) => {
+    const barcode = decodedText.trim();
+    const now = Date.now();
+
+    if (!barcode || now < barcodeCooldownUntilRef.current || scannerSuggestion) return;
+    barcodeCooldownUntilRef.current = now + 3000;
+
+    try {
+      scannerRef.current?.pause(true);
+    } catch (err) {
+      console.error('Scanner pause failed:', err);
+    }
+
+    setScannerStatus(`Looking up barcode ${barcode}...`);
+    setError(null);
+
+    try {
+      const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, {
+        headers: {
+          'User-Agent': 'SaveOurSupper/1.0 (stokie2605@gmail.com)',
+          'X-Application-Name': 'SaveOurSupper',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(response.status === 429 ? 'Open Food Facts is rate limiting requests. Please try again shortly.' : 'Product lookup failed.');
+      }
+
+      const data = await response.json() as { product?: { product_name?: unknown }; status?: number };
+      const productName = typeof data.product?.product_name === 'string' && data.product.product_name.trim()
+        ? data.product.product_name.trim()
+        : `Unknown product (${barcode})`;
+      const matchedCategory = matchCategoryFromProductName(productName);
+
+      setScannerSuggestion({
+        barcode,
+        productName,
+        matchedCategoryId: matchedCategory?.id ?? null,
+        selectedCategoryId: matchedCategory?.id ?? scannerCategories[0].id,
+      });
+      setScannerStatus(matchedCategory ? `Suggested ${matchedCategory.label}. Confirm before adding.` : 'No confident category match. Choose a category before adding.');
+    } catch (err) {
+      setScannerStatus(err instanceof Error ? err.message : 'Barcode lookup failed. Please use manual stock controls.');
+      scheduleScannerResume(2000);
+    }
+  };
+
+  useEffect(() => {
+    if (!scannerActive || adminTab !== 'inventory') {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const scanner = new Html5Qrcode(scannerElementId, {
+      verbose: false,
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+      ],
+    });
+    scannerRef.current = scanner;
+    setScannerStatus('Starting camera...');
+
+    scanner
+      .start(
+        { facingMode: 'environment' },
+        { fps: 8, qrbox: { width: 250, height: 250 }, aspectRatio: 1 },
+        (decodedText) => {
+          void handleBarcodeDetected(decodedText);
+        },
+        undefined,
+      )
+      .then(() => {
+        if (!cancelled) setScannerStatus('Scanner ready. Hold a barcode inside the square.');
+      })
+      .catch((err) => {
+        console.error('Scanner start failed:', err);
+        if (!cancelled) {
+          setScannerStatus('Camera could not start. Check browser camera permission or use manual controls.');
+          setScannerActive(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (resumeTimeoutRef.current !== null) {
+        window.clearTimeout(resumeTimeoutRef.current);
+        resumeTimeoutRef.current = null;
+      }
+      const activeScanner = scannerRef.current;
+      scannerRef.current = null;
+      if (activeScanner?.isScanning) {
+        void activeScanner.stop().then(() => activeScanner.clear()).catch((err) => console.error('Scanner stop failed:', err));
+      } else {
+        activeScanner?.clear();
+      }
+    };
+  }, [adminTab, scannerActive]);
+
+  const handleConfirmScannedItem = async () => {
+    if (!scannerSuggestion) return;
+
+    setConfirmingScan(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const selectedCategory = scannerCategories.find((category) => category.id === scannerSuggestion.selectedCategoryId);
+      await updateDoc(doc(db, 'inventory', scannerSuggestion.selectedCategoryId), {
+        current_quantity: increment(1),
+        quantity: increment(1),
+      });
+      setSuccess(`Added 1 to ${selectedCategory?.label ?? formatDisplayLabel(scannerSuggestion.selectedCategoryId)} from scan: ${scannerSuggestion.productName}.`);
+      setScannerSuggestion(null);
+      scheduleScannerResume(1200);
+    } catch (err) {
+      setError('Could not add scanned item to stock. Use manual controls if needed.');
+    } finally {
+      setConfirmingScan(false);
+    }
+  };
+
+  const handleCancelScannedItem = () => {
+    setScannerSuggestion(null);
+    setScannerStatus('Scan cancelled. Scanner will resume.');
+    scheduleScannerResume(800);
+  };
   // Handler: Modify User Privilege Tiers
   const handleRoleChange = async (user: UserProfile, nextRole: UserRole) => {
     setUpdatingUid(user.uid);
@@ -629,9 +816,88 @@ export function AdminPanel() {
 
             {/* Food stock adjustment controls */}
             <div className="overflow-hidden rounded-2xl border border-slate-200">
-              <div className="bg-slate-50 border-b border-slate-200 px-4 py-3">
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Current Hub Allocations</h3>
+              <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-900">Current Hub Allocations</h3>
+                  <p className="mt-0.5 text-xs font-semibold text-slate-500">Use manual overwrite controls, or scan barcodes for guided suggestions.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setScannerSuggestion(null);
+                    setScannerActive((current) => !current);
+                    setScannerStatus(scannerActive ? 'Scanner is idle.' : 'Starting camera...');
+                  }}
+                  className={`rounded-xl px-4 py-2 text-xs font-black uppercase tracking-wider shadow-sm transition-colors ${
+                    scannerActive ? 'bg-red-50 text-red-700 hover:bg-red-100' : 'bg-slate-950 text-white hover:bg-emerald-600'
+                  }`}
+                >
+                  {scannerActive ? 'Stop Scanner' : 'Launch Scanner'}
+                </button>
               </div>
+
+              {scannerActive ? (
+                <div className="border-b border-slate-200 bg-white px-4 py-5">
+                  <div className="mx-auto grid max-w-3xl gap-4 md:grid-cols-[280px_minmax(0,1fr)] md:items-start">
+                    <div className="mx-auto h-[250px] w-[250px] overflow-hidden rounded-3xl border border-slate-200 bg-slate-950 shadow-inner">
+                      <div id={scannerElementId} className="h-full w-full" />
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-teal-700">Barcode automation</p>
+                      <p className="mt-2 text-sm font-bold text-slate-800">{scannerStatus}</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Scans EAN-13, EAN-8, and UPC-A retail barcodes. A product lookup only suggests a category; stock changes happen after you confirm.
+                      </p>
+
+                      {scannerSuggestion ? (
+                        <div className="mt-4 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Detected product</p>
+                          <h4 className="mt-1 break-words text-base font-black text-slate-950">{scannerSuggestion.productName}</h4>
+                          <p className="mt-1 font-mono text-[11px] font-bold text-slate-400">{scannerSuggestion.barcode}</p>
+
+                          {scannerSuggestion.matchedCategoryId ? (
+                            <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+                              Suggested: {scannerCategories.find((category) => category.id === scannerSuggestion.matchedCategoryId)?.label}
+                            </p>
+                          ) : (
+                            <label className="mt-3 block text-xs font-bold text-slate-700">
+                              Choose food bank category
+                              <select
+                                value={scannerSuggestion.selectedCategoryId}
+                                onChange={(event) => setScannerSuggestion((current) => current ? { ...current, selectedCategoryId: event.target.value } : current)}
+                                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-emerald-500"
+                              >
+                                {scannerCategories.map((category) => (
+                                  <option key={category.id} value={category.id}>{category.label}</option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void handleConfirmScannedItem()}
+                              disabled={confirmingScan}
+                              className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black uppercase tracking-wider text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                              Add 1 to {scannerCategories.find((category) => category.id === scannerSuggestion.selectedCategoryId)?.label ?? 'Selected Category'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancelScannedItem}
+                              disabled={confirmingScan}
+                              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               {inventoryLoading ? (
                 <div className="py-12 text-center text-sm font-semibold text-slate-400">Loading current food stock...</div>
