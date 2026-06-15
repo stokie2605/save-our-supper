@@ -126,6 +126,8 @@ The Admin Panel Food Stock view now includes an optional barcode automation laye
 
 Scanned barcodes are looked up through the zero-key Open Food Facts product API. The scanner uses a three-second cooldown to prevent accidental duplicate reads, pauses after each successful scan, and displays the raw detected product name before any stock change is made.
 
+The Open Food Facts request is explicitly sent in CORS mode and the scanner now recovers automatically after failed lookups, resuming the camera after a three-second delay instead of leaving the interface paused.
+
 A local deterministic keyword dictionary maps product names to the food bank's normalized Firestore inventory keys, including categories such as `baby_items`, `baked_beans`, `breakfast_cereals`, `pasta_rice`, `soup`, `tinned_fish`, `tinned_fruit`, `tinned_meat`, `toiletries`, and `uht_milk`. If no safe match is found, administrators choose from the category dropdown manually.
 
 The scanner never auto-increments stock. It only writes `increment(1)` to `current_quantity` and `quantity` after an administrator confirms the suggestion, while the manual exact overwrite controls remain available as the trusted correction system.

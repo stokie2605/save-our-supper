@@ -248,9 +248,9 @@ export function AdminPanel() {
 
     try {
       const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, {
+        mode: 'cors',
         headers: {
           'User-Agent': 'SaveOurSupper/1.0 (stokie2605@gmail.com)',
-          'X-Application-Name': 'SaveOurSupper',
         },
       });
 
@@ -273,7 +273,7 @@ export function AdminPanel() {
       setScannerStatus(matchedCategory ? `Suggested ${matchedCategory.label}. Confirm before adding.` : 'No confident category match. Choose a category before adding.');
     } catch (err) {
       setScannerStatus(err instanceof Error ? err.message : 'Barcode lookup failed. Please use manual stock controls.');
-      scheduleScannerResume(2000);
+      scheduleScannerResume(3000);
     }
   };
 
