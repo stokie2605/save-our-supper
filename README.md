@@ -132,6 +132,16 @@ The Admin Panel has been expanded into a multi-tab command hub. User Access now 
 
 Firestore rules were extended to allow partner referral creation and referral reads while keeping user role edits, settings changes, and global moderation powers restricted to administrator-level access.
 
+### Bugfix: Wired Up Contact Client Action Button and Polished Community Interactions
+
+The Referral Queue `Contact Client & Build Parcel` action is now connected to Firestore. When a partner, volunteer, moderator, or administrator starts a pending referral workflow, the relevant referral document is updated to `Building` with workflow audit fields, and the card immediately displays a short checklist so volunteers know the parcel process has started.
+
+The public Community Feed has been simplified by removing the old `Verify` and `Claimed` row buttons. Rows now stay focused on the message content, with a low-profile `Reply` action that opens an inline response field. Replies are written back to the post document and render as a compact indented list below the original notice.
+
+Administrator and moderator take-down actions now use a softer confirmation step. Clicking `Take Down` opens an inline confirmation banner before archiving the post, preventing accidental moderation changes while keeping the feed layout steady.
+
+Firestore rules were updated to permit these exact interaction paths: authenticated users can append one reply to a post, partners and staff can move pending referrals into the building workflow, and archive actions remain restricted to moderator-level profiles.
+
 The staff dashboard now uses a dark app-style control header with a neon `CONNECTED` hub chip, replacing the older web-style white hero block. A floating metric grid sits underneath with premium white cards for volunteers on shift, priority collection points, bins needing emptying, and hub link status, using large figures and compact metadata labels for a more native logistics-console feel.
 
 The Admin Panel now uses responsive mobile card views for both user access records and food stock adjustments. Desktop screens keep the wider tabular layouts, while phones render each user or stock item as a standalone stacked card with readable identifiers and fully visible action controls, removing horizontal scrolling from administrator workflows. User access cards now include stronger text hierarchy, a small activity-style sparkline, and rounded pill role selectors to match the app-like control surface.

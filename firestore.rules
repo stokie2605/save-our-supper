@@ -132,6 +132,12 @@ service cloud.firestore {
         : 0;
     }
 
+    function existingRepliesCount() {
+      return "replies" in resource.data && resource.data.replies is list
+        ? resource.data.replies.size()
+        : 0;
+    }
+
 
     function isOwnClientProfileCreate(userId) {
       return isSignedIn()
@@ -214,6 +220,41 @@ service cloud.firestore {
         && request.resource.data.archived_at.size() > 0;
     }
 
+    function isAuthenticatedReplyUpdate() {
+      return isSignedIn()
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly(["replies"])
+        && request.resource.data.replies is list
+        && request.resource.data.replies.size() == existingRepliesCount() + 1;
+    }
+
+    function isReferralWorkflowStart() {
+      return hasPartnerReferralAccess()
+        && resource.data.status == "Pending Contact"
+        && request.resource.data.status == "Building"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "workflow_started_at",
+          "workflow_started_by"
+        ])
+        && request.resource.data.workflow_started_by == request.auth.uid
+        && request.resource.data.workflow_started_at is string
+        && request.resource.data.workflow_started_at.size() > 0;
+    }
+
+    function isVoucherWorkflowStart() {
+      return hasFoodbankStaffAccess()
+        && resource.data.status in ["Pending Contact", "pending"]
+        && request.resource.data.status == "Building"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "workflow_started_at",
+          "workflow_started_by"
+        ])
+        && request.resource.data.workflow_started_by == request.auth.uid
+        && request.resource.data.workflow_started_at is string
+        && request.resource.data.workflow_started_at.size() > 0;
+    }
+
     match /posts/{postId} {
       allow read: if isSignedIn();
       allow create: if isAdmin() || isOwnPostCreate();
@@ -221,7 +262,8 @@ service cloud.firestore {
         || isAuthenticatedClaimUpdate()
         || isAuthenticatedCompletionUpdate()
         || isAuthenticatedVerificationUpdate()
-        || isModeratorArchiveUpdate();
+        || isModeratorArchiveUpdate()
+        || isAuthenticatedReplyUpdate();
       allow delete: if isAdmin();
     }
 
@@ -244,7 +286,8 @@ service cloud.firestore {
 
     match /referral_vouchers/{voucherId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || isVoucherWorkflowStart();
     }
 
     match /donations_receipts/{receiptId} {
@@ -287,7 +330,8 @@ service cloud.firestore {
         && request.resource.data.urgency in ["Low", "Medium", "High"]
         && request.resource.data.status == "Pending Contact"
         && request.resource.data.submitted_by == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || isReferralWorkflowStart();
+      allow delete: if isAdmin();
     }
 
     match /settings/{settingId} {

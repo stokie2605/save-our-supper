@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, onSnapshot, query, serverTimestamp, where } from 'firebase/firestore';
+import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '../../lib/firebaseConfig';
 import { finalizeFoodParcelCollection } from '../../services/foodbankService';
 import { type ReferralVoucher, type VoucherRequirement } from '../../types/foodbank';
@@ -74,9 +74,12 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [startedReferralId, setStartedReferralId] = useState<string | null>(null);
 
   const canSubmitReferral = userRole === 'partner' || userRole === 'admin';
   const canFulfilVoucher = userRole === 'volunteer' || userRole === 'moderator' || userRole === 'admin';
+  const canStartReferralWorkflow = (voucher: ReferralQueueItem) =>
+    canFulfilVoucher || (userRole === 'partner' && voucher.sourceCollection === 'referrals');
 
   useEffect(() => {
     const vouchersQuery = query(
@@ -163,6 +166,36 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to finalize collection.';
       console.error('Food parcel completion failed:', message);
+      setError(message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleStartBuildingParcel = async (voucher: ReferralQueueItem) => {
+    if (!canStartReferralWorkflow(voucher)) {
+      setError('Your role can view this referral, but cannot start this workflow.');
+      return;
+    }
+
+    setProcessingId(voucher.id);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const nextStatus = 'Building';
+      const targetCollection = voucher.sourceCollection;
+
+      await updateDoc(doc(db, targetCollection, voucher.id), {
+        status: nextStatus,
+        workflow_started_at: new Date().toISOString(),
+        workflow_started_by: userId ?? 'unknown',
+      });
+
+      setStartedReferralId(voucher.id);
+      setSuccessMessage('Referral moved into the parcel building workflow.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not start this parcel workflow.';
       setError(message);
     } finally {
       setProcessingId(null);
@@ -331,7 +364,9 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
           <div className="grid gap-6 md:grid-cols-2">
             {queueItems.map((voucher) => {
               const normalizedStatus = normalizeStatus(voucher.status);
-              const isPendingContact = normalizedStatus === 'pending contact' || voucher.sourceCollection === 'referrals';
+              const isPendingContact =
+                normalizedStatus === 'pending contact' || voucher.sourceCollection === 'referrals';
+              const isBuilding = normalizedStatus === 'building' || normalizedStatus === 'in progress';
               const manifestItems = getManifestItems(voucher);
 
               return (
@@ -370,11 +405,23 @@ export default function ReferralQueue({ userId, userRole = 'client' }: ReferralQ
                           <p className="font-black uppercase tracking-wider text-slate-400">Dietary requirements</p>
                           <p className="mt-1 font-semibold">{voucher.dietary_requirements || 'None listed'}</p>
                         </div>
+                        {startedReferralId === voucher.id || isBuilding ? (
+                          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-semibold text-emerald-800">
+                            <p className="font-black uppercase tracking-wider">Workflow started</p>
+                            <ul className="mt-2 list-disc space-y-1 pl-4">
+                              <li>Contact client or partner agency</li>
+                              <li>Confirm household needs and dietary notes</li>
+                              <li>Build parcel manifest for volunteer packing</li>
+                            </ul>
+                          </div>
+                        ) : null}
                         <button
-                          disabled
-                          className="mt-2 inline-flex w-full cursor-not-allowed items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3.5 py-2.5 text-xs font-bold text-white opacity-85 shadow-sm"
+                          type="button"
+                          onClick={() => void handleStartBuildingParcel(voucher)}
+                          disabled={processingId === voucher.id || isBuilding || !canStartReferralWorkflow(voucher)}
+                          className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-3.5 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:from-amber-600 hover:to-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          Contact Client & Build Parcel
+                          {processingId === voucher.id ? 'Starting Workflow...' : isBuilding ? 'Workflow Started' : 'Contact Client & Build Parcel'}
                         </button>
                       </div>
                     ) : (
