@@ -26,6 +26,7 @@ import { db, firebaseAuth } from './lib/firebaseConfig';
 type UserRole = 'partner' | 'volunteer' | 'admin';
 type OrderStatus = 'New' | 'Ready for Collection' | 'Completed';
 type ActiveTab = 'queue' | 'admin';
+type QueueTab = 'referrals' | 'handovers' | 'partners';
 
 interface UserProfile {
   id: string;
@@ -480,6 +481,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
   const [handoverTarget, setHandoverTarget] = useState<string | null>(null);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [queueTab, setQueueTab] = useState<QueueTab>('referrals');
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<OrderEditDraft>({
     recipientName: '',
@@ -508,12 +510,44 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
 
   const canChangeStatus = role === 'volunteer' || role === 'admin';
   const activeOrders = orders.filter((order) => order.status === 'New' || order.status === 'Ready for Collection');
+  const referralOrders = activeOrders.filter((order) => order.status === 'New');
+  const handoverOrders = activeOrders.filter((order) => order.status === 'Ready for Collection');
   const normalizedSearch = searchTerm.trim().toLowerCase();
-  const visibleActiveOrders = activeOrders.filter((order) => {
+  const tabOrders = queueTab === 'handovers' ? handoverOrders : referralOrders;
+  const visibleActiveOrders = tabOrders.filter((order) => {
     if (!normalizedSearch) return true;
     return `${order.recipientName} ${order.agencyName} ${formatTimestamp(order.createdAt)}`.toLowerCase().includes(normalizedSearch);
   });
   const completedToday = orders.filter(isCompletedToday);
+  const partnerSummaries = Object.values(
+    activeOrders.reduce<Record<string, {
+      agencyName: string;
+      activeCount: number;
+      referrals: number;
+      handovers: number;
+      lastSubmitted: Timestamp | null;
+    }>>((summary, order) => {
+      const agencyKey = order.agencyName.trim().toLowerCase() || 'unknown agency';
+      const existing = summary[agencyKey] ?? {
+        agencyName: order.agencyName || 'Unknown agency',
+        activeCount: 0,
+        referrals: 0,
+        handovers: 0,
+        lastSubmitted: null,
+      };
+      existing.activeCount += 1;
+      if (order.status === 'New') existing.referrals += 1;
+      if (order.status === 'Ready for Collection') existing.handovers += 1;
+      if (!existing.lastSubmitted || (order.createdAt && order.createdAt.toMillis() > existing.lastSubmitted.toMillis())) {
+        existing.lastSubmitted = order.createdAt;
+      }
+      summary[agencyKey] = existing;
+      return summary;
+    }, {}),
+  ).filter((partner) => {
+    if (!normalizedSearch) return true;
+    return partner.agencyName.toLowerCase().includes(normalizedSearch);
+  });
 
   const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
     if (!canChangeStatus) return;
@@ -586,18 +620,36 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
 
       <div className="mb-4 grid gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
         <div className="grid gap-2 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-[#FBF7EF] px-3 py-2">
+          <button
+            type="button"
+            onClick={() => setQueueTab('referrals')}
+            className={`rounded-2xl border px-3 py-2 text-left transition ${
+              queueTab === 'referrals' ? 'border-blue-300 bg-blue-50 shadow-sm' : 'border-slate-200 bg-[#FBF7EF] hover:border-blue-200'
+            }`}
+          >
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Referrals</p>
-            <p className="text-lg font-black text-slate-950">{activeOrders.length} active</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-[#FBF7EF] px-3 py-2">
+            <p className="text-lg font-black text-slate-950">{referralOrders.length} active</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setQueueTab('handovers')}
+            className={`rounded-2xl border px-3 py-2 text-left transition ${
+              queueTab === 'handovers' ? 'border-emerald-300 bg-emerald-50 shadow-sm' : 'border-slate-200 bg-[#FBF7EF] hover:border-emerald-200'
+            }`}
+          >
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Handovers</p>
-            <p className="text-lg font-black text-slate-950">{completedToday.length} today</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-[#FBF7EF] px-3 py-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ready</p>
-            <p className="text-lg font-black text-emerald-700">{activeOrders.filter((order) => order.status === 'Ready for Collection').length} waiting</p>
-          </div>
+            <p className="text-lg font-black text-emerald-700">{handoverOrders.length} waiting</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setQueueTab('partners')}
+            className={`rounded-2xl border px-3 py-2 text-left transition ${
+              queueTab === 'partners' ? 'border-slate-400 bg-slate-100 shadow-sm' : 'border-slate-200 bg-[#FBF7EF] hover:border-slate-300'
+            }`}
+          >
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Partners</p>
+            <p className="text-lg font-black text-slate-950">{partnerSummaries.length} active</p>
+          </button>
         </div>
         <label className="grid gap-1.5 text-sm font-bold text-slate-700 md:min-w-64">
           Search
@@ -605,7 +657,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
             type="search"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Name, agency, date..."
+            placeholder={queueTab === 'partners' ? 'Search agency...' : 'Name, agency, date...'}
             className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600"
           />
         </label>
@@ -617,6 +669,36 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
         <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center">
           <p className="text-lg font-black text-slate-800">No active referrals waiting.</p>
           <p className="mt-2 text-sm text-slate-500">New partner requests will appear here automatically.</p>
+        </div>
+      ) : queueTab === 'partners' ? (
+        <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {partnerSummaries.map((partner) => (
+            <article key={partner.agencyName} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Partner Agency</p>
+              <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-950">{partner.agencyName}</h3>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-blue-50 p-2 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-blue-700">New</p>
+                  <p className="text-lg font-black text-blue-950">{partner.referrals}</p>
+                </div>
+                <div className="rounded-xl bg-emerald-50 p-2 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Ready</p>
+                  <p className="text-lg font-black text-emerald-950">{partner.handovers}</p>
+                </div>
+                <div className="rounded-xl bg-slate-100 p-2 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-600">Total</p>
+                  <p className="text-lg font-black text-slate-950">{partner.activeCount}</p>
+                </div>
+              </div>
+              <p className="mt-3 text-xs font-bold text-slate-500">Last submitted: {formatTimestamp(partner.lastSubmitted)}</p>
+            </article>
+          ))}
+          {partnerSummaries.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center md:col-span-2 xl:col-span-3">
+              <p className="text-lg font-black text-slate-800">No matching partners.</p>
+              <p className="mt-2 text-sm text-slate-500">Active agency summaries will appear here.</p>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">

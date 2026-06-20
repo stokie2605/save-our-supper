@@ -83,6 +83,12 @@ The Live Orders Queue is now universally visible to partners, volunteers, and ad
 
 The queue layout now uses compact operational board cards inspired by a paperless packing desk. Each card uses only data captured in the referral form: agency, recipient name, family size, recipient phone, submission time, target collection time, and dietary or access notes. No invented food checklist or nutrition data is rendered.
 
+The queue also includes three lightweight board filters:
+
+* **Referrals** - shows `New` orders that still need packing.
+* **Handovers** - shows orders that are `Ready for Collection`.
+* **Partners** - shows a compact agency summary with active referral counts, ready-for-pickup counts, and last submitted time.
+
 Each order includes a clickable phone link using `tel:` so staff can call the recipient quickly from a mobile device. Partners and staff can also use the inline **Edit** action to correct typos in the recipient name, phone number, collection time, or dietary notes without changing workflow status.
 
 A search box at the top of the queue filters active orders instantly by recipient name or agency.
