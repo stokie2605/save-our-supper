@@ -92,9 +92,15 @@ function normalizePhoneKey(phone: string) {
 }
 
 function statusMessage(status: OrderStatus) {
-  if (status === 'Ready for Collection') return '🟢 Your bag is ready for collection!';
-  if (status === 'Completed') return '✅ Your bag has been handed over.';
-  return '🟡 Your bag is being packed';
+  if (status === 'Ready for Collection') return 'Your bag is ready for collection!';
+  if (status === 'Completed') return 'Your bag has been handed over.';
+  return 'Your bag is being packed';
+}
+
+function statusLightClass(status: OrderStatus) {
+  if (status === 'Ready for Collection') return 'bg-emerald-500';
+  if (status === 'Completed') return 'bg-slate-500';
+  return 'bg-amber-400';
 }
 
 async function writePublicStatus(order: {
@@ -219,7 +225,10 @@ function PublicStatusCheck() {
       </form>
       {status ? (
         <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-3">
-          <p className="text-base font-black text-slate-950">{statusMessage(status.status)}</p>
+          <p className="flex items-center gap-2 text-base font-black text-slate-950">
+            <span className={`h-3 w-3 rounded-full ${statusLightClass(status.status)}`} />
+            {statusMessage(status.status)}
+          </p>
           <p className="mt-1 text-sm font-semibold text-slate-600">
             {status.targetCollectionTime ? `Target collection: ${status.targetCollectionTime}` : 'The foodbank will update this as soon as possible.'}
           </p>
@@ -568,23 +577,39 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
   };
 
   return (
-    <section className="mx-auto max-w-4xl">
+    <section className="mx-auto max-w-5xl">
       <div className="mb-5 rounded-3xl bg-slate-950 p-5 text-white shadow-sm">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Foodbank hub</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight">Live Orders Queue</h2>
         <p className="mt-2 text-sm text-slate-300">Pack bags, mark them ready, then log handover. That is the whole workflow.</p>
       </div>
 
-      <label className="mb-4 grid gap-1.5 text-sm font-bold text-slate-700">
-        Search active referrals
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search by recipient or agency..."
-          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600"
-        />
-      </label>
+      <div className="mb-4 grid gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-[#FBF7EF] px-3 py-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Referrals</p>
+            <p className="text-lg font-black text-slate-950">{activeOrders.length} active</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-[#FBF7EF] px-3 py-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Handovers</p>
+            <p className="text-lg font-black text-slate-950">{completedToday.length} today</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-[#FBF7EF] px-3 py-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ready</p>
+            <p className="text-lg font-black text-emerald-700">{activeOrders.filter((order) => order.status === 'Ready for Collection').length} waiting</p>
+          </div>
+        </div>
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700 md:min-w-64">
+          Search
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Name, agency, date..."
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600"
+          />
+        </label>
+      </div>
 
       {loading ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500">Loading live orders...</div>
@@ -594,7 +619,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
           <p className="mt-2 text-sm text-slate-500">New partner requests will appear here automatically.</p>
         </div>
       ) : (
-        <div className="grid gap-3">
+        <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
           {visibleActiveOrders.map((order) => {
             const isReady = order.status === 'Ready for Collection';
             const isEditing = editingOrderId === order.id;
@@ -603,24 +628,24 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
             return (
             <article
               key={order.id}
-              className={`rounded-3xl border p-4 shadow-sm ${
+              className={`rounded-2xl border p-3 shadow-sm ${
                 isReady
-                  ? 'border-emerald-200 bg-emerald-50/50'
-                  : 'border-blue-200 bg-blue-50/50'
+                  ? 'border-emerald-300 bg-emerald-50/80'
+                  : 'border-blue-300 bg-blue-50/80'
               }`}
             >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">{order.agencyName}</p>
-                  <h3 className="mt-1 break-words text-xl font-black text-slate-950">{order.recipientName}</h3>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">Received {formatTimestamp(order.createdAt)}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{order.agencyName}</p>
+                  <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-950">{order.recipientName}</h3>
+                  <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-600">Family of {order.familySize}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 flex-col items-end gap-1">
                   {canEditOrder ? (
                     <button
                       type="button"
                       onClick={() => startEditingOrder(order)}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-600"
+                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600"
                     >
                       Edit
                     </button>
@@ -690,20 +715,28 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 grid gap-2 rounded-2xl bg-white/80 p-3 text-sm text-slate-700 sm:grid-cols-4">
-                  <p><strong>Collection:</strong> {order.targetCollectionTime}</p>
-                  <p><strong>Family:</strong> {order.familySize}</p>
-                  <p>
-                    <strong>Phone:</strong>{' '}
-                    <a className="font-black text-emerald-700 underline-offset-2 hover:underline" href={`tel:${order.recipientPhone}`}>
-                      {order.recipientPhone || 'Not listed'}
-                    </a>
-                  </p>
-                  <p className="break-words"><strong>Dietary:</strong> {order.dietaryNotes || 'None listed'}</p>
+                <div className="mt-3 grid gap-3">
+                  <div className="grid grid-cols-[1fr_auto] gap-2">
+                    <div className="rounded-xl border border-slate-200 bg-white p-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Referral Details</p>
+                      <p className="mt-1 text-xs font-bold text-slate-700">Submitted: {formatTimestamp(order.createdAt)}</p>
+                      <a className="mt-1 block break-words text-xs font-black text-emerald-700 underline-offset-2 hover:underline" href={`tel:${order.recipientPhone}`}>
+                        {order.recipientPhone || 'No phone listed'}
+                      </a>
+                    </div>
+                    <div className={`rounded-xl border p-2 text-center ${
+                      isReady ? 'border-emerald-200 bg-emerald-100' : 'border-amber-200 bg-amber-100'
+                    }`}>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Target Collection</p>
+                      <p className="mt-1 max-w-28 break-words text-sm font-black uppercase leading-tight text-slate-950">{order.targetCollectionTime}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Dietary / Access Notes</p>
+                    <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-800">{order.dietaryNotes || 'None listed'}</p>
+                  </div>
                 </div>
               )}
-
-              <p className="mt-3 text-xs font-bold text-slate-500">Submitted: {formatTimestamp(order.createdAt)}</p>
 
               {canChangeStatus && handoverTarget === order.id ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
@@ -730,7 +763,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                     <button
                       onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
                       disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                      className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-700 disabled:opacity-50"
                     >
                       Pack Bag
                     </button>
@@ -738,7 +771,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                   {order.status === 'Ready for Collection' ? (
                     <button
                       onClick={() => setHandoverTarget(order.id)}
-                      className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white hover:bg-emerald-800"
+                      className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-800"
                     >
                       Log Handover
                     </button>
@@ -927,3 +960,4 @@ export default function App() {
     </AppShell>
   );
 }
+
