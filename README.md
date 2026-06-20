@@ -19,6 +19,12 @@ Save Our Supper now runs on a unified Firebase stack for both authentication and
 
 The old Supabase frontend client has been removed from the application bundle. Firestore access now depends on native Firebase user sessions instead of temporary open prototype rules.
 
+### Codebase Cleanup: Foodbank-First Direction
+
+The app shell has been cleaned around the current community hub and foodbank operations direction. The retired surplus-marketplace/map experiment has been removed from `App.tsx`, along with the old feed cards, map component, expiry countdown, geohash service files, and unused Vite starter assets.
+
+Unused Leaflet, React Leaflet, and geofire dependencies were removed from the package manifest. The active source tree now centers on the current screens only: Community Hub, Donation Intake, Live Inventory, Referral Queue, Settings, Admin Panel, Firebase config, and the foodbank transaction service.
+
 ---
 
 ## Authentication & Role Verification
