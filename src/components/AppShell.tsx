@@ -2,14 +2,9 @@ import type { ReactNode } from 'react';
 
 interface AppShellProps {
   children: ReactNode;
-  onShowFeed?: () => void;
-  onAddPost?: () => void;
-  onShowMyActivity?: () => void;
 }
 
-export function AppShell({ children, onShowFeed, onAddPost, onShowMyActivity }: AppShellProps) {
-  const showMobileNav = onShowFeed && onAddPost && onShowMyActivity;
-
+export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#FBF7EF] text-slate-900 font-sans">
       <header className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur">
@@ -20,7 +15,7 @@ export function AppShell({ children, onShowFeed, onAddPost, onShowMyActivity }: 
             </div>
             <div className="min-w-0">
               <span className="block truncate text-lg font-black tracking-tight text-brand-forest sm:text-xl">Save Our Supper</span>
-              <span className="block truncate text-[11px] font-semibold text-slate-500 sm:text-xs">Community food sharing, made clear.</span>
+              <span className="block truncate text-[11px] font-semibold text-slate-500 sm:text-xs">Zero-paperwork foodbank referrals.</span>
             </div>
           </div>
           <span className="hidden rounded-full border border-slate-200 bg-[#FBF7EF] px-2.5 py-1 text-xs font-semibold text-slate-600 md:inline-flex">
@@ -30,32 +25,6 @@ export function AppShell({ children, onShowFeed, onAddPost, onShowMyActivity }: 
       </header>
 
       <main className="mx-auto w-full min-w-0 max-w-5xl px-4 pt-6 pb-24 sm:px-6 sm:pt-8 md:pb-8">{children}</main>
-
-      {showMobileNav ? (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white border-t border-brand-slateSoft shadow-lg h-16 px-6 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={onShowFeed}
-            className="min-w-16 text-center text-xs font-bold text-brand-forest"
-          >
-            Feed
-          </button>
-          <button
-            type="button"
-            onClick={onAddPost}
-            className="-mt-6 rounded-2xl bg-brand-amber px-5 py-3 text-sm font-bold text-white shadow-lg active:scale-[0.98] transition-transform"
-          >
-            Add Post
-          </button>
-          <button
-            type="button"
-            onClick={onShowMyActivity}
-            className="min-w-16 text-center text-xs font-bold text-brand-forest"
-          >
-            My Activity
-          </button>
-        </nav>
-      ) : null}
     </div>
   );
 }

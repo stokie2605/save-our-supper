@@ -4,748 +4,593 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
+  type User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  Timestamp,
+  updateDoc,
+  type DocumentData,
+} from 'firebase/firestore';
 import { AppShell } from './components/AppShell';
-import { CommunityHub } from './components/CommunityHub';
-import { AdminPanel as RoleAdminPanel } from './components/admin/AdminPanel';
-import { AuthGuard } from './components/auth/AuthGuard';
-import { IntakePortal } from './components/foodbank/IntakePortal';
-import ReferralQueue from './components/foodbank/ReferralQueue';
-import LiveInventory from './components/foodbank/LiveInventory';
-import StaffTodaySummary from './components/foodbank/StaffTodaySummary';
 import { db, firebaseAuth } from './lib/firebaseConfig';
-import type { UserRole } from './types/user';
+
+type UserRole = 'partner' | 'volunteer' | 'admin';
+type OrderStatus = 'New' | 'Ready for Collection' | 'Completed';
+type ActiveTab = 'queue' | 'admin';
 
 interface UserProfile {
   id: string;
-  organization_name: string;
-  tier: 'commercial_donor' | 'distribution_hub' | 'grassroots_partner';
-  primary_location: string;
-  contact_phone: string | null;
-  role?: UserRole;
+  email: string;
+  name: string;
+  role: UserRole;
 }
 
-type AppSession = {
-  user: {
-    id: string;
-    email: string | null;
+interface LiveOrder {
+  id: string;
+  agencyName: string;
+  recipientName: string;
+  targetCollectionTime: string;
+  familySize: number;
+  dietaryNotes: string;
+  status: OrderStatus;
+  submittedBy: string;
+  createdAt: Timestamp | null;
+  completedAt: Timestamp | null;
+}
+
+const adminEmail = 'stokie2605@gmail.com';
+const roleOptions: UserRole[] = ['partner', 'volunteer', 'admin'];
+
+function normalizeRole(value: unknown, fallbackEmail?: string | null): UserRole {
+  if (fallbackEmail === adminEmail) return 'admin';
+  const role = String(value ?? 'partner').toLowerCase().trim();
+  if (role === 'admin' || role === 'volunteer' || role === 'partner') return role;
+  return 'partner';
+}
+
+function formatTimestamp(value: Timestamp | null) {
+  if (!value) return 'Just now';
+  return value.toDate().toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function isCompletedToday(order: LiveOrder) {
+  if (order.status !== 'Completed' || !order.completedAt) return false;
+  return Date.now() - order.completedAt.toDate().getTime() <= 24 * 60 * 60 * 1000;
+}
+
+function orderFromDocument(id: string, data: DocumentData): LiveOrder {
+  return {
+    id,
+    agencyName: String(data.agencyName ?? ''),
+    recipientName: String(data.recipientName ?? ''),
+    targetCollectionTime: String(data.targetCollectionTime ?? ''),
+    familySize: Number(data.familySize ?? 1),
+    dietaryNotes: String(data.dietaryNotes ?? ''),
+    status: (['New', 'Ready for Collection', 'Completed'].includes(data.status) ? data.status : 'New') as OrderStatus,
+    submittedBy: String(data.submittedBy ?? ''),
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt : null,
+    completedAt: data.completedAt instanceof Timestamp ? data.completedAt : null,
   };
-};
-
-type UserProfileDocument = Partial<UserProfile> & {
-  organizationName?: string;
-  primaryLocation?: string;
-  contactPhone?: string | null;
-  role?: string | string[];
-  roles?: string[];
-  isAdmin?: boolean;
-  isVolunteer?: boolean;
-};
-
-type ActiveView = 'community' | 'feed' | 'inventory' | 'settings' | 'admin';
-type DashboardTab = 'find-food' | 'my-claims' | 'my-listings';
-const foodbankAccessRoles = ['volunteer', 'moderator', 'admin'] as const;
-const referralAccessRoles = ['partner', 'volunteer', 'moderator', 'admin'] as const;
-const adminAccessRoles = ['admin'] as const;
-
-type NavIconProps = { className?: string };
-
-function PlusCircleIcon({ className = 'h-6 w-6' }: NavIconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-      <path d="M12 8v8M8 12h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
 }
 
-function PackageIcon({ className = 'h-6 w-6' }: NavIconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="m3 7.5 9-4 9 4-9 4-9-4Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M3 7.5v9l9 4 9-4v-9M12 11.5v9" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-    </svg>
-  );
+function profileFromDocument(id: string, data: DocumentData, fallbackEmail?: string | null): UserProfile {
+  return {
+    id,
+    email: String(data.email ?? fallbackEmail ?? 'missing-email'),
+    name: String(data.name ?? data.organization_name ?? data.email ?? 'User'),
+    role: normalizeRole(data.role, fallbackEmail),
+  };
 }
 
-function UsersIcon({ className = 'h-6 w-6' }: NavIconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M16 19c0-2.2-1.8-4-4-4H8c-2.2 0-4 1.8-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="10" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
-      <path d="M20 19c0-1.8-1.1-3.3-2.7-3.8M17 4.4a4 4 0 0 1 0 7.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MessageIcon({ className = 'h-6 w-6' }: NavIconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M5 6.5A3.5 3.5 0 0 1 8.5 3h7A3.5 3.5 0 0 1 19 6.5v5A3.5 3.5 0 0 1 15.5 15H11l-5 4v-4.4A3.5 3.5 0 0 1 3 11.2V6.5Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M8 8h8M8 11h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function SettingsIcon({ className = 'h-6 w-6' }: NavIconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="2" />
-      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.6V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.6h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.1a2 2 0 0 1 0 4H21a1.7 1.7 0 0 0-1.6 1Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function LockIcon({ className = 'h-6 w-6' }: NavIconProps) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" />
-      <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M12 14v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-export default function App() {
-  const [session, setSession] = useState<AppSession | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [, setProfileLoading] = useState(false);
+function SignInCard() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [registrationLocation, setRegistrationLocation] = useState('');
-  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
-  const [authError, setAuthError] = useState('');
-  const [dashboardTab, setDashboardTab] = useState<DashboardTab>('find-food');
+  const [name, setName] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
 
-  const [donationSessionTotal, setDonationSessionTotal] = useState(0);
-  const [activeView, setActiveView] = useState<ActiveView>('feed');
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
 
-  const [settingsOrgName, setSettingsOrgName] = useState('');
-  const [settingsPhone, setSettingsPhone] = useState('');
-  const [settingsLocation, setSettingsLocation] = useState('');
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
-  const [settingsSuccess, setSettingsSuccess] = useState(false);
-
-  const fetchUserProfile = async (userId: string, fallbackEmail?: string | null) => {
-    setProfileLoading(true);
     try {
-      const userSnapshot = await getDoc(doc(db, 'users', userId));
-
-      if (userSnapshot.exists()) {
-        const data = userSnapshot.data() as UserProfileDocument;
-        const rawRoles = Array.isArray(data.roles) ? data.roles : Array.isArray(data.role) ? data.role : [data.role];
-        const normalizedRoles = rawRoles.map((role) => String(role).toLowerCase().trim());
-        const normalizedRole: UserRole = data.isAdmin === true
-          ? 'admin'
-          : normalizedRoles.includes('admin')
-            ? 'admin'
-            : normalizedRoles.includes('moderator') || normalizedRoles.includes('mod')
-              ? 'moderator'
-              : normalizedRoles.includes('partner')
-                ? 'partner'
-              : normalizedRoles.includes('volunteer') || data.isVolunteer === true
-                ? 'volunteer'
-                : 'partner';
-        const isAdminProfile = normalizedRole === 'admin';
-        const normalizedProfile: UserProfile = {
-          id: userId,
-          organization_name:
-            data.organization_name ?? data.organizationName ?? (isAdminProfile ? 'Alsager Central Hub' : 'Community member'),
-          tier: data.tier ?? (isAdminProfile ? 'distribution_hub' : 'grassroots_partner'),
-          primary_location: data.primary_location ?? data.primaryLocation ?? 'ST7',
-          contact_phone: data.contact_phone ?? data.contactPhone ?? null,
-          role: normalizedRole,
-        };
-
-        setProfile(normalizedProfile);
-        setSettingsOrgName(normalizedProfile.organization_name);
-        setSettingsPhone(normalizedProfile.contact_phone || '');
-        setSettingsLocation(normalizedProfile.primary_location);
+      if (creating) {
+        const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        await updateProfileDocument(credential.user.uid, {
+          email: credential.user.email ?? email,
+          name: name.trim() || 'Partner agency',
+          role: 'partner',
+        });
       } else {
-        const fallbackProfile: UserProfile = {
-          id: userId,
-          organization_name: fallbackEmail === 'stokie2605@gmail.com' ? 'Alsager Central Hub' : 'Community member',
-          tier: fallbackEmail === 'stokie2605@gmail.com' ? 'distribution_hub' : 'grassroots_partner',
-          primary_location: 'ST7',
-          contact_phone: null,
-          role: fallbackEmail === 'stokie2605@gmail.com' ? 'admin' : 'partner',
-        };
-
-        setProfile(fallbackProfile);
-        setSettingsOrgName(fallbackProfile.organization_name);
-        setSettingsPhone('');
-        setSettingsLocation(fallbackProfile.primary_location);
+        await signInWithEmailAndPassword(firebaseAuth, email, password);
       }
     } catch (err) {
-      console.error('Error getting organization profile details:', err);
-    } finally {
-      setProfileLoading(false);
+      setError(err instanceof Error ? err.message : 'Sign in failed.');
     }
   };
 
+  return (
+    <div className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Zero-paperwork access</p>
+      <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+        {creating ? 'Create partner account' : 'Sign in'}
+      </h1>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        Partners submit referrals. Foodbank staff pack and log handovers.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-5 grid gap-4">
+        {creating ? (
+          <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+            Agency / Name
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+              required
+            />
+          </label>
+        ) : null}
+
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          Email
+          <input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            required
+          />
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          Password
+          <input
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            required
+          />
+        </label>
+
+        {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{error}</p> : null}
+
+        <button className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-700">
+          {creating ? 'Create Account' : 'Sign In'}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setCreating((current) => !current);
+            setError('');
+          }}
+          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700"
+        >
+          {creating ? 'Already have an account? Sign in' : 'Need an account? Create one'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+async function updateProfileDocument(userId: string, payload: Partial<UserProfile>) {
+  await setDoc(doc(db, 'profiles', userId), payload, { merge: true });
+}
+
+function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfile }) {
+  const [agencyName, setAgencyName] = useState(profile.name);
+  const [recipientName, setRecipientName] = useState('');
+  const [targetCollectionTime, setTargetCollectionTime] = useState('');
+  const [familySize, setFamilySize] = useState('1');
+  const [dietaryNotes, setDietaryNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitting(true);
+    setMessage('');
+
+    try {
+      await addDoc(collection(db, 'live_orders'), {
+        agencyName: agencyName.trim(),
+        recipientName: recipientName.trim(),
+        targetCollectionTime: targetCollectionTime.trim(),
+        familySize: Math.max(1, Number.parseInt(familySize, 10) || 1),
+        dietaryNotes: dietaryNotes.trim(),
+        status: 'New' satisfies OrderStatus,
+        submittedBy: user.uid,
+        createdAt: serverTimestamp(),
+        completedAt: null,
+      });
+
+      setRecipientName('');
+      setTargetCollectionTime('');
+      setFamilySize('1');
+      setDietaryNotes('');
+      setMessage('Referral sent to the foodbank queue.');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Referral could not be submitted.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Partner referral</p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Submit Referral Form</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">Send one clear request to the hub. No stock counts. No paperwork.</p>
+
+      <form onSubmit={handleSubmit} className="mt-5 grid gap-4">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          Agency Name
+          <input
+            value={agencyName}
+            onChange={(event) => setAgencyName(event.target.value)}
+            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            required
+          />
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          Recipient Full Name
+          <input
+            value={recipientName}
+            onChange={(event) => setRecipientName(event.target.value)}
+            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            required
+          />
+        </label>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+            Target Collection Time
+            <input
+              value={targetCollectionTime}
+              onChange={(event) => setTargetCollectionTime(event.target.value)}
+              placeholder="e.g. Today after 3pm"
+              className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+              required
+            />
+          </label>
+
+          <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+            Family Size
+            <input
+              type="number"
+              min="1"
+              value={familySize}
+              onChange={(event) => setFamilySize(event.target.value)}
+              className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+              required
+            />
+          </label>
+        </div>
+
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          Dietary Notes
+          <textarea
+            value={dietaryNotes}
+            onChange={(event) => setDietaryNotes(event.target.value)}
+            rows={4}
+            placeholder="Allergies, halal/vegetarian needs, baby items, pet food, or access notes."
+            className="resize-none rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+          />
+        </label>
+
+        {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">{message}</p> : null}
+
+        <button
+          disabled={submitting}
+          className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {submitting ? 'Sending...' : 'Submit Referral'}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function LiveOrdersQueue({ user }: { user: User }) {
+  const [orders, setOrders] = useState<LiveOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [handoverTarget, setHandoverTarget] = useState<string | null>(null);
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(firebaseAuth, (user) => {
-      if (user) {
-        setSession({
-          user: {
-            id: user.uid,
-            email: user.email,
-          },
-        });
-        void fetchUserProfile(user.uid, user.email);
-      } else {
-        setSession(null);
-        setProfile(null);
-      }
+    const ordersQuery = query(collection(db, 'live_orders'), orderBy('createdAt', 'asc'));
+    const unsubscribe = onSnapshot(
+      ordersQuery,
+      (snapshot) => {
+        setOrders(snapshot.docs.map((orderDoc) => orderFromDocument(orderDoc.id, orderDoc.data())));
+        setLoading(false);
+      },
+      (err) => {
+        console.error('Live orders stream failed:', err);
+        setOrders([]);
+        setLoading(false);
+      },
+    );
+
+    return unsubscribe;
+  }, []);
+
+  const activeOrders = orders.filter((order) => order.status === 'New' || order.status === 'Ready for Collection');
+  const completedToday = orders.filter(isCompletedToday);
+
+  const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
+    setBusyOrderId(order.id);
+    try {
+      await updateDoc(doc(db, 'live_orders', order.id), {
+        status,
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
+        ...(status === 'Completed' ? { completedAt: serverTimestamp(), completedBy: user.uid } : {}),
+      });
+      setHandoverTarget(null);
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  return (
+    <section className="mx-auto max-w-4xl">
+      <div className="mb-5 rounded-3xl bg-slate-950 p-5 text-white shadow-sm">
+        <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Foodbank hub</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight">Live Orders Queue</h2>
+        <p className="mt-2 text-sm text-slate-300">Pack bags, mark them ready, then log handover. That is the whole workflow.</p>
+      </div>
+
+      {loading ? (
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500">Loading live orders...</div>
+      ) : activeOrders.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center">
+          <p className="text-lg font-black text-slate-800">No active referrals waiting.</p>
+          <p className="mt-2 text-sm text-slate-500">New partner requests will appear here automatically.</p>
+        </div>
+      ) : (
+        <div className="grid gap-3">
+          {activeOrders.map((order) => (
+            <article key={order.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-widest text-slate-400">{order.agencyName}</p>
+                  <h3 className="mt-1 break-words text-xl font-black text-slate-950">{order.recipientName}</h3>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">Received {formatTimestamp(order.createdAt)}</p>
+                </div>
+                <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                  order.status === 'New' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {order.status}
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700 sm:grid-cols-3">
+                <p><strong>Collection:</strong> {order.targetCollectionTime}</p>
+                <p><strong>Family:</strong> {order.familySize}</p>
+                <p className="break-words"><strong>Dietary:</strong> {order.dietaryNotes || 'None listed'}</p>
+              </div>
+
+              {handoverTarget === order.id ? (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-sm font-black text-amber-900">Are you sure you want to log handover?</p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <button
+                      onClick={() => void updateOrderStatus(order, 'Completed')}
+                      disabled={busyOrderId === order.id}
+                      className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
+                    >
+                      Confirm Handover
+                    </button>
+                    <button
+                      onClick={() => setHandoverTarget(null)}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  {order.status === 'New' ? (
+                    <button
+                      onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
+                      disabled={busyOrderId === order.id}
+                      className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      Pack Bag
+                    </button>
+                  ) : null}
+                  {order.status === 'Ready for Collection' ? (
+                    <button
+                      onClick={() => setHandoverTarget(order.id)}
+                      className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white hover:bg-emerald-800"
+                    >
+                      Log Handover
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+
+      <details className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+        <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-700">
+          Completed Today ({completedToday.length})
+        </summary>
+        <div className="mt-4 grid gap-2">
+          {completedToday.length === 0 ? (
+            <p className="text-sm font-semibold text-slate-400">No handovers logged in the last 24 hours.</p>
+          ) : (
+            completedToday.map((order) => (
+              <div key={order.id} className="rounded-2xl bg-slate-50 px-3 py-2 text-sm">
+                <span className="font-black text-slate-900">{order.recipientName}</span>
+                <span className="text-slate-500"> from {order.agencyName} completed {formatTimestamp(order.completedAt)}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </details>
+    </section>
+  );
+}
+
+function AdminUserPanel() {
+  const [profiles, setProfiles] = useState<UserProfile[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'profiles'), (snapshot) => {
+      setProfiles(snapshot.docs.map((profileDoc) => profileFromDocument(profileDoc.id, profileDoc.data())));
     });
 
     return unsubscribe;
   }, []);
 
-  const handleUpdateSettings = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!session?.user?.id) return;
-    const userId = session.user.id;
-    setIsSavingSettings(true);
-    setSettingsSuccess(false);
-
-    try {
-      await updateDoc(doc(db, 'users', userId), {
-        organization_name: settingsOrgName.trim(),
-        contact_phone: settingsPhone.trim() || null,
-        primary_location: settingsLocation.trim(),
-      });
-      
-      setSettingsSuccess(true);
-      setProfile(prev => prev ? {
-        ...prev,
-        organization_name: settingsOrgName.trim(),
-        contact_phone: settingsPhone.trim() || null,
-        primary_location: settingsLocation.trim()
-      } : null);
-
-      setTimeout(() => setSettingsSuccess(false), 4000);
-    } catch (err) {
-      console.error('Error rewriting settings profile information:', err);
-    } finally {
-      setIsSavingSettings(false);
-    }
+  const updateRole = async (profile: UserProfile, role: UserRole) => {
+    await updateDoc(doc(db, 'profiles', profile.id), { role });
   };
-
-  const handleAuthSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAuthError('');
-
-    try {
-      if (isCreatingAccount) {
-        const cleanedLocation = registrationLocation.trim().replace(/\s+/g, ' ').toUpperCase();
-        if (!cleanedLocation) {
-          throw new Error('Please enter your postcode or local area.');
-        }
-
-        const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
-
-        await setDoc(doc(db, 'users', credential.user.uid), {
-            uid: credential.user.uid,
-            email: credential.user.email,
-            role: 'partner',
-            roles: ['partner'],
-            isAdmin: false,
-            isVolunteer: false,
-            organization_name: 'Community member',
-            tier: 'grassroots_partner',
-            primary_location: cleanedLocation,
-            contact_phone: null,
-          }, { merge: true });
-
-          setSettingsLocation(cleanedLocation);
-      } else {
-        await signInWithEmailAndPassword(firebaseAuth, email, password);
-      }
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Authentication failed. Please try again.');
-    }
-  };
-
-  const handleSignOut = async () => {
-    await signOut(firebaseAuth);
-  };
-
-  if (!session) {
-    return (
-      <AppShell>
-        <CommunityHub />
-        <div className="mx-auto w-full min-w-0 max-w-md rounded-3xl border border-brand-slateSoft bg-white p-5 shadow-sm sm:p-6">
-          <div className="mb-6 min-w-0">
-            <div className="mb-3 inline-flex rounded-full bg-brand-cream px-3 py-1 text-xs font-bold uppercase tracking-wide text-brand-forest">
-              Secure community access
-            </div>
-            <h1 className="break-words text-2xl font-black tracking-tight text-brand-forest sm:text-3xl">
-              {isCreatingAccount ? 'Create your account' : 'Sign in'}
-            </h1>
-            <p className="mt-2 break-words text-sm leading-6 text-slate-500">
-              Use your email and password to access the live Save Our Supper community feed.
-            </p>
-          </div>
-
-          <form onSubmit={handleAuthSubmit} className="grid gap-4">
-            <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-              Email
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2.5 text-slate-900 outline-none focus:border-brand-forest"
-                required
-              />
-            </label>
-
-            <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-              Password
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2.5 text-slate-900 outline-none focus:border-brand-forest"
-                required
-              />
-            </label>
-
-            {isCreatingAccount ? (
-              <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-                Postcode / Local Area
-                <input
-                  value={registrationLocation}
-                  onChange={(event) => setRegistrationLocation(event.target.value)}
-                  placeholder="e.g. ST7 or ST4 1AA"
-                  className="rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2.5 text-slate-900 uppercase outline-none focus:border-brand-forest"
-                  required
-                />
-              </label>
-            ) : null}
-
-            {authError ? <p className="text-sm font-semibold text-red-500">{authError}</p> : null}
-
-            <button
-              type="submit"
-              className="bg-brand-forest text-white w-full py-2.5 rounded-xl font-semibold"
-            >
-              {isCreatingAccount ? 'Create Account' : 'Sign In'}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setAuthError('');
-                setIsCreatingAccount((current) => !current);
-              }}
-              className="rounded-xl border border-brand-slateSoft bg-white px-4 py-2.5 text-sm font-semibold text-slate-700"
-            >
-              {isCreatingAccount ? 'Already have an account? Sign In' : 'Need an account? Create Account'}
-            </button>
-          </form>
-        </div>
-      </AppShell>
-    );
-  }
-
-  const isStaffProfile = profile?.role === 'partner' || profile?.role === 'volunteer' || profile?.role === 'moderator' || profile?.role === 'admin';
-  const isHubManager = profile?.tier === 'distribution_hub' || isStaffProfile;
-
-  const isSystemAdminAccount = session?.user?.email === 'stokie2605@gmail.com';
-  const redirectToPublicFeed = () => {
-    setActiveView('community');
-    setDashboardTab('find-food');
-  };
-
-  if (!profile) {
-    return (
-      <AppShell>
-        <div className="rounded-3xl border border-slate-200 bg-white px-5 py-10 text-center shadow-sm">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-emerald-500" />
-          <p className="text-xs font-black uppercase tracking-widest text-teal-700">Loading your hub</p>
-          <p className="mt-2 text-sm font-semibold text-slate-500">Checking your community profile...</p>
-        </div>
-      </AppShell>
-    );
-  }
 
   return (
-    <AppShell>
-      {/* ─── APP HEADER ─── */}
-      <div className="relative mb-6 min-w-0 overflow-hidden rounded-3xl bg-slate-900 p-6 text-white shadow-2xl">
-        <div className="relative flex min-w-0 flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="max-w-full break-words rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-slate-300">
-                Crisis Logistics Console
-              </span>
-              {profile && (
-                <span className="max-w-full break-words rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-300">
-                  {profile.organization_name} / {profile.tier.replace('_', ' ')}
-                </span>
-              )}
+    <section className="mx-auto mt-6 max-w-4xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-widest text-red-700">Admin</p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">User Roles</h2>
+      <div className="mt-5 grid gap-3">
+        {profiles.map((profile) => (
+          <div key={profile.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="break-words text-sm font-black text-slate-950">{profile.name}</p>
+              <p className="break-all text-xs font-semibold text-slate-500">{profile.email}</p>
             </div>
-            <h1 className="break-words text-xl font-black tracking-tight text-emerald-400 sm:text-3xl">Save Our Supper</h1>
-            <p className="mt-2 max-w-2xl break-words text-sm leading-6 text-slate-300">
-              Live intake, stock, referrals, and access control for the local food support hub.
-            </p>
+            <select
+              value={profile.role}
+              onChange={(event) => void updateRole(profile, event.target.value as UserRole)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800"
+            >
+              {roleOptions.map((role) => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
           </div>
-          <div className="relative flex w-full flex-wrap items-start gap-2 sm:w-auto sm:justify-end">
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-400 animate-pulse">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Connected
-            </span>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-200 shadow-sm transition-all hover:bg-white hover:text-slate-950"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
+        ))}
       </div>
-
-      <div className="mb-6 grid grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
-          <p className="text-4xl font-black tracking-tight text-slate-800">1</p>
-          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Volunteers on Shift</p>
-        </div>
-        <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
-          <p className="text-4xl font-black tracking-tight text-slate-800">{donationSessionTotal}</p>
-          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Priority Points</p>
-        </div>
-        <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
-          <p className="text-4xl font-black tracking-tight text-slate-800">{donationSessionTotal}</p>
-          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Needs Emptying</p>
-        </div>
-        <div className="rounded-2xl bg-white p-5 shadow-[0_20px_40px_-5px_rgba(15,23,42,0.06)] transform transition-all duration-300 hover:-translate-y-0.5">
-          <p className="text-4xl font-black tracking-tight text-emerald-500">OK</p>
-          <p className="mt-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">Hub Link</p>
-        </div>
-      </div>
-
-      {isHubManager ? <StaffTodaySummary /> : null}
-
-      {/* ─── 📍 VISUAL TAB SWITCHER SYSTEM ─── */}
-      <div className="mb-6 hidden min-w-0 gap-2 rounded-2xl bg-slate-100 p-1.5 md:flex md:flex-wrap md:items-center">
-        <button
-          type="button"
-          onClick={() => setActiveView('community')}
-          className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-            activeView === 'community'
-              ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
-              : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
-          }`}
-        >
-          Community Feed
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveView('feed');
-            setDashboardTab('find-food');
-          }}
-          className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-            activeView === 'feed' && dashboardTab === 'find-food'
-              ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
-              : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
-          }`}
-        >
-          Donations Page
-        </button>
-        {isHubManager && (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveView('inventory');
-                setDashboardTab('my-listings');
-              }}
-              className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-                activeView === 'inventory'
-                  ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
-                  : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
-              }`}
-            >
-              Stock Inventory Page
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveView('feed');
-                setDashboardTab('my-claims');
-              }}
-              className={`min-w-0 rounded-xl py-2.5 text-center text-sm font-bold transition-all sm:flex-1 ${
-                activeView === 'feed' && dashboardTab === 'my-claims'
-                  ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
-                  : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
-              }`}
-            >
-              Referral Queue Page
-            </button>
-          </>
-        )}
-        <button
-          type="button"
-          onClick={() => setActiveView('settings')}
-          className={`min-w-0 rounded-xl px-4 py-2.5 text-center text-sm font-bold transition-all ${
-            activeView === 'settings'
-              ? 'border border-emerald-200 bg-white text-emerald-700 shadow-xs'
-              : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900'
-          }`}
-        >
-          ⚙️ Settings
-        </button>
-
-        {isSystemAdminAccount && (
-          <button
-            type="button"
-            onClick={() => setActiveView('admin')}
-            className={`min-w-0 rounded-xl px-4 py-2.5 text-center text-sm font-bold transition-all border border-red-200 ${
-              activeView === 'admin' ? 'bg-red-600 text-white shadow-xs' : 'bg-red-50 text-red-700 hover:bg-red-100'
-            }`}
-          >
-            🛡️ Admin Panel
-          </button>
-        )}
-      </div>
-
-      <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around border-t border-slate-200 bg-white p-3 shadow-[0_-10px_30px_rgba(15,23,42,0.08)] md:hidden" aria-label="Mobile staff navigation">
-        <button
-          type="button"
-          onClick={() => setActiveView('community')}
-          className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
-            activeView === 'community'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
-          aria-label="Community Feed"
-          title="Community Feed"
-        >
-          <MessageIcon />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setActiveView('feed');
-            setDashboardTab('find-food');
-          }}
-          className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
-            activeView === 'feed' && dashboardTab === 'find-food'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
-          aria-label="Donations Page"
-          title="Donations Page"
-        >
-          <PlusCircleIcon />
-        </button>
-
-        {isHubManager ? (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveView('inventory');
-                setDashboardTab('my-listings');
-              }}
-              className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
-                activeView === 'inventory'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-              aria-label="Stock Inventory Page"
-              title="Stock Inventory Page"
-            >
-              <PackageIcon />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveView('feed');
-                setDashboardTab('my-claims');
-              }}
-              className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
-                activeView === 'feed' && dashboardTab === 'my-claims'
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-              aria-label="Referral Queue Page"
-              title="Referral Queue Page"
-            >
-              <UsersIcon />
-            </button>
-          </>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={() => setActiveView('settings')}
-          className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
-            activeView === 'settings'
-              ? 'bg-emerald-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-          }`}
-          aria-label="Settings"
-          title="Settings"
-        >
-          <SettingsIcon />
-        </button>
-
-        {isSystemAdminAccount ? (
-          <button
-            type="button"
-            onClick={() => setActiveView('admin')}
-            className={`grid h-11 w-11 place-items-center rounded-2xl transition-all ${
-              activeView === 'admin'
-                ? 'bg-red-600 text-white shadow-sm'
-                : 'text-red-600 hover:bg-red-50 hover:text-red-700'
-            }`}
-            aria-label="Admin Panel"
-            title="Admin Panel"
-          >
-            <LockIcon />
-          </button>
-        ) : null}
-      </nav>
-
-      {/* ─── VIEW VIEWPORTS ─── */}
-
-      {/* VIEW A: STANDALONE COMMUNITY FEED */}
-      {activeView === 'community' && (
-        <CommunityHub
-          userId={session.user.id}
-          authorName={profile.organization_name || session.user.email || 'Community member'}
-          postcode={profile.primary_location}
-          userRole={profile.role}
-        />
-      )}
-
-      {/* VIEW B: OPERATIONS FEED */}
-      {activeView === 'feed' && (
-        <>
-          {dashboardTab === 'find-food' ? (
-            <AuthGuard
-              uid={session?.user?.id}
-              fallbackEmail={session?.user?.email}
-              allowedRoles={foodbankAccessRoles}
-              onAccessDenied={redirectToPublicFeed}
-            >
-              <IntakePortal
-                onQueuedItemsChange={setDonationSessionTotal}
-                userId={session.user.id}
-                userRole={profile.role}
-              />
-            </AuthGuard>
-          ) : null}
-
-          {dashboardTab === 'my-claims' ? (
-            <AuthGuard
-              uid={session?.user?.id}
-              fallbackEmail={session?.user?.email}
-              allowedRoles={referralAccessRoles}
-              onAccessDenied={redirectToPublicFeed}
-            >
-              <ReferralQueue userId={session.user.id} userRole={profile.role} />
-            </AuthGuard>
-          ) : null}
-        </>
-      )}
-
-      {/* VIEW B: WAREHOUSE STOCK LEVELS */}
-      {isHubManager && activeView === 'inventory' && <LiveInventory />}
-      {/* VIEW D: RENDER PROFILE SETTINGS VIEWPORT PANEL */}
-      {activeView === 'settings' && (
-        <div className="mx-auto min-w-0 max-w-xl rounded-2xl border border-brand-slateSoft bg-white p-4 shadow-xs sm:p-6">
-          <div className="mb-6 min-w-0">
-            <h2 className="break-words text-2xl font-bold text-brand-forest">Organization Settings</h2>
-            <p className="break-words text-sm text-slate-500">Manage your network identity profile, contact points, and target logistics routing hubs.</p>
-          </div>
-
-          <form onSubmit={handleUpdateSettings} className="grid gap-4">
-            <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-              Organization Identity Name
-              <input
-                type="text"
-                value={settingsOrgName}
-                onChange={(e) => setSettingsOrgName(e.target.value)}
-                className="rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2.5 text-slate-900 font-medium outline-none focus:border-brand-forest"
-                required
-              />
-            </label>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-                Your postcode / local area
-                <input
-                  type="text"
-                  value={settingsLocation}
-                  onChange={(e) => setSettingsLocation(e.target.value)}
-                  className="rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2.5 text-slate-900 font-medium outline-none focus:border-brand-forest"
-                  required
-                />
-              </label>
-
-              <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-                Logistics Contact Phone (Optional)
-                <input
-                  type="text"
-                  value={settingsPhone}
-                  onChange={(e) => setSettingsPhone(e.target.value)}
-                  placeholder="e.g. +44 1782 ..."
-                  className="rounded-xl border border-brand-slateSoft bg-brand-cream px-3 py-2.5 text-slate-900 font-medium outline-none focus:border-brand-forest"
-                />
-              </label>
-            </div>
-
-            <div className="mt-2 min-w-0 break-words rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
-              🔒 <strong>Operational Access Tier Level:</strong> <code className="bg-white font-mono px-1 py-0.5 rounded border ml-1 text-slate-700 uppercase font-bold">{profile?.tier}</code>
-              <p className="mt-1 break-words">Tier authorization metrics are immutable at standard configuration level. To modify security tier clearance, contact council administrators.</p>
-            </div>
-
-            {settingsSuccess && (
-              <p className="text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl">
-                ✓ Settings updated successfully. Database profile is synced live.
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSavingSettings}
-              className="mt-2 rounded-xl bg-brand-forest hover:bg-opacity-90 font-semibold text-white py-2.5 shadow-sm disabled:opacity-50"
-            >
-              {isSavingSettings ? 'Saving Changes...' : 'Save Profile Changes'}
-            </button>
-          </form>
-
-        </div>
-      )}
-
-      {/* 🛡️ VIEW E: SECURE SYSTEM ADMINISTRATION VIEWPORT */}
-      {activeView === 'admin' && (
-        <AuthGuard
-          uid={session?.user?.id}
-          fallbackEmail={session?.user?.email}
-          allowedRoles={adminAccessRoles}
-          onAccessDenied={redirectToPublicFeed}
-        >
-          <RoleAdminPanel />
-        </AuthGuard>
-      )}
-
-    </AppShell>
+    </section>
   );
 }
 
+export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
 
+  useEffect(() => {
+    return onAuthStateChanged(firebaseAuth, async (nextUser) => {
+      setUser(nextUser);
+      setProfile(null);
+      setLoadingProfile(Boolean(nextUser));
 
+      if (!nextUser) {
+        setLoadingProfile(false);
+        return;
+      }
 
+      try {
+        const profileSnapshot = await getDoc(doc(db, 'profiles', nextUser.uid));
+        if (profileSnapshot.exists()) {
+          setProfile(profileFromDocument(nextUser.uid, profileSnapshot.data(), nextUser.email));
+        } else {
+          const fallbackProfile: UserProfile = {
+            id: nextUser.uid,
+            email: nextUser.email ?? 'missing-email',
+            name: nextUser.email === adminEmail ? 'Foodbank Admin' : 'Partner agency',
+            role: normalizeRole(undefined, nextUser.email),
+          };
+          await setDoc(doc(db, 'profiles', nextUser.uid), {
+            email: fallbackProfile.email,
+            name: fallbackProfile.name,
+            role: fallbackProfile.role,
+          }, { merge: true });
+          setProfile(fallbackProfile);
+        }
+      } finally {
+        setLoadingProfile(false);
+      }
+    });
+  }, []);
 
+  const role = profile?.role ?? 'partner';
+  const isStaff = role === 'volunteer' || role === 'admin';
 
+  return (
+    <AppShell>
+      <div className="mb-5 flex flex-col gap-3 rounded-3xl bg-slate-950 p-5 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Save Our Supper</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight">Zero-Paperwork Referrals</h1>
+          <p className="mt-1 text-sm text-slate-300">Referral in. Bag packed. Handover logged.</p>
+        </div>
+        {user ? (
+          <button
+            onClick={() => void signOut(firebaseAuth)}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black uppercase tracking-wider hover:bg-white hover:text-slate-950"
+          >
+            Sign Out
+          </button>
+        ) : null}
+      </div>
 
+      {!user ? <SignInCard /> : null}
 
+      {user && loadingProfile ? (
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500">
+          Checking account role...
+        </div>
+      ) : null}
 
+      {user && profile && role === 'partner' ? <PartnerReferralForm user={user} profile={profile} /> : null}
 
+      {user && profile && isStaff ? (
+        <>
+          {role === 'admin' ? (
+            <div className="mb-5 flex rounded-2xl bg-slate-100 p-1">
+              <button
+                onClick={() => setActiveTab('queue')}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-black ${activeTab === 'queue' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600'}`}
+              >
+                Live Queue
+              </button>
+              <button
+                onClick={() => setActiveTab('admin')}
+                className={`flex-1 rounded-xl px-4 py-2 text-sm font-black ${activeTab === 'admin' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-600'}`}
+              >
+                User Roles
+              </button>
+            </div>
+          ) : null}
+
+          {activeTab === 'queue' ? <LiveOrdersQueue user={user} /> : null}
+          {role === 'admin' && activeTab === 'admin' ? <AdminUserPanel /> : null}
+        </>
+      ) : null}
+    </AppShell>
+  );
+}
