@@ -55,6 +55,13 @@ interface OrderEditDraft {
   dietaryNotes: string;
 }
 
+interface PublicStatus {
+  status: OrderStatus;
+  recipientName: string;
+  targetCollectionTime: string;
+  updatedAt: Timestamp | null;
+}
+
 const adminEmail = 'stokie2605@gmail.com';
 const roleOptions: UserRole[] = ['partner', 'volunteer', 'admin'];
 
@@ -80,6 +87,50 @@ function isCompletedToday(order: LiveOrder) {
   return Date.now() - order.completedAt.toDate().getTime() <= 24 * 60 * 60 * 1000;
 }
 
+function normalizePhoneKey(phone: string) {
+  return phone.replace(/\D/g, '');
+}
+
+function statusMessage(status: OrderStatus) {
+  if (status === 'Ready for Collection') return '🟢 Your bag is ready for collection!';
+  if (status === 'Completed') return '✅ Your bag has been handed over.';
+  return '🟡 Your bag is being packed';
+}
+
+async function writePublicStatus(order: {
+  recipientPhone: string;
+  recipientName: string;
+  targetCollectionTime: string;
+  status: OrderStatus;
+}) {
+  const phoneKey = normalizePhoneKey(order.recipientPhone);
+  if (!phoneKey) return;
+
+  await setDoc(doc(db, 'public_status', phoneKey), {
+    recipientName: order.recipientName,
+    targetCollectionTime: order.targetCollectionTime,
+    status: order.status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+async function logSmsNotification(order: {
+  id?: string;
+  recipientPhone: string;
+  recipientName: string;
+  status: OrderStatus;
+}, message: string) {
+  await addDoc(collection(db, 'notification_events'), {
+    orderId: order.id ?? null,
+    recipientPhone: order.recipientPhone,
+    recipientName: order.recipientName,
+    status: order.status,
+    channel: 'sms',
+    message,
+    createdAt: serverTimestamp(),
+  });
+}
+
 function orderFromDocument(id: string, data: DocumentData): LiveOrder {
   return {
     id,
@@ -103,6 +154,81 @@ function profileFromDocument(id: string, data: DocumentData, fallbackEmail?: str
     name: String(data.name ?? data.organization_name ?? data.email ?? 'User'),
     role: normalizeRole(data.role, fallbackEmail),
   };
+}
+
+function PublicStatusCheck() {
+  const [phone, setPhone] = useState('');
+  const [status, setStatus] = useState<PublicStatus | null>(null);
+  const [message, setMessage] = useState('');
+  const [checking, setChecking] = useState(false);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setChecking(true);
+    setStatus(null);
+    setMessage('');
+
+    try {
+      const phoneKey = normalizePhoneKey(phone);
+      if (!phoneKey) {
+        setMessage('Enter the phone number used on the referral.');
+        return;
+      }
+
+      const statusSnapshot = await getDoc(doc(db, 'public_status', phoneKey));
+      if (!statusSnapshot.exists()) {
+        setMessage('No current bag status found for that phone number.');
+        return;
+      }
+
+      const data = statusSnapshot.data();
+      setStatus({
+        status: (['New', 'Ready for Collection', 'Completed'].includes(data.status) ? data.status : 'New') as OrderStatus,
+        recipientName: String(data.recipientName ?? 'Recipient'),
+        targetCollectionTime: String(data.targetCollectionTime ?? ''),
+        updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : null,
+      });
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Could not check that status right now.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <section className="mx-auto mb-5 max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-blue-700">Collector status</p>
+      <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950">Check My Status</h2>
+      <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          Phone Number
+          <input
+            type="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="Enter the referral phone number"
+            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-blue-600"
+          />
+        </label>
+        <button
+          disabled={checking}
+          className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {checking ? 'Checking...' : 'Check Status'}
+        </button>
+      </form>
+      {status ? (
+        <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-3">
+          <p className="text-base font-black text-slate-950">{statusMessage(status.status)}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-600">
+            {status.targetCollectionTime ? `Target collection: ${status.targetCollectionTime}` : 'The foodbank will update this as soon as possible.'}
+          </p>
+          <p className="mt-1 text-xs font-bold text-slate-400">Updated {formatTimestamp(status.updatedAt)}</p>
+        </div>
+      ) : null}
+      {message ? <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">{message}</p> : null}
+    </section>
+  );
 }
 
 function SignInCard() {
@@ -218,7 +344,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
     setMessage('');
 
     try {
-      await addDoc(collection(db, 'live_orders'), {
+      const newOrder = {
         agencyName: agencyName.trim(),
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
@@ -229,8 +355,15 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
         submittedBy: user.uid,
         createdAt: serverTimestamp(),
         completedAt: null,
-      });
+      };
+      const orderRef = await addDoc(collection(db, 'live_orders'), newOrder);
+      await writePublicStatus({ ...newOrder, status: 'New' });
+      await logSmsNotification(
+        { id: orderRef.id, recipientName: newOrder.recipientName, recipientPhone: newOrder.recipientPhone, status: 'New' },
+        'Your referral has been received. Your bag is being packed.',
+      );
 
+      setAgencyName('');
       setRecipientName('');
       setRecipientPhone('');
       setTargetCollectionTime('');
@@ -369,7 +502,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const visibleActiveOrders = activeOrders.filter((order) => {
     if (!normalizedSearch) return true;
-    return `${order.recipientName} ${order.agencyName}`.toLowerCase().includes(normalizedSearch);
+    return `${order.recipientName} ${order.agencyName} ${formatTimestamp(order.createdAt)}`.toLowerCase().includes(normalizedSearch);
   });
   const completedToday = orders.filter(isCompletedToday);
 
@@ -383,6 +516,18 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
         updatedBy: user.uid,
         ...(status === 'Completed' ? { completedAt: serverTimestamp(), completedBy: user.uid } : {}),
       });
+      await writePublicStatus({
+        recipientPhone: order.recipientPhone,
+        recipientName: order.recipientName,
+        targetCollectionTime: order.targetCollectionTime,
+        status,
+      });
+      if (status === 'Ready for Collection') {
+        await logSmsNotification(
+          { id: order.id, recipientName: order.recipientName, recipientPhone: order.recipientPhone, status },
+          'Your food parcel is ready for collection.',
+        );
+      }
       setHandoverTarget(null);
     } finally {
       setBusyOrderId(null);
@@ -409,6 +554,12 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
         dietaryNotes: editDraft.dietaryNotes.trim(),
         updatedAt: serverTimestamp(),
         updatedBy: user.uid,
+      });
+      await writePublicStatus({
+        recipientPhone: editDraft.recipientPhone.trim(),
+        recipientName: editDraft.recipientName.trim(),
+        targetCollectionTime: editDraft.targetCollectionTime.trim(),
+        status: order.status,
       });
       setEditingOrderId(null);
     } finally {
@@ -447,6 +598,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
           {visibleActiveOrders.map((order) => {
             const isReady = order.status === 'Ready for Collection';
             const isEditing = editingOrderId === order.id;
+            const canEditOrder = role === 'admin' || role === 'volunteer' || order.submittedBy === user.uid;
 
             return (
             <article
@@ -464,13 +616,15 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                   <p className="mt-1 text-sm font-semibold text-slate-500">Received {formatTimestamp(order.createdAt)}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => startEditingOrder(order)}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-600"
-                  >
-                    Edit
-                  </button>
+                  {canEditOrder ? (
+                    <button
+                      type="button"
+                      onClick={() => startEditingOrder(order)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-600"
+                    >
+                      Edit
+                    </button>
+                  ) : null}
                   <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
                     isReady ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
                   }`}>
@@ -548,6 +702,8 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                   <p className="break-words"><strong>Dietary:</strong> {order.dietaryNotes || 'None listed'}</p>
                 </div>
               )}
+
+              <p className="mt-3 text-xs font-bold text-slate-500">Submitted: {formatTimestamp(order.createdAt)}</p>
 
               {canChangeStatus && handoverTarget === order.id ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
@@ -725,7 +881,12 @@ export default function App() {
         ) : null}
       </div>
 
-      {!user ? <SignInCard /> : null}
+      {!user ? (
+        <>
+          <PublicStatusCheck />
+          <SignInCard />
+        </>
+      ) : null}
 
       {user && loadingProfile ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500">

@@ -51,6 +51,21 @@ Expected fields:
 * `createdAt`
 * `completedAt`
 
+### `public_status`
+
+Stores a small, phone-keyed status summary for unauthenticated collectors.
+
+This avoids opening the full `live_orders` queue publicly. A collector can enter their phone number and see only the current bag status message.
+
+### `notification_events`
+
+Stores mock outbound SMS events for future integration with a provider such as Twilio.
+
+Events are logged when:
+
+* A referral is first submitted.
+* A bag is marked `Ready for Collection`.
+
 ---
 
 ## Referral Workflow
@@ -70,6 +85,16 @@ Each order includes a clickable phone link using `tel:` so staff can call the re
 
 A search box at the top of the queue filters active orders instantly by recipient name or agency.
 
+The search also checks the visible submitted date/time label on each card, so staff can quickly narrow the queue by a submission window.
+
+Collectors can use the public **Check My Status** form before logging in. They enter the phone number used on the referral and see either:
+
+* `Your bag is being packed`
+* `Your bag is ready for collection`
+* `Your bag has been handed over`
+
+This is powered by the small `public_status` document, not by exposing the full queue.
+
 ---
 
 ## Security Model
@@ -82,8 +107,11 @@ Firestore rules are aligned to the stripped-down model:
 * Admins can list and update profiles.
 * Partners can create and read `live_orders`.
 * Volunteers and admins can read the live queue.
-* Partners, volunteers, and admins can edit only safe typo fields on active orders.
+* Partners can edit only safe typo fields on referrals they submitted.
+* Volunteers and admins can edit safe typo fields on active orders.
 * Volunteers and admins can move orders through the safe workflow states.
+* Public users can read only an exact `public_status/{phoneKey}` document and cannot list statuses.
+* Mock SMS events are write-only for operational roles and readable only by admins.
 * Admins retain full fallback access.
 
 ---

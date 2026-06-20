@@ -90,7 +90,13 @@ service cloud.firestore {
     }
 
     function isLiveOrderTypoUpdate() {
-      return profileRoleIn(["partner", "volunteer", "admin"])
+      return (
+          profileRoleIn(["volunteer", "admin"])
+          || (
+            profileRoleIn(["partner"])
+            && resource.data.submittedBy == request.auth.uid
+          )
+        )
         && resource.data.status in ["New", "Ready for Collection"]
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "recipientName",
@@ -110,6 +116,39 @@ service cloud.firestore {
         && request.resource.data.updatedBy == request.auth.uid;
     }
 
+    function isPublicStatusWrite() {
+      return profileRoleIn(["partner", "volunteer", "admin"])
+        && request.resource.data.keys().hasOnly([
+          "recipientName",
+          "targetCollectionTime",
+          "status",
+          "updatedAt"
+        ])
+        && request.resource.data.recipientName is string
+        && request.resource.data.targetCollectionTime is string
+        && request.resource.data.status in ["New", "Ready for Collection", "Completed"];
+    }
+
+    function isNotificationEventCreate() {
+      return profileRoleIn(["partner", "volunteer", "admin"])
+        && request.resource.data.keys().hasOnly([
+          "orderId",
+          "recipientPhone",
+          "recipientName",
+          "status",
+          "channel",
+          "message",
+          "createdAt"
+        ])
+        && request.resource.data.recipientPhone is string
+        && request.resource.data.recipientPhone.size() > 0
+        && request.resource.data.recipientName is string
+        && request.resource.data.status in ["New", "Ready for Collection", "Completed"]
+        && request.resource.data.channel == "sms"
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0;
+    }
+
     match /profiles/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
@@ -122,6 +161,19 @@ service cloud.firestore {
       allow create: if isLiveOrderCreate();
       allow update: if isAdmin() || isLiveOrderPackUpdate() || isLiveOrderCompleteUpdate() || isLiveOrderTypoUpdate();
       allow delete: if isAdmin();
+    }
+
+    match /public_status/{phoneKey} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isPublicStatusWrite();
+      allow delete: if isAdmin();
+    }
+
+    match /notification_events/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isNotificationEventCreate();
+      allow update, delete: if isAdmin();
     }
 
     match /{document=**} {
