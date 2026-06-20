@@ -12,7 +12,7 @@ It has one job: trusted partner agencies send a referral, foodbank staff pack th
 
 The app now has three role-based views only:
 
-* **Partner:** sees only the Submit Referral Form.
+* **Partner:** sees the Submit Referral Form and the shared Live Orders Queue underneath it.
 * **Volunteer:** sees the Live Orders Queue.
 * **Admin:** sees the Live Orders Queue plus a small User Roles panel.
 
@@ -42,6 +42,7 @@ Expected fields:
 
 * `agencyName`
 * `recipientName`
+* `recipientPhone`
 * `targetCollectionTime`
 * `familySize`
 * `dietaryNotes`
@@ -60,6 +61,15 @@ Expected fields:
 4. Staff click **Log Handover**, confirm the action, and the order moves to `Completed`.
 5. Completed orders from the last 24 hours appear in a collapsed **Completed Today** section.
 
+The Live Orders Queue is now universally visible to partners, volunteers, and admins. Active cards are colour-coded:
+
+* Blue cards show new referrals that need packing.
+* Green cards show bags ready and waiting for pickup.
+
+Each order includes a clickable phone link using `tel:` so staff can call the recipient quickly from a mobile device. Partners and staff can also use the inline **Edit** action to correct typos in the recipient name, phone number, collection time, or dietary notes without changing workflow status.
+
+A search box at the top of the queue filters active orders instantly by recipient name or agency.
+
 ---
 
 ## Security Model
@@ -70,8 +80,9 @@ Firestore rules are aligned to the stripped-down model:
 
 * Users can read their own `profiles/{uid}` document.
 * Admins can list and update profiles.
-* Partners can create `live_orders`.
+* Partners can create and read `live_orders`.
 * Volunteers and admins can read the live queue.
+* Partners, volunteers, and admins can edit only safe typo fields on active orders.
 * Volunteers and admins can move orders through the safe workflow states.
 * Admins retain full fallback access.
 

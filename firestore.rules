@@ -38,6 +38,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           "agencyName",
           "recipientName",
+          "recipientPhone",
           "targetCollectionTime",
           "familySize",
           "dietaryNotes",
@@ -50,6 +51,8 @@ service cloud.firestore {
         && request.resource.data.agencyName.size() > 0
         && request.resource.data.recipientName is string
         && request.resource.data.recipientName.size() > 0
+        && request.resource.data.recipientPhone is string
+        && request.resource.data.recipientPhone.size() > 0
         && request.resource.data.targetCollectionTime is string
         && request.resource.data.targetCollectionTime.size() > 0
         && request.resource.data.familySize is int
@@ -86,6 +89,27 @@ service cloud.firestore {
         && request.resource.data.completedBy == request.auth.uid;
     }
 
+    function isLiveOrderTypoUpdate() {
+      return profileRoleIn(["partner", "volunteer", "admin"])
+        && resource.data.status in ["New", "Ready for Collection"]
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "recipientName",
+          "recipientPhone",
+          "targetCollectionTime",
+          "dietaryNotes",
+          "updatedAt",
+          "updatedBy"
+        ])
+        && request.resource.data.recipientName is string
+        && request.resource.data.recipientName.size() > 0
+        && request.resource.data.recipientPhone is string
+        && request.resource.data.recipientPhone.size() > 0
+        && request.resource.data.targetCollectionTime is string
+        && request.resource.data.targetCollectionTime.size() > 0
+        && request.resource.data.dietaryNotes is string
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+
     match /profiles/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
@@ -94,9 +118,9 @@ service cloud.firestore {
     }
 
     match /live_orders/{orderId} {
-      allow read: if profileRoleIn(["volunteer", "admin"]);
+      allow read: if profileRoleIn(["partner", "volunteer", "admin"]);
       allow create: if isLiveOrderCreate();
-      allow update: if isAdmin() || isLiveOrderPackUpdate() || isLiveOrderCompleteUpdate();
+      allow update: if isAdmin() || isLiveOrderPackUpdate() || isLiveOrderCompleteUpdate() || isLiveOrderTypoUpdate();
       allow delete: if isAdmin();
     }
 

@@ -38,6 +38,7 @@ interface LiveOrder {
   id: string;
   agencyName: string;
   recipientName: string;
+  recipientPhone: string;
   targetCollectionTime: string;
   familySize: number;
   dietaryNotes: string;
@@ -45,6 +46,13 @@ interface LiveOrder {
   submittedBy: string;
   createdAt: Timestamp | null;
   completedAt: Timestamp | null;
+}
+
+interface OrderEditDraft {
+  recipientName: string;
+  recipientPhone: string;
+  targetCollectionTime: string;
+  dietaryNotes: string;
 }
 
 const adminEmail = 'stokie2605@gmail.com';
@@ -77,6 +85,7 @@ function orderFromDocument(id: string, data: DocumentData): LiveOrder {
     id,
     agencyName: String(data.agencyName ?? ''),
     recipientName: String(data.recipientName ?? ''),
+    recipientPhone: String(data.recipientPhone ?? ''),
     targetCollectionTime: String(data.targetCollectionTime ?? ''),
     familySize: Number(data.familySize ?? 1),
     dietaryNotes: String(data.dietaryNotes ?? ''),
@@ -196,6 +205,7 @@ async function updateProfileDocument(userId: string, payload: Partial<UserProfil
 function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfile }) {
   const [agencyName, setAgencyName] = useState(profile.name);
   const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
   const [targetCollectionTime, setTargetCollectionTime] = useState('');
   const [familySize, setFamilySize] = useState('1');
   const [dietaryNotes, setDietaryNotes] = useState('');
@@ -211,6 +221,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
       await addDoc(collection(db, 'live_orders'), {
         agencyName: agencyName.trim(),
         recipientName: recipientName.trim(),
+        recipientPhone: recipientPhone.trim(),
         targetCollectionTime: targetCollectionTime.trim(),
         familySize: Math.max(1, Number.parseInt(familySize, 10) || 1),
         dietaryNotes: dietaryNotes.trim(),
@@ -221,6 +232,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
       });
 
       setRecipientName('');
+      setRecipientPhone('');
       setTargetCollectionTime('');
       setFamilySize('1');
       setDietaryNotes('');
@@ -254,6 +266,18 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
           <input
             value={recipientName}
             onChange={(event) => setRecipientName(event.target.value)}
+            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            required
+          />
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          Recipient Phone Number
+          <input
+            type="tel"
+            value={recipientPhone}
+            onChange={(event) => setRecipientPhone(event.target.value)}
+            placeholder="e.g. 07123 456789"
             className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
             required
           />
@@ -308,11 +332,19 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
   );
 }
 
-function LiveOrdersQueue({ user }: { user: User }) {
+function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [handoverTarget, setHandoverTarget] = useState<string | null>(null);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<OrderEditDraft>({
+    recipientName: '',
+    recipientPhone: '',
+    targetCollectionTime: '',
+    dietaryNotes: '',
+  });
 
   useEffect(() => {
     const ordersQuery = query(collection(db, 'live_orders'), orderBy('createdAt', 'asc'));
@@ -332,10 +364,17 @@ function LiveOrdersQueue({ user }: { user: User }) {
     return unsubscribe;
   }, []);
 
+  const canChangeStatus = role === 'volunteer' || role === 'admin';
   const activeOrders = orders.filter((order) => order.status === 'New' || order.status === 'Ready for Collection');
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const visibleActiveOrders = activeOrders.filter((order) => {
+    if (!normalizedSearch) return true;
+    return `${order.recipientName} ${order.agencyName}`.toLowerCase().includes(normalizedSearch);
+  });
   const completedToday = orders.filter(isCompletedToday);
 
   const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
+    if (!canChangeStatus) return;
     setBusyOrderId(order.id);
     try {
       await updateDoc(doc(db, 'live_orders', order.id), {
@@ -350,6 +389,33 @@ function LiveOrdersQueue({ user }: { user: User }) {
     }
   };
 
+  const startEditingOrder = (order: LiveOrder) => {
+    setEditingOrderId(order.id);
+    setEditDraft({
+      recipientName: order.recipientName,
+      recipientPhone: order.recipientPhone,
+      targetCollectionTime: order.targetCollectionTime,
+      dietaryNotes: order.dietaryNotes,
+    });
+  };
+
+  const saveOrderEdits = async (order: LiveOrder) => {
+    setBusyOrderId(order.id);
+    try {
+      await updateDoc(doc(db, 'live_orders', order.id), {
+        recipientName: editDraft.recipientName.trim(),
+        recipientPhone: editDraft.recipientPhone.trim(),
+        targetCollectionTime: editDraft.targetCollectionTime.trim(),
+        dietaryNotes: editDraft.dietaryNotes.trim(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid,
+      });
+      setEditingOrderId(null);
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
   return (
     <section className="mx-auto max-w-4xl">
       <div className="mb-5 rounded-3xl bg-slate-950 p-5 text-white shadow-sm">
@@ -357,6 +423,17 @@ function LiveOrdersQueue({ user }: { user: User }) {
         <h2 className="mt-2 text-2xl font-black tracking-tight">Live Orders Queue</h2>
         <p className="mt-2 text-sm text-slate-300">Pack bags, mark them ready, then log handover. That is the whole workflow.</p>
       </div>
+
+      <label className="mb-4 grid gap-1.5 text-sm font-bold text-slate-700">
+        Search active referrals
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Search by recipient or agency..."
+          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600"
+        />
+      </label>
 
       {loading ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500">Loading live orders...</div>
@@ -367,28 +444,112 @@ function LiveOrdersQueue({ user }: { user: User }) {
         </div>
       ) : (
         <div className="grid gap-3">
-          {activeOrders.map((order) => (
-            <article key={order.id} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+          {visibleActiveOrders.map((order) => {
+            const isReady = order.status === 'Ready for Collection';
+            const isEditing = editingOrderId === order.id;
+
+            return (
+            <article
+              key={order.id}
+              className={`rounded-3xl border p-4 shadow-sm ${
+                isReady
+                  ? 'border-emerald-200 bg-emerald-50/50'
+                  : 'border-blue-200 bg-blue-50/50'
+              }`}
+            >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-widest text-slate-400">{order.agencyName}</p>
                   <h3 className="mt-1 break-words text-xl font-black text-slate-950">{order.recipientName}</h3>
                   <p className="mt-1 text-sm font-semibold text-slate-500">Received {formatTimestamp(order.createdAt)}</p>
                 </div>
-                <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                  order.status === 'New' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                }`}>
-                  {order.status}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => startEditingOrder(order)}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-black uppercase tracking-wider text-slate-600"
+                  >
+                    Edit
+                  </button>
+                  <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
+                    isReady ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {isReady ? 'Waiting for pickup' : 'Needs packing'}
+                  </span>
+                </div>
               </div>
 
-              <div className="mt-4 grid gap-2 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700 sm:grid-cols-3">
-                <p><strong>Collection:</strong> {order.targetCollectionTime}</p>
-                <p><strong>Family:</strong> {order.familySize}</p>
-                <p className="break-words"><strong>Dietary:</strong> {order.dietaryNotes || 'None listed'}</p>
-              </div>
+              {isEditing ? (
+                <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                      Name
+                      <input
+                        value={editDraft.recipientName}
+                        onChange={(event) => setEditDraft((draft) => ({ ...draft, recipientName: event.target.value }))}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-900"
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                      Phone
+                      <input
+                        type="tel"
+                        value={editDraft.recipientPhone}
+                        onChange={(event) => setEditDraft((draft) => ({ ...draft, recipientPhone: event.target.value }))}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-900"
+                      />
+                    </label>
+                  </div>
+                  <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                    Collection Time
+                    <input
+                      value={editDraft.targetCollectionTime}
+                      onChange={(event) => setEditDraft((draft) => ({ ...draft, targetCollectionTime: event.target.value }))}
+                      className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-900"
+                    />
+                  </label>
+                  <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                    Dietary Notes
+                    <textarea
+                      value={editDraft.dietaryNotes}
+                      onChange={(event) => setEditDraft((draft) => ({ ...draft, dietaryNotes: event.target.value }))}
+                      rows={3}
+                      className="resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-900"
+                    />
+                  </label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => void saveOrderEdits(order)}
+                      disabled={busyOrderId === order.id}
+                      className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
+                    >
+                      Save Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingOrderId(null)}
+                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 grid gap-2 rounded-2xl bg-white/80 p-3 text-sm text-slate-700 sm:grid-cols-4">
+                  <p><strong>Collection:</strong> {order.targetCollectionTime}</p>
+                  <p><strong>Family:</strong> {order.familySize}</p>
+                  <p>
+                    <strong>Phone:</strong>{' '}
+                    <a className="font-black text-emerald-700 underline-offset-2 hover:underline" href={`tel:${order.recipientPhone}`}>
+                      {order.recipientPhone || 'Not listed'}
+                    </a>
+                  </p>
+                  <p className="break-words"><strong>Dietary:</strong> {order.dietaryNotes || 'None listed'}</p>
+                </div>
+              )}
 
-              {handoverTarget === order.id ? (
+              {canChangeStatus && handoverTarget === order.id ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
                   <p className="text-sm font-black text-amber-900">Are you sure you want to log handover?</p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -407,7 +568,7 @@ function LiveOrdersQueue({ user }: { user: User }) {
                     </button>
                   </div>
                 </div>
-              ) : (
+              ) : canChangeStatus ? (
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   {order.status === 'New' ? (
                     <button
@@ -427,9 +588,15 @@ function LiveOrdersQueue({ user }: { user: User }) {
                     </button>
                   ) : null}
                 </div>
-              )}
+              ) : null}
             </article>
-          ))}
+          )})}
+          {visibleActiveOrders.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center">
+              <p className="text-lg font-black text-slate-800">No matching active referrals.</p>
+              <p className="mt-2 text-sm text-slate-500">Try another recipient or agency search.</p>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -566,7 +733,12 @@ export default function App() {
         </div>
       ) : null}
 
-      {user && profile && role === 'partner' ? <PartnerReferralForm user={user} profile={profile} /> : null}
+      {user && profile && role === 'partner' ? (
+        <div className="grid gap-6">
+          <PartnerReferralForm user={user} profile={profile} />
+          <LiveOrdersQueue user={user} role={role} />
+        </div>
+      ) : null}
 
       {user && profile && isStaff ? (
         <>
@@ -587,7 +759,7 @@ export default function App() {
             </div>
           ) : null}
 
-          {activeTab === 'queue' ? <LiveOrdersQueue user={user} /> : null}
+          {activeTab === 'queue' ? <LiveOrdersQueue user={user} role={role} /> : null}
           {role === 'admin' && activeTab === 'admin' ? <AdminUserPanel /> : null}
         </>
       ) : null}
