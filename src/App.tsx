@@ -110,6 +110,92 @@ function statusLightClass(status: OrderStatus) {
   return 'bg-amber-400';
 }
 
+function PrimaryNavigation({
+  activeTab,
+  onChange,
+}: {
+  activeTab: ActiveTab;
+  onChange: (tab: ActiveTab) => void;
+}) {
+  const items: Array<{ tab: ActiveTab; label: string; icon: string; tone: string }> = [
+    { tab: 'queue', label: 'Live Queue', icon: 'Q', tone: 'emerald' },
+    { tab: 'admin', label: 'User Roles', icon: 'R', tone: 'red' },
+  ];
+
+  return (
+    <>
+      <aside className="hidden md:block">
+        <nav className="sticky top-24 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+          <p className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Workspace</p>
+          <div className="grid gap-2">
+            {items.map((item) => {
+              const isActive = activeTab === item.tab;
+              return (
+                <button
+                  key={item.tab}
+                  type="button"
+                  onClick={() => onChange(item.tab)}
+                  className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-black transition ${
+                    isActive
+                      ? item.tone === 'red'
+                        ? 'bg-red-50 text-red-700 shadow-sm ring-1 ring-red-100'
+                        : 'bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-100'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                  }`}
+                >
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-xs font-black ${
+                    isActive
+                      ? item.tone === 'red'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-emerald-700 text-white'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {item.icon}
+                  </span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </aside>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 px-4 py-2 shadow-[0_-12px_30px_rgb(15,23,42,0.08)] backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
+          {items.map((item) => {
+            const isActive = activeTab === item.tab;
+            return (
+              <button
+                key={item.tab}
+                type="button"
+                onClick={() => onChange(item.tab)}
+                className={`flex min-h-14 flex-col items-center justify-center rounded-2xl text-[11px] font-black uppercase tracking-wide transition ${
+                  isActive
+                    ? item.tone === 'red'
+                      ? 'bg-red-50 text-red-700 ring-1 ring-red-100'
+                      : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
+                    : 'text-slate-500'
+                }`}
+              >
+                <span className={`mb-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
+                  isActive
+                    ? item.tone === 'red'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-emerald-700 text-white'
+                    : 'bg-slate-100 text-slate-500'
+                }`}>
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    </>
+  );
+}
+
 async function writePublicStatus(order: {
   recipientPhone: string;
   recipientName: string;
@@ -948,7 +1034,7 @@ function AdminUserPanel() {
   );
 
   return (
-    <section className="mx-auto mt-6 max-w-4xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-widest text-red-700">Admin</p>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">User Roles</h2>
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
@@ -1048,6 +1134,7 @@ export default function App() {
 
   const role = profile?.role ?? 'partner';
   const isStaff = hasStaffAccess(role);
+  const visibleActiveTab: ActiveTab = role === 'admin' ? activeTab : 'queue';
 
   return (
     <AppShell>
@@ -1090,24 +1177,16 @@ export default function App() {
       {user && profile && isStaff ? (
         <>
           {role === 'admin' ? (
-            <div className="mb-5 flex rounded-2xl bg-slate-100 p-1">
-              <button
-                onClick={() => setActiveTab('queue')}
-                className={`flex-1 rounded-xl px-4 py-2 text-sm font-black ${activeTab === 'queue' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600'}`}
-              >
-                Live Queue
-              </button>
-              <button
-                onClick={() => setActiveTab('admin')}
-                className={`flex-1 rounded-xl px-4 py-2 text-sm font-black ${activeTab === 'admin' ? 'bg-white text-red-700 shadow-sm' : 'text-slate-600'}`}
-              >
-                User Roles
-              </button>
+            <div className="md:grid md:grid-cols-[15rem_minmax(0,1fr)] md:items-start md:gap-6">
+              <PrimaryNavigation activeTab={visibleActiveTab} onChange={setActiveTab} />
+              <div className="min-w-0">
+                {visibleActiveTab === 'queue' ? <LiveOrdersQueue user={user} role={role} /> : null}
+                {visibleActiveTab === 'admin' ? <AdminUserPanel /> : null}
+              </div>
             </div>
-          ) : null}
-
-          {activeTab === 'queue' ? <LiveOrdersQueue user={user} role={role} /> : null}
-          {role === 'admin' && activeTab === 'admin' ? <AdminUserPanel /> : null}
+          ) : (
+            <LiveOrdersQueue user={user} role={role} />
+          )}
         </>
       ) : null}
     </AppShell>

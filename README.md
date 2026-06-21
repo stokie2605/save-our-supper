@@ -93,6 +93,12 @@ The queue also includes three lightweight board filters:
 * **Ready for Collection** - shows orders that are `Ready for Collection`.
 * **Partners** - shows a compact agency summary with active referral counts, ready-for-pickup counts, and last submitted time.
 
+Admin navigation now adapts to the device:
+
+* Desktop admin users get a left-hand workspace rail for **Live Queue** and **User Roles**.
+* Mobile admin users get a fixed bottom navigation bar with touch-friendly controls.
+* The old horizontal top-level tab bar has been removed so the operational queue filters stay attached to the queue itself.
+
 Each order includes a clickable phone link using `tel:` so staff can call the recipient quickly from a mobile device. Partners and staff can also use the inline **Edit** action to correct typos in the recipient name, phone number, collection time, or dietary notes without changing workflow status.
 
 A search box at the top of the queue filters active orders instantly by recipient name or agency.
