@@ -12,7 +12,8 @@ It has one job: trusted partner agencies send a referral, foodbank staff accept 
 
 The app now has three role-based views only:
 
-* **Partner:** sees the Submit Referral Form and the shared Live Orders Queue underneath it.
+* **Pending:** sees only an awaiting approval screen until an admin assigns access.
+* **Partner:** sees the Submit Referral Form and their own agency's Live Orders Queue underneath it.
 * **Volunteer:** sees the Live Orders Queue.
 * **Admin:** sees the Live Orders Queue plus a small User Roles panel.
 
@@ -30,9 +31,12 @@ Expected fields:
 
 * `email`
 * `name`
-* `role` - one of `partner`, `volunteer`, or `admin`
+* `role` - one of `pending`, `partner`, `volunteer`, or `admin`
+* `agencyId` - strict machine-safe agency key such as `plus_dane`
+* `agencyName` - official display label such as `Plus Dane`
+* `requestedAgencyName` - self-reported organisation text from sign-up, used only for admin review
 
-Newly created accounts default to `partner`.
+Newly created accounts default to `pending`. Admins must approve them before operational data is shown.
 
 ### `live_orders`
 
@@ -41,15 +45,18 @@ Stores active referral requests.
 Expected fields:
 
 * `agencyName`
+* `agencyId`
 * `recipientName`
 * `recipientPhone`
 * `targetCollectionTime`
 * `familySize`
 * `dietaryNotes`
-* `status` - `New`, `Ready for Collection`, or `archived`
+* `status` - `New`, `Accepted`, `Ready for Collection`, or `archived`
 * `submittedBy`
 * `createdAt`
-* `completedAt`
+* `acceptedAt`
+* `readyAt`
+* `collectedAt`
 
 ### `public_status`
 
@@ -73,10 +80,12 @@ The frontend now includes a webhook-ready notification shell. If `VITE_SMS_WEBHO
 ## Referral Workflow
 
 1. A partner submits a referral with the recipient name, collection target, family size, and dietary notes.
-2. The document is written to `live_orders` with `status: "New"`.
-3. Staff click **Accept Referral** to move it to `Ready for Collection`.
-4. Staff click **Mark Collected**, confirm the action, and the order moves to `archived`.
-5. Archived collections from the last 24 hours appear in a collapsed **Collected Today** section.
+2. The document is auto-stamped with the partner's verified `agencyId` and `agencyName`.
+3. The document is written to `live_orders` with `status: "New"`.
+4. Staff click **Accept Referral** to move it to `Accepted` and stamp `acceptedAt`.
+5. Staff mark the bag ready to move it to `Ready for Collection` and stamp `readyAt`.
+6. Staff click **Mark Collected**, confirm the action, and the order moves to `archived` with `collectedAt`.
+7. Archived collections from the last 24 hours appear in a collapsed **Collected Today** section.
 
 Archived orders are filtered out of the active queue tabs and partner summaries, keeping the operational dashboard focused only on referrals that still need action.
 
@@ -89,7 +98,7 @@ The queue layout now uses compact operational board cards inspired by a paperles
 
 The queue also includes three lightweight board filters:
 
-* **Referrals** - shows `New` orders that still need packing.
+* **Referrals** - shows `New` and `Accepted` orders that still need action.
 * **Ready for Collection** - shows orders that are `Ready for Collection`.
 * **Partners** - shows a compact agency summary with active referral counts, ready-for-pickup counts, and last submitted time.
 
@@ -123,7 +132,9 @@ Firestore rules are aligned to the stripped-down model:
 
 * Users can read their own `profiles/{uid}` document.
 * Admins can list and update profiles.
-* Partners can create and read `live_orders`.
+* Pending users cannot read the operational queue.
+* Partners can create referrals only with the `agencyId` assigned to their profile.
+* Partners can read only referrals whose `agencyId` matches their own profile.
 * Volunteers and admins can read the live queue.
 * Partners can edit only safe typo fields on referrals they submitted.
 * Volunteers and admins can edit safe typo fields on active orders.
@@ -141,11 +152,11 @@ The admin-only **User Roles** panel now acts as a lightweight access desk for ne
 
 It shows:
 
-* pending partner accounts awaiting staff access
+* pending accounts awaiting staff access
 * current volunteer accounts
 * current admin accounts
 
-Admins can assign each profile to `partner`, `volunteer`, or `admin` directly from the dashboard. Partner accounts remain the default for new sign-ups, so no new user receives staff access until an admin upgrades them.
+Admins can assign each profile to `partner`, `volunteer`, or `admin` directly from the dashboard. If the user is a partner, the admin also selects a verified agency from the fixed agency list. Volunteer and admin accounts are attached to `Foodbank Hub`.
 
 ---
 

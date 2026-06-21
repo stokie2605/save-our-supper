@@ -18,14 +18,15 @@ import {
   setDoc,
   Timestamp,
   updateDoc,
+  where,
   type DocumentData,
 } from 'firebase/firestore';
 import { AppShell } from './components/AppShell';
 import { db, firebaseAuth } from './lib/firebaseConfig';
 import { triggerSmsWebhook } from './lib/notificationWebhook';
 
-type UserRole = 'partner' | 'volunteer' | 'admin';
-type OrderStatus = 'New' | 'Ready for Collection' | 'archived';
+type UserRole = 'pending' | 'partner' | 'volunteer' | 'admin';
+type OrderStatus = 'New' | 'Accepted' | 'Ready for Collection' | 'archived';
 type ActiveTab = 'queue' | 'admin';
 type QueueTab = 'referrals' | 'handovers' | 'partners';
 
@@ -34,10 +35,14 @@ interface UserProfile {
   email: string;
   name: string;
   role: UserRole;
+  agencyId: string | null;
+  agencyName: string;
+  requestedAgencyName: string;
 }
 
 interface LiveOrder {
   id: string;
+  agencyId: string;
   agencyName: string;
   recipientName: string;
   recipientPhone: string;
@@ -47,6 +52,9 @@ interface LiveOrder {
   status: OrderStatus;
   submittedBy: string;
   createdAt: Timestamp | null;
+  acceptedAt: Timestamp | null;
+  readyAt: Timestamp | null;
+  collectedAt: Timestamp | null;
   completedAt: Timestamp | null;
 }
 
@@ -65,8 +73,18 @@ interface PublicStatus {
 }
 
 const adminEmail = 'stokie2605@gmail.com';
-const roleOptions: UserRole[] = ['partner', 'volunteer', 'admin'];
+const roleOptions: UserRole[] = ['pending', 'partner', 'volunteer', 'admin'];
 const staffRoles: UserRole[] = ['volunteer', 'admin'];
+
+const partnerAgencies = [
+  { id: 'plus_dane', name: 'Plus Dane' },
+  { id: 'cheshire_east_council', name: 'Cheshire East Council' },
+  { id: 'alsager_school_support', name: 'Alsager School Support' },
+  { id: 'health_professional', name: 'Health Professional / GP' },
+  { id: 'local_church', name: 'Local Church / Faith Leader' },
+  { id: 'other_approved_partner', name: 'Other Approved Partner' },
+  { id: 'foodbank_hub', name: 'Foodbank Hub' },
+];
 
 function hasStaffAccess(role: UserRole) {
   return staffRoles.includes(role);
@@ -74,9 +92,13 @@ function hasStaffAccess(role: UserRole) {
 
 function normalizeRole(value: unknown, fallbackEmail?: string | null): UserRole {
   if (fallbackEmail === adminEmail) return 'admin';
-  const role = String(value ?? 'partner').toLowerCase().trim();
-  if (role === 'admin' || role === 'volunteer' || role === 'partner') return role;
-  return 'partner';
+  const role = String(value ?? 'pending').toLowerCase().trim();
+  if (role === 'admin' || role === 'volunteer' || role === 'partner' || role === 'pending') return role;
+  return 'pending';
+}
+
+function agencyNameFromId(agencyId: string | null) {
+  return partnerAgencies.find((agency) => agency.id === agencyId)?.name ?? '';
 }
 
 function formatTimestamp(value: Timestamp | null) {
@@ -101,12 +123,14 @@ function normalizePhoneKey(phone: string) {
 function statusMessage(status: OrderStatus) {
   if (status === 'Ready for Collection') return 'Your bag is ready for collection!';
   if (status === 'archived') return 'Your bag has been handed over.';
+  if (status === 'Accepted') return 'Your referral has been accepted.';
   return 'Your bag is being packed';
 }
 
 function statusLightClass(status: OrderStatus) {
   if (status === 'Ready for Collection') return 'bg-emerald-500';
   if (status === 'archived') return 'bg-slate-500';
+  if (status === 'Accepted') return 'bg-blue-500';
   return 'bg-amber-400';
 }
 
@@ -255,15 +279,19 @@ async function logSmsNotification(order: {
 function orderFromDocument(id: string, data: DocumentData): LiveOrder {
   return {
     id,
+    agencyId: String(data.agencyId ?? ''),
     agencyName: String(data.agencyName ?? ''),
     recipientName: String(data.recipientName ?? ''),
     recipientPhone: String(data.recipientPhone ?? ''),
     targetCollectionTime: String(data.targetCollectionTime ?? ''),
     familySize: Number(data.familySize ?? 1),
     dietaryNotes: String(data.dietaryNotes ?? ''),
-    status: (['New', 'Ready for Collection', 'archived'].includes(data.status) ? data.status : 'New') as OrderStatus,
+    status: (['New', 'Accepted', 'Ready for Collection', 'archived'].includes(data.status) ? data.status : 'New') as OrderStatus,
     submittedBy: String(data.submittedBy ?? ''),
     createdAt: data.createdAt instanceof Timestamp ? data.createdAt : null,
+    acceptedAt: data.acceptedAt instanceof Timestamp ? data.acceptedAt : null,
+    readyAt: data.readyAt instanceof Timestamp ? data.readyAt : null,
+    collectedAt: data.collectedAt instanceof Timestamp ? data.collectedAt : null,
     completedAt: data.completedAt instanceof Timestamp ? data.completedAt : null,
   };
 }
@@ -274,6 +302,9 @@ function profileFromDocument(id: string, data: DocumentData, fallbackEmail?: str
     email: String(data.email ?? fallbackEmail ?? 'missing-email'),
     name: String(data.name ?? data.organization_name ?? data.email ?? 'User'),
     role: normalizeRole(data.role, fallbackEmail),
+    agencyId: typeof data.agencyId === 'string' ? data.agencyId : null,
+    agencyName: String(data.agencyName ?? agencyNameFromId(typeof data.agencyId === 'string' ? data.agencyId : null)),
+    requestedAgencyName: String(data.requestedAgencyName ?? ''),
   };
 }
 
@@ -304,7 +335,7 @@ function PublicStatusCheck() {
 
       const data = statusSnapshot.data();
       setStatus({
-        status: (['New', 'Ready for Collection', 'archived'].includes(data.status) ? data.status : 'New') as OrderStatus,
+        status: (['New', 'Accepted', 'Ready for Collection', 'archived'].includes(data.status) ? data.status : 'New') as OrderStatus,
         recipientName: String(data.recipientName ?? 'Recipient'),
         targetCollectionTime: String(data.targetCollectionTime ?? ''),
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : null,
@@ -359,6 +390,7 @@ function SignInCard() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [requestedAgencyName, setRequestedAgencyName] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
 
@@ -371,8 +403,11 @@ function SignInCard() {
         const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
         await updateProfileDocument(credential.user.uid, {
           email: credential.user.email ?? email,
-          name: name.trim() || 'Partner agency',
-          role: 'partner',
+          name: name.trim() || 'New user',
+          role: 'pending',
+          agencyId: null,
+          agencyName: '',
+          requestedAgencyName: requestedAgencyName.trim(),
         });
       } else {
         await signInWithEmailAndPassword(firebaseAuth, email, password);
@@ -399,6 +434,19 @@ function SignInCard() {
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
+              className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+              required
+            />
+          </label>
+        ) : null}
+
+        {creating ? (
+          <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+            Organisation / Agency Request
+            <input
+              value={requestedAgencyName}
+              onChange={(event) => setRequestedAgencyName(event.target.value)}
+              placeholder="e.g. Plus Dane, school support, GP surgery"
               className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
               required
             />
@@ -453,7 +501,6 @@ async function updateProfileDocument(userId: string, payload: Partial<UserProfil
 }
 
 function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfile }) {
-  const [agencyName, setAgencyName] = useState(profile.name);
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
   const [targetCollectionTime, setTargetCollectionTime] = useState('');
@@ -468,8 +515,14 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
     setMessage('');
 
     try {
+      if (!profile.agencyId || !profile.agencyName) {
+        setMessage('Your partner agency has not been assigned yet.');
+        return;
+      }
+
       const newOrder = {
-        agencyName: agencyName.trim(),
+        agencyId: profile.agencyId,
+        agencyName: profile.agencyName,
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
         targetCollectionTime: targetCollectionTime.trim(),
@@ -478,6 +531,9 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
         status: 'New' satisfies OrderStatus,
         submittedBy: user.uid,
         createdAt: serverTimestamp(),
+        acceptedAt: null,
+        readyAt: null,
+        collectedAt: null,
         completedAt: null,
       };
       const orderRef = await addDoc(collection(db, 'live_orders'), newOrder);
@@ -487,7 +543,6 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
         'Your referral has been received. Your bag is being packed.',
       );
 
-      setAgencyName('');
       setRecipientName('');
       setRecipientPhone('');
       setTargetCollectionTime('');
@@ -508,15 +563,10 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
       <p className="mt-2 text-sm leading-6 text-slate-500">Send one clear request to the hub. No stock counts. No paperwork.</p>
 
       <form onSubmit={handleSubmit} className="mt-5 grid gap-4">
-        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
-          Agency Name
-          <input
-            value={agencyName}
-            onChange={(event) => setAgencyName(event.target.value)}
-            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
-            required
-          />
-        </label>
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Verified partner agency</p>
+          <p className="mt-1 text-sm font-black text-emerald-950">{profile.agencyName || 'Awaiting agency assignment'}</p>
+        </div>
 
         <label className="grid gap-1.5 text-sm font-bold text-slate-700">
           Recipient Full Name
@@ -589,7 +639,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
   );
 }
 
-function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
+function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }) {
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [handoverTarget, setHandoverTarget] = useState<string | null>(null);
@@ -605,11 +655,24 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
   });
 
   useEffect(() => {
-    const ordersQuery = query(collection(db, 'live_orders'), orderBy('createdAt', 'asc'));
+    const role = profile.role;
+    if (role === 'partner' && !profile.agencyId) {
+      setOrders([]);
+      setLoading(false);
+      return undefined;
+    }
+
+    const ordersQuery = role === 'partner' && profile.agencyId
+      ? query(collection(db, 'live_orders'), where('agencyId', '==', profile.agencyId))
+      : query(collection(db, 'live_orders'), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(
       ordersQuery,
       (snapshot) => {
-        setOrders(snapshot.docs.map((orderDoc) => orderFromDocument(orderDoc.id, orderDoc.data())));
+        setOrders(
+          snapshot.docs
+            .map((orderDoc) => orderFromDocument(orderDoc.id, orderDoc.data()))
+            .sort((first, second) => (first.createdAt?.toMillis() ?? 0) - (second.createdAt?.toMillis() ?? 0)),
+        );
         setLoading(false);
       },
       (err) => {
@@ -620,11 +683,12 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
     );
 
     return unsubscribe;
-  }, []);
+  }, [profile.agencyId, profile.role]);
 
+  const role = profile.role;
   const canChangeStatus = hasStaffAccess(role);
-  const activeOrders = orders.filter((order) => order.status === 'New' || order.status === 'Ready for Collection');
-  const referralOrders = activeOrders.filter((order) => order.status === 'New');
+  const activeOrders = orders.filter((order) => order.status === 'New' || order.status === 'Accepted' || order.status === 'Ready for Collection');
+  const referralOrders = activeOrders.filter((order) => order.status === 'New' || order.status === 'Accepted');
   const handoverOrders = activeOrders.filter((order) => order.status === 'Ready for Collection');
   const normalizedSearch = searchTerm.trim().toLowerCase();
   const tabOrders = queueTab === 'handovers' ? handoverOrders : referralOrders;
@@ -650,7 +714,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
         lastSubmitted: null,
       };
       existing.activeCount += 1;
-      if (order.status === 'New') existing.referrals += 1;
+      if (order.status === 'New' || order.status === 'Accepted') existing.referrals += 1;
       if (order.status === 'Ready for Collection') existing.handovers += 1;
       if (!existing.lastSubmitted || (order.createdAt && order.createdAt.toMillis() > existing.lastSubmitted.toMillis())) {
         existing.lastSubmitted = order.createdAt;
@@ -665,13 +729,19 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
 
   const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
     if (!canChangeStatus) return;
+    const lifecycleTimestamps = {
+      ...(status === 'Accepted' ? { acceptedAt: serverTimestamp() } : {}),
+      ...(status === 'Ready for Collection' ? { readyAt: serverTimestamp() } : {}),
+      ...(status === 'archived' ? { collectedAt: serverTimestamp(), completedAt: serverTimestamp(), completedBy: user.uid } : {}),
+    };
+
     setBusyOrderId(order.id);
     try {
       await updateDoc(doc(db, 'live_orders', order.id), {
         status,
         updatedAt: serverTimestamp(),
         updatedBy: user.uid,
-        ...(status === 'archived' ? { completedAt: serverTimestamp(), completedBy: user.uid } : {}),
+        ...lifecycleTimestamps,
       });
       await writePublicStatus({
         recipientPhone: order.recipientPhone,
@@ -818,6 +888,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
         <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
           {visibleActiveOrders.map((order) => {
             const isReady = order.status === 'Ready for Collection';
+            const isAccepted = order.status === 'Accepted';
             const isEditing = editingOrderId === order.id;
             const canEditOrder = hasStaffAccess(role) || order.submittedBy === user.uid;
 
@@ -827,6 +898,8 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
               className={`rounded-2xl border p-3 shadow-sm ${
                 isReady
                   ? 'border-emerald-300 bg-emerald-50/80'
+                  : isAccepted
+                    ? 'border-blue-300 bg-blue-50/80'
                   : 'border-blue-300 bg-blue-50/80'
               }`}
             >
@@ -847,9 +920,9 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                     </button>
                   ) : null}
                   <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                    isReady ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
+                    isReady ? 'bg-emerald-100 text-emerald-800' : isAccepted ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
                   }`}>
-                    {isReady ? 'Ready for Collection' : 'Needs packing'}
+                    {isReady ? 'Ready for Collection' : isAccepted ? 'Accepted' : 'Needs acceptance'}
                   </span>
                 </div>
               </div>
@@ -957,11 +1030,20 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                   {order.status === 'New' ? (
                     <button
-                      onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
+                      onClick={() => void updateOrderStatus(order, 'Accepted')}
                       disabled={busyOrderId === order.id}
                       className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-700 disabled:opacity-50"
                     >
                       Accept Referral
+                    </button>
+                  ) : null}
+                  {order.status === 'Accepted' ? (
+                    <button
+                      onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
+                      disabled={busyOrderId === order.id}
+                      className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      Mark Ready
                     </button>
                   ) : null}
                   {order.status === 'Ready for Collection' ? (
@@ -1008,6 +1090,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
 
 function AdminUserPanel() {
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
+  const [accessDrafts, setAccessDrafts] = useState<Record<string, { role: UserRole; agencyId: string }>>({});
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'profiles'), (snapshot) => {
@@ -1015,7 +1098,7 @@ function AdminUserPanel() {
         snapshot.docs
           .map((profileDoc) => profileFromDocument(profileDoc.id, profileDoc.data()))
           .sort((first, second) => {
-            const roleWeight: Record<UserRole, number> = { partner: 0, volunteer: 1, admin: 2 };
+            const roleWeight: Record<UserRole, number> = { pending: 0, partner: 1, volunteer: 2, admin: 3 };
             return roleWeight[first.role] - roleWeight[second.role] || first.email.localeCompare(second.email);
           }),
       );
@@ -1024,14 +1107,97 @@ function AdminUserPanel() {
     return unsubscribe;
   }, []);
 
-  const updateRole = async (profile: UserProfile, role: UserRole) => {
-    await updateDoc(doc(db, 'profiles', profile.id), { role });
+  const draftFor = (profile: UserProfile) => {
+    const role = accessDrafts[profile.id]?.role ?? (profile.role === 'pending' ? 'partner' : profile.role);
+    const agencyId = accessDrafts[profile.id]?.agencyId
+      ?? profile.agencyId
+      ?? (role === 'partner' ? partnerAgencies[0].id : 'foodbank_hub');
+
+    return { role, agencyId };
+  };
+
+  const setAccessDraft = (profile: UserProfile, nextDraft: Partial<{ role: UserRole; agencyId: string }>) => {
+    setAccessDrafts((current) => {
+      const existing = draftFor(profile);
+      const nextRole = nextDraft.role ?? existing.role;
+      const nextAgencyId = nextDraft.agencyId
+        ?? (nextRole === 'partner' ? (existing.agencyId === 'foodbank_hub' ? partnerAgencies[0].id : existing.agencyId) : 'foodbank_hub');
+
+      return {
+        ...current,
+        [profile.id]: {
+          role: nextRole,
+          agencyId: nextAgencyId,
+        },
+      };
+    });
+  };
+
+  const saveAccess = async (profile: UserProfile) => {
+    const draft = draftFor(profile);
+    const agencyId = draft.role === 'pending' ? null : draft.role === 'partner' ? draft.agencyId : 'foodbank_hub';
+    const agencyName = agencyNameFromId(agencyId);
+
+    await updateDoc(doc(db, 'profiles', profile.id), {
+      role: draft.role,
+      agencyId,
+      agencyName,
+    });
   };
 
   const roleCounts = profiles.reduce<Record<UserRole, number>>(
     (counts, profile) => ({ ...counts, [profile.role]: counts[profile.role] + 1 }),
-    { partner: 0, volunteer: 0, admin: 0 },
+    { pending: 0, partner: 0, volunteer: 0, admin: 0 },
   );
+  const pendingProfiles = profiles.filter((profile) => profile.role === 'pending');
+  const activeProfiles = profiles.filter((profile) => profile.role !== 'pending');
+
+  const renderAccessControls = (profile: UserProfile, mode: 'approve' | 'save') => {
+    const draft = draftFor(profile);
+    const roleChoices = mode === 'approve'
+      ? roleOptions.filter((role) => role !== 'pending')
+      : roleOptions;
+    const activeAgencyId = draft.role === 'partner' ? draft.agencyId : 'foodbank_hub';
+
+    return (
+      <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <label className="grid gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+          Role
+          <select
+            value={draft.role}
+            onChange={(event) => setAccessDraft(profile, { role: event.target.value as UserRole })}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800"
+          >
+            {roleChoices.map((role) => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+          Agency
+          <select
+            value={activeAgencyId}
+            disabled={draft.role !== 'partner'}
+            onChange={(event) => setAccessDraft(profile, { agencyId: event.target.value })}
+            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800 disabled:opacity-60"
+          >
+            {partnerAgencies.map((agency) => (
+              <option key={agency.id} value={agency.id}>{agency.name}</option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() => void saveAccess(profile)}
+          className={`rounded-xl px-4 py-2.5 text-sm font-black uppercase tracking-wider text-white ${
+            mode === 'approve' ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-950 hover:bg-slate-800'
+          }`}
+        >
+          {mode === 'approve' ? 'Approve Access' : 'Save Access'}
+        </button>
+      </div>
+    );
+  };
 
   return (
     <section className="w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1040,9 +1206,13 @@ function AdminUserPanel() {
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
         Review newly registered partner accounts and assign the correct access level for agency users or foodbank staff.
       </p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+      <div className="mt-5 grid gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Pending Approval</p>
+          <p className="mt-1 text-2xl font-black text-amber-950">{roleCounts.pending}</p>
+        </div>
         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Pending Partners</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Partners</p>
           <p className="mt-1 text-2xl font-black text-blue-950">{roleCounts.partner}</p>
         </div>
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
@@ -1054,9 +1224,43 @@ function AdminUserPanel() {
           <p className="mt-1 text-2xl font-black text-red-950">{roleCounts.admin}</p>
         </div>
       </div>
-      <div className="mt-5 grid gap-3">
-        {profiles.map((profile) => (
-          <div key={profile.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+
+      <div className="mt-6 rounded-3xl border border-amber-100 bg-amber-50/60 p-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-amber-700">Pending Approvals</p>
+            <h3 className="mt-1 text-xl font-black text-slate-950">Approve new accounts</h3>
+          </div>
+          <p className="text-sm font-bold text-amber-800">{pendingProfiles.length} waiting</p>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {pendingProfiles.length === 0 ? (
+            <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">No accounts are waiting for approval.</p>
+          ) : (
+            pendingProfiles.map((profile) => (
+              <div key={profile.id} className="grid gap-3 rounded-2xl border border-amber-100 bg-white p-3">
+                <div className="min-w-0">
+                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
+                    Pending Approval
+                  </span>
+                  <p className="mt-2 break-words text-sm font-black text-slate-950">{profile.name}</p>
+                  <p className="break-all text-xs font-semibold text-slate-500">{profile.email}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
+                    Requested agency: <span className="text-slate-800">{profile.requestedAgencyName || 'Not provided'}</span>
+                  </p>
+                </div>
+                {renderAccessControls(profile, 'approve')}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Active Users</p>
+        <div className="mt-3 grid gap-3">
+        {activeProfiles.map((profile) => (
+          <div key={profile.id} className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 lg:grid-cols-[1fr_minmax(22rem,auto)] lg:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="break-words text-sm font-black text-slate-950">{profile.name}</p>
@@ -1065,27 +1269,19 @@ function AdminUserPanel() {
                     ? 'bg-red-100 text-red-700'
                     : profile.role === 'volunteer'
                       ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-blue-100 text-blue-700'
+                      : profile.role === 'partner'
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-amber-100 text-amber-700'
                 }`}>
-                  {profile.role === 'partner' ? 'Awaiting staff access' : profile.role}
+                  {profile.role === 'partner' ? `Partner · ${profile.agencyName || 'Unassigned'}` : profile.role === 'pending' ? 'Pending Approval' : `${profile.role} · ${profile.agencyName || 'Foodbank Hub'}`}
                 </span>
               </div>
               <p className="break-all text-xs font-semibold text-slate-500">{profile.email}</p>
             </div>
-            <label className="grid gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500 sm:min-w-44">
-              Assign role
-            <select
-              value={profile.role}
-              onChange={(event) => void updateRole(profile, event.target.value as UserRole)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800"
-            >
-              {roleOptions.map((role) => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
-            </label>
+            {renderAccessControls(profile, 'save')}
           </div>
         ))}
+        </div>
       </div>
     </section>
   );
@@ -1118,11 +1314,17 @@ export default function App() {
             email: nextUser.email ?? 'missing-email',
             name: nextUser.email === adminEmail ? 'Foodbank Admin' : 'Partner agency',
             role: normalizeRole(undefined, nextUser.email),
+            agencyId: nextUser.email === adminEmail ? 'foodbank_hub' : null,
+            agencyName: nextUser.email === adminEmail ? 'Foodbank Hub' : '',
+            requestedAgencyName: '',
           };
           await setDoc(doc(db, 'profiles', nextUser.uid), {
             email: fallbackProfile.email,
             name: fallbackProfile.name,
             role: fallbackProfile.role,
+            agencyId: fallbackProfile.agencyId,
+            agencyName: fallbackProfile.agencyName,
+            requestedAgencyName: fallbackProfile.requestedAgencyName,
           }, { merge: true });
           setProfile(fallbackProfile);
         }
@@ -1167,10 +1369,25 @@ export default function App() {
         </div>
       ) : null}
 
+      {user && profile && role === 'pending' ? (
+        <section className="mx-auto max-w-2xl rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-amber-700">Awaiting Approval</p>
+          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Your account is awaiting admin approval.</h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-500">
+            A foodbank admin needs to confirm your organisation and access level before operational referral data is shown.
+          </p>
+          {profile.requestedAgencyName ? (
+            <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
+              Requested agency: {profile.requestedAgencyName}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {user && profile && role === 'partner' ? (
         <div className="grid gap-6">
           <PartnerReferralForm user={user} profile={profile} />
-          <LiveOrdersQueue user={user} role={role} />
+          <LiveOrdersQueue user={user} profile={profile} />
         </div>
       ) : null}
 
@@ -1180,12 +1397,12 @@ export default function App() {
             <div className="md:grid md:grid-cols-[15rem_minmax(0,1fr)] md:items-start md:gap-6">
               <PrimaryNavigation activeTab={visibleActiveTab} onChange={setActiveTab} />
               <div className="min-w-0">
-                {visibleActiveTab === 'queue' ? <LiveOrdersQueue user={user} role={role} /> : null}
+                {visibleActiveTab === 'queue' ? <LiveOrdersQueue user={user} profile={profile} /> : null}
                 {visibleActiveTab === 'admin' ? <AdminUserPanel /> : null}
               </div>
             </div>
           ) : (
-            <LiveOrdersQueue user={user} role={role} />
+            <LiveOrdersQueue user={user} profile={profile} />
           )}
         </>
       ) : null}

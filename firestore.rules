@@ -24,22 +24,33 @@ service cloud.firestore {
       return profileRoleIn(["volunteer", "admin"]);
     }
 
-    function isOwnPartnerProfileCreate(userId) {
+    function currentProfileAgencyId() {
+      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.agencyId;
+    }
+
+    function isOwnPendingProfileCreate(userId) {
       return isSignedIn()
         && request.auth.uid == userId
         && request.resource.data.keys().hasOnly([
           "email",
           "name",
-          "role"
+          "role",
+          "agencyId",
+          "agencyName",
+          "requestedAgencyName"
         ])
         && request.resource.data.email is string
         && request.resource.data.name is string
-        && request.resource.data.role == "partner";
+        && request.resource.data.role == "pending"
+        && request.resource.data.agencyId == null
+        && request.resource.data.agencyName == ""
+        && request.resource.data.requestedAgencyName is string;
     }
 
     function isLiveOrderCreate() {
       return profileRoleIn(["partner", "admin"])
         && request.resource.data.keys().hasOnly([
+          "agencyId",
           "agencyName",
           "recipientName",
           "recipientPhone",
@@ -49,8 +60,13 @@ service cloud.firestore {
           "status",
           "submittedBy",
           "createdAt",
+          "acceptedAt",
+          "readyAt",
+          "collectedAt",
           "completedAt"
         ])
+        && request.resource.data.agencyId is string
+        && request.resource.data.agencyId == currentProfileAgencyId()
         && request.resource.data.agencyName is string
         && request.resource.data.agencyName.size() > 0
         && request.resource.data.recipientName is string
@@ -66,14 +82,28 @@ service cloud.firestore {
         && request.resource.data.submittedBy == request.auth.uid;
     }
 
-    function isLiveOrderPackUpdate() {
+    function isLiveOrderAcceptUpdate() {
       return canOperateOrders()
         && resource.data.status == "New"
+        && request.resource.data.status == "Accepted"
+        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          "status",
+          "updatedAt",
+          "updatedBy",
+          "acceptedAt"
+        ])
+        && request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    function isLiveOrderReadyUpdate() {
+      return canOperateOrders()
+        && resource.data.status == "Accepted"
         && request.resource.data.status == "Ready for Collection"
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "status",
           "updatedAt",
-          "updatedBy"
+          "updatedBy",
+          "readyAt"
         ])
         && request.resource.data.updatedBy == request.auth.uid;
     }
@@ -86,6 +116,7 @@ service cloud.firestore {
           "status",
           "updatedAt",
           "updatedBy",
+          "collectedAt",
           "completedAt",
           "completedBy"
         ])
@@ -101,7 +132,7 @@ service cloud.firestore {
             && resource.data.submittedBy == request.auth.uid
           )
         )
-        && resource.data.status in ["New", "Ready for Collection"]
+        && resource.data.status in ["New", "Accepted", "Ready for Collection"]
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
           "recipientName",
           "recipientPhone",
@@ -130,7 +161,7 @@ service cloud.firestore {
         ])
         && request.resource.data.recipientName is string
         && request.resource.data.targetCollectionTime is string
-        && request.resource.data.status in ["New", "Ready for Collection", "archived"];
+        && request.resource.data.status in ["New", "Accepted", "Ready for Collection", "archived"];
     }
 
     function isNotificationEventCreate() {
@@ -150,7 +181,7 @@ service cloud.firestore {
         && request.resource.data.recipientPhone is string
         && request.resource.data.recipientPhone.size() > 0
         && request.resource.data.recipientName is string
-        && request.resource.data.status in ["New", "Ready for Collection", "archived"]
+        && request.resource.data.status in ["New", "Accepted", "Ready for Collection", "archived"]
         && request.resource.data.channel == "sms"
         && request.resource.data.message is string
         && request.resource.data.message.size() > 0
@@ -162,14 +193,18 @@ service cloud.firestore {
     match /profiles/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin();
-      allow create: if isAdmin() || isOwnPartnerProfileCreate(userId);
+      allow create: if isAdmin() || isOwnPendingProfileCreate(userId);
       allow update, delete: if isAdmin();
     }
 
     match /live_orders/{orderId} {
-      allow read: if profileRoleIn(["partner", "volunteer", "admin"]);
+      allow read: if canOperateOrders()
+        || (
+          profileRoleIn(["partner"])
+          && resource.data.agencyId == currentProfileAgencyId()
+        );
       allow create: if isLiveOrderCreate();
-      allow update: if isAdmin() || isLiveOrderPackUpdate() || isLiveOrderCompleteUpdate() || isLiveOrderTypoUpdate();
+      allow update: if isAdmin() || isLiveOrderAcceptUpdate() || isLiveOrderReadyUpdate() || isLiveOrderCompleteUpdate() || isLiveOrderTypoUpdate();
       allow delete: if isAdmin();
     }
 
