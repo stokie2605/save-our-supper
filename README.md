@@ -2,7 +2,7 @@
 
 Save Our Supper is now a deliberately simple foodbank referral app.
 
-It has one job: trusted partner agencies send a referral, foodbank staff pack the bag, and the handover is logged. The old stock dashboards, barcode scanner, intake tools, community feed, analytics, and test utilities have been removed from the live app direction.
+It has one job: trusted partner agencies send a referral, foodbank staff accept it, and the collection is logged. The old stock dashboards, barcode scanner, intake tools, community feed, analytics, and test utilities have been removed from the live app direction.
 
 **Live app:** https://save-our-supper.web.app/
 
@@ -74,9 +74,9 @@ The frontend now includes a webhook-ready notification shell. If `VITE_SMS_WEBHO
 
 1. A partner submits a referral with the recipient name, collection target, family size, and dietary notes.
 2. The document is written to `live_orders` with `status: "New"`.
-3. Staff click **Pack Bag** to move it to `Ready for Collection`.
-4. Staff click **Log Handover**, confirm the action, and the order moves to `archived`.
-5. Archived handovers from the last 24 hours appear in a collapsed **Completed Today** section.
+3. Staff click **Accept Referral** to move it to `Ready for Collection`.
+4. Staff click **Mark Collected**, confirm the action, and the order moves to `archived`.
+5. Archived collections from the last 24 hours appear in a collapsed **Collected Today** section.
 
 Archived orders are filtered out of the active queue tabs and partner summaries, keeping the operational dashboard focused only on referrals that still need action.
 
@@ -90,7 +90,7 @@ The queue layout now uses compact operational board cards inspired by a paperles
 The queue also includes three lightweight board filters:
 
 * **Referrals** - shows `New` orders that still need packing.
-* **Handovers** - shows orders that are `Ready for Collection`.
+* **Ready for Collection** - shows orders that are `Ready for Collection`.
 * **Partners** - shows a compact agency summary with active referral counts, ready-for-pickup counts, and last submitted time.
 
 Each order includes a clickable phone link using `tel:` so staff can call the recipient quickly from a mobile device. Partners and staff can also use the inline **Edit** action to correct typos in the recipient name, phone number, collection time, or dietary notes without changing workflow status.
@@ -122,7 +122,7 @@ Firestore rules are aligned to the stripped-down model:
 * Partners can edit only safe typo fields on referrals they submitted.
 * Volunteers and admins can edit safe typo fields on active orders.
 * Volunteers and admins can move orders through the safe workflow states.
-* The Live Queue action buttons use the same shared staff-role check as the rules: `volunteer` and `admin` can pack bags and log handovers.
+* The Live Queue action buttons use the same shared staff-role check as the rules: `volunteer` and `admin` can accept referrals and mark them collected.
 * Public users can read only an exact `public_status/{phoneKey}` document and cannot list statuses.
 * Mock SMS events are write-only for operational roles and readable only by admins.
 * Admins retain full fallback access.

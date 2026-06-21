@@ -303,7 +303,7 @@ function SignInCard() {
         {creating ? 'Create partner account' : 'Sign in'}
       </h1>
       <p className="mt-2 text-sm leading-6 text-slate-500">
-        Partners submit referrals. Foodbank staff pack and log handovers.
+        Partners submit referrals. Foodbank staff accept them and mark collections.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-5 grid gap-4">
@@ -643,7 +643,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
       <div className="mb-5 rounded-3xl bg-slate-950 p-5 text-white shadow-sm">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Foodbank hub</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight">Live Orders Queue</h2>
-        <p className="mt-2 text-sm text-slate-300">Pack bags, mark them ready, then log handover. That is the whole workflow.</p>
+        <p className="mt-2 text-sm text-slate-300">Accept referrals, mark bags ready, then record collection. That is the whole workflow.</p>
       </div>
 
       <div className="mb-4 grid gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
@@ -665,7 +665,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
               queueTab === 'handovers' ? 'border-emerald-300 bg-emerald-50 shadow-sm' : 'border-slate-200 bg-[#FBF7EF] hover:border-emerald-200'
             }`}
           >
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Handovers</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ready for Collection</p>
             <p className="text-lg font-black text-emerald-700">{handoverOrders.length} waiting</p>
           </button>
           <button
@@ -763,7 +763,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                   <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
                     isReady ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
                   }`}>
-                    {isReady ? 'Waiting for pickup' : 'Needs packing'}
+                    {isReady ? 'Ready for Collection' : 'Needs packing'}
                   </span>
                 </div>
               </div>
@@ -850,14 +850,14 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
 
               {canChangeStatus && handoverTarget === order.id ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-sm font-black text-amber-900">Are you sure you want to log handover?</p>
+                  <p className="text-sm font-black text-amber-900">Are you sure you want to mark this referral collected?</p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                     <button
                       onClick={() => void updateOrderStatus(order, 'archived')}
                       disabled={busyOrderId === order.id}
                       className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
                     >
-                      Confirm Handover
+                      Mark Collected
                     </button>
                     <button
                       onClick={() => setHandoverTarget(null)}
@@ -875,7 +875,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                       disabled={busyOrderId === order.id}
                       className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-700 disabled:opacity-50"
                     >
-                      Pack Bag
+                      Accept Referral
                     </button>
                   ) : null}
                   {order.status === 'Ready for Collection' ? (
@@ -883,7 +883,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                       onClick={() => setHandoverTarget(order.id)}
                       className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-800"
                     >
-                      Log Handover
+                      Mark Collected
                     </button>
                   ) : null}
                 </div>
@@ -901,16 +901,16 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
 
       <details className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
         <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-700">
-          Completed Today ({completedToday.length})
+          Collected Today ({completedToday.length})
         </summary>
         <div className="mt-4 grid gap-2">
           {completedToday.length === 0 ? (
-            <p className="text-sm font-semibold text-slate-400">No handovers logged in the last 24 hours.</p>
+            <p className="text-sm font-semibold text-slate-400">No collections logged in the last 24 hours.</p>
           ) : (
             completedToday.map((order) => (
               <div key={order.id} className="rounded-2xl bg-slate-50 px-3 py-2 text-sm">
                 <span className="font-black text-slate-900">{order.recipientName}</span>
-                <span className="text-slate-500"> from {order.agencyName} completed {formatTimestamp(order.completedAt)}</span>
+                <span className="text-slate-500"> from {order.agencyName} collected {formatTimestamp(order.completedAt)}</span>
               </div>
             ))
           )}
@@ -1055,7 +1055,7 @@ export default function App() {
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Save Our Supper</p>
           <h1 className="mt-1 text-2xl font-black tracking-tight">Zero-Paperwork Referrals</h1>
-          <p className="mt-1 text-sm text-slate-300">Referral in. Bag packed. Handover logged.</p>
+          <p className="mt-1 text-sm text-slate-300">Referral in. Bag accepted. Collection logged.</p>
         </div>
         {user ? (
           <button
