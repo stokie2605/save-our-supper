@@ -22,9 +22,10 @@ import {
 } from 'firebase/firestore';
 import { AppShell } from './components/AppShell';
 import { db, firebaseAuth } from './lib/firebaseConfig';
+import { triggerSmsWebhook } from './lib/notificationWebhook';
 
 type UserRole = 'partner' | 'volunteer' | 'admin';
-type OrderStatus = 'New' | 'Ready for Collection' | 'Completed';
+type OrderStatus = 'New' | 'Ready for Collection' | 'archived';
 type ActiveTab = 'queue' | 'admin';
 type QueueTab = 'referrals' | 'handovers' | 'partners';
 
@@ -84,7 +85,7 @@ function formatTimestamp(value: Timestamp | null) {
 }
 
 function isCompletedToday(order: LiveOrder) {
-  if (order.status !== 'Completed' || !order.completedAt) return false;
+  if (order.status !== 'archived' || !order.completedAt) return false;
   return Date.now() - order.completedAt.toDate().getTime() <= 24 * 60 * 60 * 1000;
 }
 
@@ -94,13 +95,13 @@ function normalizePhoneKey(phone: string) {
 
 function statusMessage(status: OrderStatus) {
   if (status === 'Ready for Collection') return 'Your bag is ready for collection!';
-  if (status === 'Completed') return 'Your bag has been handed over.';
+  if (status === 'archived') return 'Your bag has been handed over.';
   return 'Your bag is being packed';
 }
 
 function statusLightClass(status: OrderStatus) {
   if (status === 'Ready for Collection') return 'bg-emerald-500';
-  if (status === 'Completed') return 'bg-slate-500';
+  if (status === 'archived') return 'bg-slate-500';
   return 'bg-amber-400';
 }
 
@@ -127,6 +128,25 @@ async function logSmsNotification(order: {
   recipientName: string;
   status: OrderStatus;
 }, message: string) {
+  let webhookConfigured = false;
+  let webhookSent = false;
+  let webhookError = '';
+
+  try {
+    const webhookResult = await triggerSmsWebhook({
+      orderId: order.id,
+      recipientPhone: order.recipientPhone,
+      recipientName: order.recipientName,
+      status: order.status,
+      message,
+    });
+    webhookConfigured = webhookResult.configured;
+    webhookSent = webhookResult.sent;
+  } catch (err) {
+    webhookConfigured = true;
+    webhookError = err instanceof Error ? err.message : 'SMS webhook failed.';
+  }
+
   await addDoc(collection(db, 'notification_events'), {
     orderId: order.id ?? null,
     recipientPhone: order.recipientPhone,
@@ -134,6 +154,9 @@ async function logSmsNotification(order: {
     status: order.status,
     channel: 'sms',
     message,
+    webhookConfigured,
+    webhookSent,
+    webhookError,
     createdAt: serverTimestamp(),
   });
 }
@@ -147,7 +170,7 @@ function orderFromDocument(id: string, data: DocumentData): LiveOrder {
     targetCollectionTime: String(data.targetCollectionTime ?? ''),
     familySize: Number(data.familySize ?? 1),
     dietaryNotes: String(data.dietaryNotes ?? ''),
-    status: (['New', 'Ready for Collection', 'Completed'].includes(data.status) ? data.status : 'New') as OrderStatus,
+    status: (['New', 'Ready for Collection', 'archived'].includes(data.status) ? data.status : 'New') as OrderStatus,
     submittedBy: String(data.submittedBy ?? ''),
     createdAt: data.createdAt instanceof Timestamp ? data.createdAt : null,
     completedAt: data.completedAt instanceof Timestamp ? data.completedAt : null,
@@ -190,7 +213,7 @@ function PublicStatusCheck() {
 
       const data = statusSnapshot.data();
       setStatus({
-        status: (['New', 'Ready for Collection', 'Completed'].includes(data.status) ? data.status : 'New') as OrderStatus,
+        status: (['New', 'Ready for Collection', 'archived'].includes(data.status) ? data.status : 'New') as OrderStatus,
         recipientName: String(data.recipientName ?? 'Recipient'),
         targetCollectionTime: String(data.targetCollectionTime ?? ''),
         updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt : null,
@@ -557,7 +580,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
         status,
         updatedAt: serverTimestamp(),
         updatedBy: user.uid,
-        ...(status === 'Completed' ? { completedAt: serverTimestamp(), completedBy: user.uid } : {}),
+        ...(status === 'archived' ? { completedAt: serverTimestamp(), completedBy: user.uid } : {}),
       });
       await writePublicStatus({
         recipientPhone: order.recipientPhone,
@@ -825,7 +848,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
                   <p className="text-sm font-black text-amber-900">Are you sure you want to log handover?</p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                     <button
-                      onClick={() => void updateOrderStatus(order, 'Completed')}
+                      onClick={() => void updateOrderStatus(order, 'archived')}
                       disabled={busyOrderId === order.id}
                       className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
                     >
@@ -897,7 +920,14 @@ function AdminUserPanel() {
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'profiles'), (snapshot) => {
-      setProfiles(snapshot.docs.map((profileDoc) => profileFromDocument(profileDoc.id, profileDoc.data())));
+      setProfiles(
+        snapshot.docs
+          .map((profileDoc) => profileFromDocument(profileDoc.id, profileDoc.data()))
+          .sort((first, second) => {
+            const roleWeight: Record<UserRole, number> = { partner: 0, volunteer: 1, admin: 2 };
+            return roleWeight[first.role] - roleWeight[second.role] || first.email.localeCompare(second.email);
+          }),
+      );
     });
 
     return unsubscribe;
@@ -907,17 +937,52 @@ function AdminUserPanel() {
     await updateDoc(doc(db, 'profiles', profile.id), { role });
   };
 
+  const roleCounts = profiles.reduce<Record<UserRole, number>>(
+    (counts, profile) => ({ ...counts, [profile.role]: counts[profile.role] + 1 }),
+    { partner: 0, volunteer: 0, admin: 0 },
+  );
+
   return (
     <section className="mx-auto mt-6 max-w-4xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-black uppercase tracking-widest text-red-700">Admin</p>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">User Roles</h2>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+        Review newly registered partner accounts and assign the correct access level for agency users or foodbank staff.
+      </p>
+      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-700">Pending Partners</p>
+          <p className="mt-1 text-2xl font-black text-blue-950">{roleCounts.partner}</p>
+        </div>
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Volunteers</p>
+          <p className="mt-1 text-2xl font-black text-emerald-950">{roleCounts.volunteer}</p>
+        </div>
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-red-700">Admins</p>
+          <p className="mt-1 text-2xl font-black text-red-950">{roleCounts.admin}</p>
+        </div>
+      </div>
       <div className="mt-5 grid gap-3">
         {profiles.map((profile) => (
           <div key={profile.id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="break-words text-sm font-black text-slate-950">{profile.name}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="break-words text-sm font-black text-slate-950">{profile.name}</p>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                  profile.role === 'admin'
+                    ? 'bg-red-100 text-red-700'
+                    : profile.role === 'volunteer'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-blue-100 text-blue-700'
+                }`}>
+                  {profile.role === 'partner' ? 'Awaiting staff access' : profile.role}
+                </span>
+              </div>
               <p className="break-all text-xs font-semibold text-slate-500">{profile.email}</p>
             </div>
+            <label className="grid gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500 sm:min-w-44">
+              Assign role
             <select
               value={profile.role}
               onChange={(event) => void updateRole(profile, event.target.value as UserRole)}
@@ -927,6 +992,7 @@ function AdminUserPanel() {
                 <option key={role} value={role}>{role}</option>
               ))}
             </select>
+            </label>
           </div>
         ))}
       </div>

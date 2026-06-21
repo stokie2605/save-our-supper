@@ -46,7 +46,7 @@ Expected fields:
 * `targetCollectionTime`
 * `familySize`
 * `dietaryNotes`
-* `status` - `New`, `Ready for Collection`, or `Completed`
+* `status` - `New`, `Ready for Collection`, or `archived`
 * `submittedBy`
 * `createdAt`
 * `completedAt`
@@ -59,12 +59,14 @@ This avoids opening the full `live_orders` queue publicly. A collector can enter
 
 ### `notification_events`
 
-Stores mock outbound SMS events for future integration with a provider such as Twilio.
+Stores outbound SMS event records for future integration with a provider such as Twilio.
 
 Events are logged when:
 
 * A referral is first submitted.
 * A bag is marked `Ready for Collection`.
+
+The frontend now includes a webhook-ready notification shell. If `VITE_SMS_WEBHOOK_URL` is configured, the app will POST the SMS payload to that endpoint and record whether the webhook was configured, sent, or failed. If no webhook is configured, the app still writes a safe audit record to `notification_events` without blocking the foodbank workflow.
 
 ---
 
@@ -73,8 +75,10 @@ Events are logged when:
 1. A partner submits a referral with the recipient name, collection target, family size, and dietary notes.
 2. The document is written to `live_orders` with `status: "New"`.
 3. Staff click **Pack Bag** to move it to `Ready for Collection`.
-4. Staff click **Log Handover**, confirm the action, and the order moves to `Completed`.
-5. Completed orders from the last 24 hours appear in a collapsed **Completed Today** section.
+4. Staff click **Log Handover**, confirm the action, and the order moves to `archived`.
+5. Archived handovers from the last 24 hours appear in a collapsed **Completed Today** section.
+
+Archived orders are filtered out of the active queue tabs and partner summaries, keeping the operational dashboard focused only on referrals that still need action.
 
 The Live Orders Queue is now universally visible to partners, volunteers, and admins. Active cards are colour-coded:
 
@@ -121,6 +125,34 @@ Firestore rules are aligned to the stripped-down model:
 * Public users can read only an exact `public_status/{phoneKey}` document and cannot list statuses.
 * Mock SMS events are write-only for operational roles and readable only by admins.
 * Admins retain full fallback access.
+
+---
+
+## Admin Role Assignment
+
+The admin-only **User Roles** panel now acts as a lightweight access desk for newly registered accounts.
+
+It shows:
+
+* pending partner accounts awaiting staff access
+* current volunteer accounts
+* current admin accounts
+
+Admins can assign each profile to `partner`, `volunteer`, or `admin` directly from the dashboard. Partner accounts remain the default for new sign-ups, so no new user receives staff access until an admin upgrades them.
+
+---
+
+## Production Notification Hook
+
+The app keeps the existing `notification_events` audit trail, but now includes an exportable SMS webhook integration point.
+
+Set this environment variable when a real provider is ready:
+
+```bash
+VITE_SMS_WEBHOOK_URL=https://your-sms-provider-or-cloud-function.example/send
+```
+
+The hook is intentionally provider-neutral. It can point to a Firebase Cloud Function, Twilio proxy, Make/Zapier webhook, or another approved text gateway without changing the queue UI.
 
 ---
 
