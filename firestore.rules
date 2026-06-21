@@ -2,227 +2,98 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
 
+    function userPath(userId) {
+      return /databases/$(database)/documents/users/$(userId);
+    }
+
+    function currentUserDoc() {
+      return get(userPath(request.auth.uid));
+    }
+
+    function currentRole() {
+      return signedIn() && exists(userPath(request.auth.uid))
+        ? currentUserDoc().data.role
+        : null;
+    }
+
     function isAdmin() {
-      return isSignedIn()
-        && request.auth.token.email == "stokie2605@gmail.com";
+      return currentRole() == "admin";
     }
 
-    function profileRoleIn(roles) {
-      return isAdmin()
-        || (
-          isSignedIn()
-          && exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
-          && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role in roles
-        );
+    function isActiveVolunteer() {
+      return currentRole() == "active_volunteer";
     }
 
-    function canOperateOrders() {
-      return profileRoleIn(["volunteer", "admin"]);
+    function validRole(role) {
+      return role in ["pending", "active_volunteer", "admin"];
     }
 
-    function currentProfileAgencyId() {
-      return get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.agencyId;
+    function validUserProfile(data) {
+      return data.keys().hasOnly([
+        "uid",
+        "email",
+        "displayName",
+        "photoURL",
+        "role",
+        "createdAt",
+        "updatedAt"
+      ])
+      && data.uid is string
+      && data.role is string
+      && validRole(data.role)
+      && (!("email" in data) || data.email == null || data.email is string)
+      && (!("displayName" in data) || data.displayName == null || data.displayName is string)
+      && (!("photoURL" in data) || data.photoURL == null || data.photoURL is string);
     }
 
-    function isOwnPendingProfileCreate(userId) {
-      return isSignedIn()
+    function roleWasNotChanged() {
+      return !request.resource.data
+        .diff(resource.data)
+        .affectedKeys()
+        .hasAny(["role"]);
+    }
+
+    match /users/{userId} {
+      allow create: if signedIn()
         && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly([
-          "email",
-          "name",
-          "role",
-          "agencyId",
-          "agencyName",
-          "requestedAgencyName"
-        ])
-        && request.resource.data.email is string
-        && request.resource.data.name is string
-        && request.resource.data.role == "pending"
-        && request.resource.data.agencyId == null
-        && request.resource.data.agencyName == ""
-        && request.resource.data.requestedAgencyName is string;
-    }
+        && validUserProfile(request.resource.data)
+        && request.resource.data.uid == userId
+        && request.resource.data.role == "pending";
 
-    function isLiveOrderCreate() {
-      return profileRoleIn(["partner", "admin"])
-        && request.resource.data.keys().hasOnly([
-          "agencyId",
-          "agencyName",
-          "recipientName",
-          "recipientPhone",
-          "targetCollectionTime",
-          "familySize",
-          "dietaryNotes",
-          "status",
-          "submittedBy",
-          "createdAt",
-          "acceptedAt",
-          "readyAt",
-          "collectedAt",
-          "completedAt"
-        ])
-        && request.resource.data.agencyId is string
-        && request.resource.data.agencyId == currentProfileAgencyId()
-        && request.resource.data.agencyName is string
-        && request.resource.data.agencyName.size() > 0
-        && request.resource.data.recipientName is string
-        && request.resource.data.recipientName.size() > 0
-        && request.resource.data.recipientPhone is string
-        && request.resource.data.recipientPhone.size() > 0
-        && request.resource.data.targetCollectionTime is string
-        && request.resource.data.targetCollectionTime.size() > 0
-        && request.resource.data.familySize is int
-        && request.resource.data.familySize >= 1
-        && request.resource.data.dietaryNotes is string
-        && request.resource.data.status == "New"
-        && request.resource.data.submittedBy == request.auth.uid;
-    }
+      allow read: if signedIn()
+        && (
+          request.auth.uid == userId ||
+          isAdmin()
+        );
 
-    function isLiveOrderAcceptUpdate() {
-      return canOperateOrders()
-        && resource.data.status == "New"
-        && request.resource.data.status == "Accepted"
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
-          "status",
-          "updatedAt",
-          "updatedBy",
-          "acceptedAt"
-        ])
-        && request.resource.data.updatedBy == request.auth.uid;
-    }
-
-    function isLiveOrderReadyUpdate() {
-      return canOperateOrders()
-        && resource.data.status == "Accepted"
-        && request.resource.data.status == "Ready for Collection"
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
-          "status",
-          "updatedAt",
-          "updatedBy",
-          "readyAt"
-        ])
-        && request.resource.data.updatedBy == request.auth.uid;
-    }
-
-    function isLiveOrderCompleteUpdate() {
-      return canOperateOrders()
-        && resource.data.status == "Ready for Collection"
-        && request.resource.data.status == "archived"
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
-          "status",
-          "updatedAt",
-          "updatedBy",
-          "collectedAt",
-          "completedAt",
-          "completedBy"
-        ])
-        && request.resource.data.updatedBy == request.auth.uid
-        && request.resource.data.completedBy == request.auth.uid;
-    }
-
-    function isLiveOrderTypoUpdate() {
-      return (
-          canOperateOrders()
-          || (
-            profileRoleIn(["partner"])
-            && resource.data.submittedBy == request.auth.uid
+      allow update: if signedIn()
+        && validUserProfile(request.resource.data)
+        && request.resource.data.uid == userId
+        && (
+          isAdmin() ||
+          (
+            request.auth.uid == userId &&
+            roleWasNotChanged()
           )
-        )
-        && resource.data.status in ["New", "Accepted", "Ready for Collection"]
-        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
-          "recipientName",
-          "recipientPhone",
-          "targetCollectionTime",
-          "dietaryNotes",
-          "updatedAt",
-          "updatedBy"
-        ])
-        && request.resource.data.recipientName is string
-        && request.resource.data.recipientName.size() > 0
-        && request.resource.data.recipientPhone is string
-        && request.resource.data.recipientPhone.size() > 0
-        && request.resource.data.targetCollectionTime is string
-        && request.resource.data.targetCollectionTime.size() > 0
-        && request.resource.data.dietaryNotes is string
-        && request.resource.data.updatedBy == request.auth.uid;
-    }
+        );
 
-    function isPublicStatusWrite() {
-      return profileRoleIn(["partner", "volunteer", "admin"])
-        && request.resource.data.keys().hasOnly([
-          "recipientName",
-          "targetCollectionTime",
-          "status",
-          "updatedAt"
-        ])
-        && request.resource.data.recipientName is string
-        && request.resource.data.targetCollectionTime is string
-        && request.resource.data.status in ["New", "Accepted", "Ready for Collection", "archived"];
-    }
-
-    function isNotificationEventCreate() {
-      return profileRoleIn(["partner", "volunteer", "admin"])
-        && request.resource.data.keys().hasOnly([
-          "orderId",
-          "recipientPhone",
-          "recipientName",
-          "status",
-          "channel",
-          "message",
-          "webhookConfigured",
-          "webhookSent",
-          "webhookError",
-          "createdAt"
-        ])
-        && request.resource.data.recipientPhone is string
-        && request.resource.data.recipientPhone.size() > 0
-        && request.resource.data.recipientName is string
-        && request.resource.data.status in ["New", "Accepted", "Ready for Collection", "archived"]
-        && request.resource.data.channel == "sms"
-        && request.resource.data.message is string
-        && request.resource.data.message.size() > 0
-        && request.resource.data.webhookConfigured is bool
-        && request.resource.data.webhookSent is bool
-        && request.resource.data.webhookError is string;
-    }
-
-    match /profiles/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin();
-      allow create: if isAdmin() || isOwnPendingProfileCreate(userId);
-      allow update, delete: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     match /live_orders/{orderId} {
-      allow read: if canOperateOrders()
-        || (
-          profileRoleIn(["partner"])
-          && resource.data.agencyId == currentProfileAgencyId()
-        );
-      allow create: if isLiveOrderCreate();
-      allow update: if isAdmin() || isLiveOrderAcceptUpdate() || isLiveOrderReadyUpdate() || isLiveOrderCompleteUpdate() || isLiveOrderTypoUpdate();
-      allow delete: if isAdmin();
+      allow read, write: if isActiveVolunteer() || isAdmin();
     }
 
-    match /public_status/{phoneKey} {
-      allow get: if true;
-      allow list: if false;
-      allow create, update: if isPublicStatusWrite();
-      allow delete: if isAdmin();
-    }
-
-    match /notification_events/{eventId} {
-      allow read: if isAdmin();
-      allow create: if isNotificationEventCreate();
-      allow update, delete: if isAdmin();
+    match /agencies/{agencyId} {
+      allow read, write: if isAdmin();
     }
 
     match /{document=**} {
-      allow read, write: if isAdmin();
+      allow read, write: if false;
     }
   }
 }

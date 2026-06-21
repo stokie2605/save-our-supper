@@ -13,8 +13,7 @@ It has one job: trusted partner agencies send a referral, foodbank staff accept 
 The app now has three role-based views only:
 
 * **Pending:** sees only an awaiting approval screen until an admin assigns access.
-* **Partner:** sees the Submit Referral Form and their own agency's Live Orders Queue underneath it.
-* **Volunteer:** sees the Live Orders Queue.
+* **Active Volunteer:** sees the Submit Referral Form and Live Orders Queue.
 * **Admin:** sees the Live Orders Queue plus a small User Roles panel.
 
 This keeps the workflow light enough for phone use at the counter or on the foodbank floor.
@@ -23,18 +22,19 @@ This keeps the workflow light enough for phone use at the counter or on the food
 
 ## Firestore Collections
 
-### `profiles`
+### `users`
 
 Stores user role records.
 
 Expected fields:
 
+* `uid`
 * `email`
-* `name`
-* `role` - one of `pending`, `partner`, `volunteer`, or `admin`
-* `agencyId` - strict machine-safe agency key such as `plus_dane`
-* `agencyName` - official display label such as `Plus Dane`
-* `requestedAgencyName` - self-reported organisation text from sign-up, used only for admin review
+* `displayName`
+* `photoURL`
+* `role` - one of `pending`, `active_volunteer`, or `admin`
+* `createdAt`
+* `updatedAt`
 
 Newly created accounts default to `pending`. Admins must approve them before operational data is shown.
 
@@ -130,19 +130,16 @@ The frontend uses Firebase Authentication.
 
 Firestore rules are aligned to the stripped-down model:
 
-* Users can read their own `profiles/{uid}` document.
-* Admins can list and update profiles.
+* Users can read their own `users/{uid}` document.
+* Admins can list users and update user roles.
 * Pending users cannot read the operational queue.
-* Partners can create referrals only with the `agencyId` assigned to their profile.
-* Partners can read only referrals whose `agencyId` matches their own profile.
-* Volunteers and admins can read the live queue.
-* Partners can edit only safe typo fields on referrals they submitted.
-* Volunteers and admins can edit safe typo fields on active orders.
-* Volunteers and admins can move orders through the safe workflow states.
-* The Live Queue action buttons use the same shared staff-role check as the rules: `volunteer` and `admin` can accept referrals and mark them collected.
+* Active volunteers and admins can read and write `live_orders`.
+* Only admins can read and write `agencies`.
+* Users cannot change their own role field.
+* The Live Queue action buttons use the same shared staff-role check as the rules: `active_volunteer` and `admin` can accept referrals and mark them collected.
 * Public users can read only an exact `public_status/{phoneKey}` document and cannot list statuses.
 * Mock SMS events are write-only for operational roles and readable only by admins.
-* Admins retain full fallback access.
+* All unspecified collections are denied by default.
 
 ---
 
@@ -153,10 +150,10 @@ The admin-only **User Roles** panel now acts as a lightweight access desk for ne
 It shows:
 
 * pending accounts awaiting staff access
-* current volunteer accounts
+* current active volunteer accounts
 * current admin accounts
 
-Admins can assign each profile to `partner`, `volunteer`, or `admin` directly from the dashboard. If the user is a partner, the admin also selects a verified agency from the fixed agency list. Volunteer and admin accounts are attached to `Foodbank Hub`.
+Admins can assign each user to `pending`, `active_volunteer`, or `admin` directly from the dashboard.
 
 ---
 
