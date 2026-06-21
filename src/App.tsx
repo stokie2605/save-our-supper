@@ -66,6 +66,11 @@ interface PublicStatus {
 
 const adminEmail = 'stokie2605@gmail.com';
 const roleOptions: UserRole[] = ['partner', 'volunteer', 'admin'];
+const staffRoles: UserRole[] = ['volunteer', 'admin'];
+
+function hasStaffAccess(role: UserRole) {
+  return staffRoles.includes(role);
+}
 
 function normalizeRole(value: unknown, fallbackEmail?: string | null): UserRole {
   if (fallbackEmail === adminEmail) return 'admin';
@@ -531,7 +536,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
     return unsubscribe;
   }, []);
 
-  const canChangeStatus = role === 'volunteer' || role === 'admin';
+  const canChangeStatus = hasStaffAccess(role);
   const activeOrders = orders.filter((order) => order.status === 'New' || order.status === 'Ready for Collection');
   const referralOrders = activeOrders.filter((order) => order.status === 'New');
   const handoverOrders = activeOrders.filter((order) => order.status === 'Ready for Collection');
@@ -728,7 +733,7 @@ function LiveOrdersQueue({ user, role }: { user: User; role: UserRole }) {
           {visibleActiveOrders.map((order) => {
             const isReady = order.status === 'Ready for Collection';
             const isEditing = editingOrderId === order.id;
-            const canEditOrder = role === 'admin' || role === 'volunteer' || order.submittedBy === user.uid;
+            const canEditOrder = hasStaffAccess(role) || order.submittedBy === user.uid;
 
             return (
             <article
@@ -1042,7 +1047,7 @@ export default function App() {
   }, []);
 
   const role = profile?.role ?? 'partner';
-  const isStaff = role === 'volunteer' || role === 'admin';
+  const isStaff = hasStaffAccess(role);
 
   return (
     <AppShell>

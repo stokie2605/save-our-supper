@@ -122,6 +122,7 @@ Firestore rules are aligned to the stripped-down model:
 * Partners can edit only safe typo fields on referrals they submitted.
 * Volunteers and admins can edit safe typo fields on active orders.
 * Volunteers and admins can move orders through the safe workflow states.
+* The Live Queue action buttons use the same shared staff-role check as the rules: `volunteer` and `admin` can pack bags and log handovers.
 * Public users can read only an exact `public_status/{phoneKey}` document and cannot list statuses.
 * Mock SMS events are write-only for operational roles and readable only by admins.
 * Admins retain full fallback access.

@@ -20,6 +20,10 @@ service cloud.firestore {
         );
     }
 
+    function canOperateOrders() {
+      return profileRoleIn(["volunteer", "admin"]);
+    }
+
     function isOwnPartnerProfileCreate(userId) {
       return isSignedIn()
         && request.auth.uid == userId
@@ -63,7 +67,7 @@ service cloud.firestore {
     }
 
     function isLiveOrderPackUpdate() {
-      return profileRoleIn(["volunteer", "admin"])
+      return canOperateOrders()
         && resource.data.status == "New"
         && request.resource.data.status == "Ready for Collection"
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
@@ -75,7 +79,7 @@ service cloud.firestore {
     }
 
     function isLiveOrderCompleteUpdate() {
-      return profileRoleIn(["volunteer", "admin"])
+      return canOperateOrders()
         && resource.data.status == "Ready for Collection"
         && request.resource.data.status == "archived"
         && request.resource.data.diff(resource.data).changedKeys().hasOnly([
@@ -91,7 +95,7 @@ service cloud.firestore {
 
     function isLiveOrderTypoUpdate() {
       return (
-          profileRoleIn(["volunteer", "admin"])
+          canOperateOrders()
           || (
             profileRoleIn(["partner"])
             && resource.data.submittedBy == request.auth.uid
