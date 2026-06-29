@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db, firebaseAuth } from '../lib/firebaseConfig';
 
-export type UserRole = 'pending' | 'active_volunteer' | 'admin';
+export type UserRole = 'pending' | 'partner' | 'active_volunteer' | 'admin';
 
 export interface UserProfile {
   uid: string;
@@ -18,6 +18,9 @@ export interface UserProfile {
   displayName: string | null;
   photoURL: string | null;
   role: UserRole;
+  agencyId?: string | null;
+  agencyName?: string | null;
+  requestedAgencyName?: string | null;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }
@@ -32,7 +35,7 @@ export interface AuthRoleState {
 }
 
 function isUserRole(value: unknown): value is UserRole {
-  return value === 'pending' || value === 'active_volunteer' || value === 'admin';
+  return value === 'pending' || value === 'partner' || value === 'active_volunteer' || value === 'admin';
 }
 
 function createPendingProfile(user: User): UserProfile {
@@ -42,6 +45,9 @@ function createPendingProfile(user: User): UserProfile {
     displayName: user.displayName,
     photoURL: user.photoURL,
     role: 'pending',
+    agencyId: null,
+    agencyName: '',
+    requestedAgencyName: '',
   };
 }
 
@@ -110,6 +116,9 @@ export function useAuthRole(): AuthRoleState {
               ? data.photoURL
               : authUser.photoURL,
           role: data.role,
+          agencyId: typeof data.agencyId === 'string' ? data.agencyId : null,
+          agencyName: typeof data.agencyName === 'string' ? data.agencyName : null,
+          requestedAgencyName: typeof data.requestedAgencyName === 'string' ? data.requestedAgencyName : null,
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
         };
@@ -150,7 +159,7 @@ export function useAuthRole(): AuthRoleState {
       role,
       loading,
       error,
-      isApproved: role === 'active_volunteer' || role === 'admin',
+      isApproved: role === 'partner' || role === 'active_volunteer' || role === 'admin',
     }),
     [user, profile, role, loading, error]
   );

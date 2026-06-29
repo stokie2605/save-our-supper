@@ -18,6 +18,7 @@ import {
   setDoc,
   Timestamp,
   updateDoc,
+  where,
   type DocumentData,
 } from 'firebase/firestore';
 import { AppShell } from './components/AppShell';
@@ -27,7 +28,7 @@ import { useAuthRole } from './hooks/useAuthRole';
 import { db, firebaseAuth } from './lib/firebaseConfig';
 import { md5PhoneKey } from './lib/privacy';
 
-type UserRole = 'pending' | 'active_volunteer' | 'admin';
+type UserRole = 'pending' | 'partner' | 'active_volunteer' | 'admin';
 type OrderStatus = 'New' | 'Accepted' | 'Ready for Collection' | 'archived';
 type ActiveTab = 'queue' | 'support' | 'reports' | 'admin';
 type QueueTab = 'referrals' | 'handovers' | 'partners';
@@ -74,7 +75,7 @@ interface PublicStatusResult {
 }
 
 const adminEmail = 'stokie2605@gmail.com';
-const roleOptions: UserRole[] = ['pending', 'active_volunteer', 'admin'];
+const roleOptions: UserRole[] = ['pending', 'partner', 'active_volunteer', 'admin'];
 const staffRoles: UserRole[] = ['active_volunteer', 'admin'];
 
 const anonymizedRecipientName = 'Anonymous';
@@ -120,7 +121,7 @@ function hasStaffAccess(role: UserRole) {
 function normalizeRole(value: unknown, fallbackEmail?: string | null): UserRole {
   if (fallbackEmail === adminEmail) return 'admin';
   const role = String(value ?? 'pending').toLowerCase().trim();
-  if (role === 'admin' || role === 'active_volunteer' || role === 'pending') return role;
+  if (role === 'admin' || role === 'partner' || role === 'active_volunteer' || role === 'pending') return role;
   if (role === 'volunteer') return 'active_volunteer';
   return 'pending';
 }
@@ -503,6 +504,9 @@ async function updateProfileDocument(userId: string, payload: Partial<UserProfil
     displayName: payload.name ?? null,
     photoURL: null,
     role: payload.role ?? 'pending',
+    agencyId: payload.agencyId ?? null,
+    agencyName: payload.agencyName ?? '',
+    requestedAgencyName: payload.requestedAgencyName ?? '',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   }, { merge: true });
@@ -667,7 +671,9 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
   });
 
   useEffect(() => {
-    const ordersQuery = query(collection(db, 'live_orders'), orderBy('createdAt', 'asc'));
+    const ordersQuery = profile.role === 'partner' && profile.agencyId
+      ? query(collection(db, 'live_orders'), where('agencyId', '==', profile.agencyId))
+      : query(collection(db, 'live_orders'), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(
       ordersQuery,
       (snapshot) => {
@@ -1105,7 +1111,7 @@ function AdminUserPanel() {
         snapshot.docs
           .map((profileDoc) => profileFromDocument(profileDoc.id, profileDoc.data()))
           .sort((first, second) => {
-            const roleWeight: Record<UserRole, number> = { pending: 0, active_volunteer: 1, admin: 2 };
+            const roleWeight: Record<UserRole, number> = { pending: 0, partner: 1, active_volunteer: 2, admin: 3 };
             return roleWeight[first.role] - roleWeight[second.role] || first.email.localeCompare(second.email);
           }),
       );
@@ -1115,10 +1121,10 @@ function AdminUserPanel() {
   }, []);
 
   const draftFor = (profile: UserProfile) => {
-    const role = accessDrafts[profile.id]?.role ?? (profile.role === 'pending' ? 'active_volunteer' : profile.role);
+    const role = accessDrafts[profile.id]?.role ?? (profile.role === 'pending' ? (profile.requestedAgencyName ? 'partner' : 'active_volunteer') : profile.role);
     const agencyId = accessDrafts[profile.id]?.agencyId
       ?? profile.agencyId
-      ?? 'foodbank_hub';
+      ?? (role === 'partner' ? partnerAgencies[0].id : 'foodbank_hub');
 
     return { role, agencyId };
   };
@@ -1127,7 +1133,10 @@ function AdminUserPanel() {
     setAccessDrafts((current) => {
       const existing = draftFor(profile);
       const nextRole = nextDraft.role ?? existing.role;
-      const nextAgencyId = nextDraft.agencyId ?? existing.agencyId ?? 'foodbank_hub';
+      const nextAgencyId = nextDraft.agencyId
+        ?? (nextRole === 'partner'
+          ? (existing.agencyId === 'foodbank_hub' ? partnerAgencies[0].id : existing.agencyId)
+          : 'foodbank_hub');
 
       return {
         ...current,
@@ -1141,15 +1150,19 @@ function AdminUserPanel() {
 
   const saveAccess = async (profile: UserProfile) => {
     const draft = draftFor(profile);
+    const agencyId = draft.role === 'pending' ? null : draft.role === 'partner' ? draft.agencyId : 'foodbank_hub';
+    const agencyName = agencyNameFromId(agencyId);
     await updateDoc(doc(db, 'users', profile.id), {
       role: draft.role,
+      agencyId,
+      agencyName,
       updatedAt: serverTimestamp(),
     });
   };
 
   const roleCounts = users.reduce<Record<UserRole, number>>(
     (counts, profile) => ({ ...counts, [profile.role]: counts[profile.role] + 1 }),
-    { pending: 0, active_volunteer: 0, admin: 0 },
+    { pending: 0, partner: 0, active_volunteer: 0, admin: 0 },
   );
   const pendingUsers = users.filter((profile) => profile.role === 'pending');
   const activeUsers = users.filter((profile) => profile.role !== 'pending');
@@ -1179,7 +1192,7 @@ function AdminUserPanel() {
           Agency
           <select
             value={activeAgencyId}
-            disabled
+            disabled={draft.role !== 'partner'}
             onChange={(event) => setAccessDraft(profile, { agencyId: event.target.value })}
             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800 disabled:opacity-60"
           >
@@ -1302,9 +1315,9 @@ export default function App() {
         email: authProfile.email ?? 'missing-email',
         name: authProfile.displayName ?? authProfile.email ?? 'User',
         role: authProfile.role,
-        agencyId: 'foodbank_hub',
-        agencyName: 'Foodbank Hub',
-        requestedAgencyName: '',
+        agencyId: authProfile.agencyId ?? null,
+        agencyName: authProfile.agencyName ?? '',
+        requestedAgencyName: authProfile.requestedAgencyName ?? '',
       }
     : null;
   const visibleActiveTab: ActiveTab = role === 'admin' ? activeTab : activeTab === 'support' ? 'support' : 'queue';
@@ -1329,8 +1342,10 @@ export default function App() {
 
       {!user ? (
         <>
-          <SignInCard />
-          <CheckStatusForm />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SignInCard />
+            <CheckStatusForm />
+          </div>
           <SupportLinks publicView />
         </>
       ) : null}
@@ -1354,8 +1369,13 @@ export default function App() {
           <p className="text-xs font-black uppercase tracking-widest text-amber-700">Account Pending Approval</p>
           <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Account Pending Approval.</h2>
           <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-500">
-            A Save Our Supper administrator must authorize your volunteer account before you can view live orders.
+            A Save Our Supper administrator must authorize your account before you can access the platform.
           </p>
+          {profile?.requestedAgencyName ? (
+            <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
+              Requested agency: {profile.requestedAgencyName}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
@@ -1382,7 +1402,7 @@ export default function App() {
               <div className="min-w-0">
                 {visibleActiveTab === 'queue' ? (
                   <div className="grid gap-6">
-                    <PartnerReferralForm user={user} profile={profile} />
+                    {role === 'partner' ? <PartnerReferralForm user={user} profile={profile} /> : null}
                     <LiveOrdersQueue user={user} profile={profile} />
                   </div>
                 ) : null}
