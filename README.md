@@ -8,6 +8,14 @@ It has one job: trusted partner agencies send a referral, foodbank staff accept 
 
 ---
 
+## Screenshots
+
+| Desktop | Mobile |
+| --- | --- |
+| <img src="screenshots/save-our-supper-desktop.png" alt="Save Our Supper desktop view" width="420" /> | <img src="screenshots/save-our-supper-mobile.png" alt="Save Our Supper mobile view" width="220" /> |
+
+---
+
 ## Current Product Shape
 
 The app now has three role-based views only:
