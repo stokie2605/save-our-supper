@@ -191,3 +191,9 @@ npx firebase-tools deploy
 The production app is hosted on Firebase Hosting at:
 
 https://save-our-supper.web.app/
+
+## Reviewer Setup Notes
+
+- Environment template: [.env.example](.env.example)
+- Firestore role model: [docs/FIRESTORE_SECURITY_MODEL.md](docs/FIRESTORE_SECURITY_MODEL.md)
+- For demo review, create a Firebase test user and assign their `users/{uid}.role` to `admin` or `active_volunteer`.
