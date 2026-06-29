@@ -8,7 +8,9 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -19,12 +21,15 @@ import {
   type DocumentData,
 } from 'firebase/firestore';
 import { AppShell } from './components/AppShell';
+import { Reports } from './components/Reports';
+import { SupportLinks } from './components/SupportLinks';
 import { useAuthRole } from './hooks/useAuthRole';
 import { db, firebaseAuth } from './lib/firebaseConfig';
+import { md5PhoneKey } from './lib/privacy';
 
 type UserRole = 'pending' | 'active_volunteer' | 'admin';
 type OrderStatus = 'New' | 'Accepted' | 'Ready for Collection' | 'archived';
-type ActiveTab = 'queue' | 'admin';
+type ActiveTab = 'queue' | 'support' | 'reports' | 'admin';
 type QueueTab = 'referrals' | 'handovers' | 'partners';
 
 interface UserProfile {
@@ -61,10 +66,42 @@ interface OrderEditDraft {
   targetCollectionTime: string;
   dietaryNotes: string;
 }
+type PublicBagStatus = 'New' | 'Accepted' | 'Ready for Collection';
+
+interface PublicStatusResult {
+  bagStatus: PublicBagStatus;
+  message: string;
+}
 
 const adminEmail = 'stokie2605@gmail.com';
 const roleOptions: UserRole[] = ['pending', 'active_volunteer', 'admin'];
 const staffRoles: UserRole[] = ['active_volunteer', 'admin'];
+
+const anonymizedRecipientName = 'Anonymous';
+
+const publicStatusContent: Record<PublicBagStatus, { label: string; message: string; badgeClassName: string; iconClassName: string; icon: string }> = {
+  New: {
+    label: 'Waiting to be processed',
+    message: 'Your referral has been received and is waiting to be processed.',
+    badgeClassName: 'bg-blue-100 text-blue-700',
+    iconClassName: 'bg-blue-600 text-white',
+    icon: 'N',
+  },
+  Accepted: {
+    label: 'Being prepared',
+    message: 'Your referral has been accepted. Your food parcel is being prepared.',
+    badgeClassName: 'bg-amber-100 text-amber-700',
+    iconClassName: 'bg-amber-500 text-slate-950',
+    icon: 'A',
+  },
+  'Ready for Collection': {
+    label: 'Ready to collect!',
+    message: 'Your food parcel is packed and ready to collect. Please come to Alsager Foodbank at your earliest convenience.',
+    badgeClassName: 'bg-emerald-100 text-emerald-700',
+    iconClassName: 'bg-emerald-600 text-white',
+    icon: 'R',
+  },
+};
 
 const partnerAgencies = [
   { id: 'plus_dane', name: 'Plus Dane' },
@@ -110,13 +147,21 @@ function isCompletedToday(order: LiveOrder) {
 function PrimaryNavigation({
   activeTab,
   onChange,
+  includeAdmin = false,
 }: {
   activeTab: ActiveTab;
   onChange: (tab: ActiveTab) => void;
+  includeAdmin?: boolean;
 }) {
   const items: Array<{ tab: ActiveTab; label: string; icon: string; tone: string }> = [
     { tab: 'queue', label: 'Live Queue', icon: 'Q', tone: 'emerald' },
-    { tab: 'admin', label: 'User Roles', icon: 'R', tone: 'red' },
+    { tab: 'support', label: 'Support', icon: 'S', tone: 'blue' },
+    ...(includeAdmin
+      ? [
+          { tab: 'reports' as ActiveTab, label: 'Reports', icon: 'M', tone: 'emerald' },
+          { tab: 'admin' as ActiveTab, label: 'User Roles', icon: 'R', tone: 'red' },
+        ]
+      : []),
   ];
 
   return (
@@ -136,7 +181,9 @@ function PrimaryNavigation({
                     isActive
                       ? item.tone === 'red'
                         ? 'bg-red-50 text-red-700 shadow-sm ring-1 ring-red-100'
-                        : 'bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-100'
+                        : item.tone === 'blue'
+                          ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100'
+                          : 'bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-100'
                       : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
                   }`}
                 >
@@ -144,7 +191,9 @@ function PrimaryNavigation({
                     isActive
                       ? item.tone === 'red'
                         ? 'bg-red-600 text-white'
-                        : 'bg-emerald-700 text-white'
+                        : item.tone === 'blue'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-emerald-700 text-white'
                       : 'bg-slate-100 text-slate-500'
                   }`}>
                     {item.icon}
@@ -158,7 +207,7 @@ function PrimaryNavigation({
       </aside>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 px-4 py-2 shadow-[0_-12px_30px_rgb(15,23,42,0.08)] backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-2 gap-2">
+        <div className={`mx-auto grid max-w-md gap-2 ${includeAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
           {items.map((item) => {
             const isActive = activeTab === item.tab;
             return (
@@ -170,15 +219,19 @@ function PrimaryNavigation({
                   isActive
                     ? item.tone === 'red'
                       ? 'bg-red-50 text-red-700 ring-1 ring-red-100'
-                      : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
+                      : item.tone === 'blue'
+                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
+                        : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
                     : 'text-slate-500'
                 }`}
               >
                 <span className={`mb-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
                   isActive
                     ? item.tone === 'red'
-                      ? 'bg-red-600 text-white'
-                      : 'bg-emerald-700 text-white'
+                        ? 'bg-red-600 text-white'
+                        : item.tone === 'blue'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-emerald-700 text-white'
                     : 'bg-slate-100 text-slate-500'
                 }`}>
                   {item.icon}
@@ -336,6 +389,113 @@ function SignInCard() {
   );
 }
 
+function CheckStatusForm() {
+  const [phone, setPhone] = useState('');
+  const [result, setResult] = useState<PublicStatusResult | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setChecking(true);
+    setResult(null);
+    setNotFound(false);
+    setError('');
+
+    try {
+      const phoneKey = md5PhoneKey(phone);
+      if (!phoneKey) {
+        setError('Please enter the phone number used on your referral.');
+        return;
+      }
+
+      const statusSnapshot = await getDoc(doc(db, 'public_status', phoneKey));
+      if (!statusSnapshot.exists()) {
+        setNotFound(true);
+        return;
+      }
+
+      const data = statusSnapshot.data();
+      const bagStatus = String(data.bagStatus ?? 'New');
+      const safeStatus: PublicBagStatus = bagStatus === 'Accepted' || bagStatus === 'Ready for Collection' ? bagStatus : 'New';
+      setResult({
+        bagStatus: safeStatus,
+        message: String(data.message ?? publicStatusContent[safeStatus].message),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Status could not be checked right now.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const statusConfig = result ? publicStatusContent[result.bagStatus] : null;
+
+  return (
+    <section className="mx-auto mt-6 max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Public status check</p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Check Your Bag Status</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        Enter the phone number used when your referral was made to see the current status of your food parcel.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          Phone Number
+          <input
+            type="tel"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            placeholder="e.g. 07123 456789"
+            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            required
+          />
+        </label>
+        <button
+          disabled={checking}
+          className="self-end rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {checking ? 'Checking...' : 'Check Status'}
+        </button>
+      </form>
+
+      {checking ? (
+        <p className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">Checking your referral status...</p>
+      ) : null}
+
+      {error ? <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{error}</p> : null}
+
+      {notFound ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-black text-slate-950">No active referral found</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+            We could not find an active food parcel status for that phone number. If you have already collected your parcel, your record has been securely removed.
+          </p>
+        </div>
+      ) : null}
+
+      {result && statusConfig ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${statusConfig.iconClassName}`}>
+              {statusConfig.icon}
+            </span>
+            <div>
+              <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${statusConfig.badgeClassName}`}>
+                {statusConfig.label}
+              </span>
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">{result.message}</p>
+              <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
+                If you have already collected your parcel, your record has been securely removed.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
 async function updateProfileDocument(userId: string, payload: Partial<UserProfile>) {
   await setDoc(doc(db, 'users', userId), {
     uid: userId,
@@ -385,6 +545,15 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
         completedAt: null,
       };
       await addDoc(collection(db, 'live_orders'), newOrder);
+
+      const phoneKey = md5PhoneKey(newOrder.recipientPhone);
+      if (phoneKey) {
+        await setDoc(doc(db, 'public_status', phoneKey), {
+          bagStatus: 'New',
+          message: publicStatusContent.New.message,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
 
       setRecipientName('');
       setRecipientPhone('');
@@ -563,11 +732,21 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
 
   const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
     if (!canChangeStatus) return;
+    const isCollectionComplete = status === 'archived';
+    const phoneKey = md5PhoneKey(order.recipientPhone);
     const lifecycleTimestamps = {
       ...(status === 'Accepted' ? { acceptedAt: serverTimestamp() } : {}),
       ...(status === 'Ready for Collection' ? { readyAt: serverTimestamp() } : {}),
-      ...(status === 'archived' ? { collectedAt: serverTimestamp(), completedAt: serverTimestamp(), completedBy: user.uid } : {}),
+      ...(isCollectionComplete ? { collectedAt: serverTimestamp(), completedAt: serverTimestamp(), completedBy: user.uid } : {}),
     };
+    const anonymizedFields = isCollectionComplete
+      ? {
+          recipientName: anonymizedRecipientName,
+          recipientPhone: '',
+          dietaryNotes: '',
+          anonymizedAt: serverTimestamp(),
+        }
+      : {};
 
     setBusyOrderId(order.id);
     try {
@@ -576,7 +755,19 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
         updatedAt: serverTimestamp(),
         updatedBy: user.uid,
         ...lifecycleTimestamps,
+        ...anonymizedFields,
       });
+      if (phoneKey && isCollectionComplete) {
+        await deleteDoc(doc(db, 'public_status', phoneKey));
+      }
+
+      if (phoneKey && (status === 'Accepted' || status === 'Ready for Collection')) {
+        await setDoc(doc(db, 'public_status', phoneKey), {
+          bagStatus: status,
+          message: publicStatusContent[status].message,
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
+      }
       setHandoverTarget(null);
     } finally {
       setBusyOrderId(null);
@@ -1092,6 +1283,16 @@ function AdminUserPanel() {
   );
 }
 
+function DataRetentionNotice() {
+  return (
+    <div className="mb-5 rounded-3xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Data Retention Notice</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-emerald-950">
+        Personal referral details are anonymised as soon as a collection is completed. Names, phone numbers, dietary notes, and public status records are removed at collection, while non-identifying operational data is retained for reporting. Full referral records are automatically deleted after 30 days in line with GDPR data minimisation principles.
+      </p>
+    </div>
+  );
+}
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
   const { user, profile: authProfile, role, loading, error, isApproved } = useAuthRole();
@@ -1106,7 +1307,7 @@ export default function App() {
         requestedAgencyName: '',
       }
     : null;
-  const visibleActiveTab: ActiveTab = role === 'admin' ? activeTab : 'queue';
+  const visibleActiveTab: ActiveTab = role === 'admin' ? activeTab : activeTab === 'support' ? 'support' : 'queue';
 
   return (
     <AppShell>
@@ -1127,7 +1328,11 @@ export default function App() {
       </div>
 
       {!user ? (
-        <SignInCard />
+        <>
+          <SignInCard />
+          <CheckStatusForm />
+          <SupportLinks publicView />
+        </>
       ) : null}
 
       {user && loading ? (
@@ -1158,16 +1363,31 @@ export default function App() {
         <>
           {role === 'admin' ? (
             <div className="md:grid md:grid-cols-[15rem_minmax(0,1fr)] md:items-start md:gap-6">
-              <PrimaryNavigation activeTab={visibleActiveTab} onChange={setActiveTab} />
+              <PrimaryNavigation activeTab={visibleActiveTab} onChange={setActiveTab} includeAdmin />
               <div className="min-w-0">
                 {visibleActiveTab === 'queue' ? <LiveOrdersQueue user={user} profile={profile} /> : null}
-                {visibleActiveTab === 'admin' ? <AdminUserPanel /> : null}
+                {visibleActiveTab === 'support' ? <SupportLinks /> : null}
+                {visibleActiveTab === 'reports' ? <Reports /> : null}
+                {visibleActiveTab === 'admin' ? (
+                  <>
+                    <DataRetentionNotice />
+                    <AdminUserPanel />
+                  </>
+                ) : null}
               </div>
             </div>
           ) : (
-            <div className="grid gap-6">
-              <PartnerReferralForm user={user} profile={profile} />
-              <LiveOrdersQueue user={user} profile={profile} />
+            <div className="md:grid md:grid-cols-[15rem_minmax(0,1fr)] md:items-start md:gap-6">
+              <PrimaryNavigation activeTab={visibleActiveTab} onChange={setActiveTab} />
+              <div className="min-w-0">
+                {visibleActiveTab === 'queue' ? (
+                  <div className="grid gap-6">
+                    <PartnerReferralForm user={user} profile={profile} />
+                    <LiveOrdersQueue user={user} profile={profile} />
+                  </div>
+                ) : null}
+                {visibleActiveTab === 'support' ? <SupportLinks /> : null}
+              </div>
             </div>
           )}
         </>
@@ -1175,4 +1395,3 @@ export default function App() {
     </AppShell>
   );
 }
-
