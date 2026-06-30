@@ -149,14 +149,16 @@ function PrimaryNavigation({
   activeTab,
   onChange,
   includeAdmin = false,
+  role = null,
 }: {
   activeTab: ActiveTab;
   onChange: (tab: ActiveTab) => void;
   includeAdmin?: boolean;
+  role?: UserRole | null;
 }) {
   const items: Array<{ tab: ActiveTab; label: string; icon: string; tone: string }> = [
     { tab: 'queue', label: 'Live Queue', icon: 'Q', tone: 'emerald' },
-    { tab: 'support', label: 'Support', icon: 'S', tone: 'blue' },
+    ...(role !== 'partner' ? [{ tab: 'support' as ActiveTab, label: 'Support', icon: 'S', tone: 'blue' }] : []),
     ...(includeAdmin
       ? [
           { tab: 'reports' as ActiveTab, label: 'Reports', icon: 'M', tone: 'emerald' },
@@ -1381,9 +1383,14 @@ export default function App() {
 
       {user && profile && isApproved ? (
         <>
-          {role === 'admin' ? (
+          {role === 'admin' || role === 'active_volunteer' ? (
             <div className="md:grid md:grid-cols-[15rem_minmax(0,1fr)] md:items-start md:gap-6">
-              <PrimaryNavigation activeTab={visibleActiveTab} onChange={setActiveTab} includeAdmin />
+              <PrimaryNavigation
+                activeTab={visibleActiveTab}
+                onChange={setActiveTab}
+                includeAdmin={role === 'admin'}
+                role={role}
+              />
               <div className="min-w-0">
                 {visibleActiveTab === 'queue' ? <LiveOrdersQueue user={user} profile={profile} /> : null}
                 {visibleActiveTab === 'support' ? <SupportLinks /> : null}
@@ -1397,16 +1404,11 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="md:grid md:grid-cols-[15rem_minmax(0,1fr)] md:items-start md:gap-6">
-              <PrimaryNavigation activeTab={visibleActiveTab} onChange={setActiveTab} />
-              <div className="min-w-0">
-                {visibleActiveTab === 'queue' ? (
-                  <div className="grid gap-6">
-                    {role === 'partner' ? <PartnerReferralForm user={user} profile={profile} /> : null}
-                    <LiveOrdersQueue user={user} profile={profile} />
-                  </div>
-                ) : null}
-                {visibleActiveTab === 'support' ? <SupportLinks /> : null}
+            // Partner portal view: centered single-column layout with no navigation sidebar/bottom-nav
+            <div className="mx-auto max-w-2xl">
+              <div className="grid gap-6">
+                <PartnerReferralForm user={user} profile={profile} />
+                <LiveOrdersQueue user={user} profile={profile} />
               </div>
             </div>
           )}
