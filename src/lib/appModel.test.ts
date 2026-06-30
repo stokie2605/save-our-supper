@@ -8,7 +8,8 @@ import {
   profileFromDocument,
   hasStaffAccess,
   normalizeRole,
-  slugifyAgencyId
+  slugifyAgencyId,
+  safeFamilySize
 } from './appModel';
 import { md5PhoneKey, md5EmailKey } from './privacy';
 
@@ -83,6 +84,13 @@ describe('Firestore Document Mappers', () => {
     expect(order.familySize).toBe(1);
     expect(order.status).toBe('New');
     expect(order.createdAt).toBeNull();
+  });
+
+  it('should prevent invalid family sizes from leaking NaN into order state', () => {
+    expect(safeFamilySize('bad-data')).toBe(0);
+    expect(safeFamilySize(-3)).toBe(0);
+    expect(safeFamilySize(2.7)).toBe(2);
+    expect(orderFromDocument('doc-bad-size', { familySize: 'not-a-number' }).familySize).toBe(0);
   });
 
   it('should map profileFromDocument correctly', () => {

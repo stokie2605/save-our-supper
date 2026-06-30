@@ -228,3 +228,4 @@ npx firebase-tools deploy
 - **GDPR reporting without personal data:** collected referrals are anonymised immediately, while non-identifying fields remain useful for reporting.
 - **Role-specific complexity:** partner, volunteer, and admin users share one app shell, but Firestore rules and UI filters keep each role focused on only what they need.
 - **Live configuration:** agencies, support links, noticeboard settings, and handover notes now come from Firestore instead of being hardcoded in the UI.
+- **Firestore integrity hardening:** tightened `/live_orders` rules so order ownership fields cannot be spoofed, order documents must match an expected structure, and status changes follow the forward-only lifecycle `New -> Accepted -> Ready for Collection -> archived`. Also hardened `orderFromDocument` so invalid `familySize` data cannot leak `NaN` into UI state or reports.

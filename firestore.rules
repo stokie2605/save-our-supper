@@ -106,10 +106,101 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    function validOrderStatus(status) {
+      return status in ["New", "Accepted", "Ready for Collection", "archived"];
+    }
+
+    function validTimestampOrNull(data, field) {
+      return !(field in data) || data[field] == null || data[field] is timestamp;
+    }
+
+    function validLiveOrder(data) {
+      return data.keys().hasOnly([
+        "agencyId",
+        "agencyName",
+        "recipientName",
+        "recipientPhone",
+        "recipientEmail",
+        "targetCollectionTime",
+        "familySize",
+        "dietaryNotes",
+        "status",
+        "submittedBy",
+        "createdAt",
+        "acceptedAt",
+        "readyAt",
+        "collectedAt",
+        "completedAt",
+        "completedBy",
+        "updatedAt",
+        "updatedBy",
+        "anonymizedAt"
+      ])
+      && data.agencyId is string
+      && data.agencyName is string
+      && data.recipientName is string
+      && data.recipientPhone is string
+      && (!("recipientEmail" in data) || data.recipientEmail is string)
+      && data.targetCollectionTime is string
+      && data.familySize is number
+      && data.familySize >= 0
+      && data.dietaryNotes is string
+      && data.status is string
+      && validOrderStatus(data.status)
+      && data.submittedBy is string
+      && validTimestampOrNull(data, "createdAt")
+      && validTimestampOrNull(data, "acceptedAt")
+      && validTimestampOrNull(data, "readyAt")
+      && validTimestampOrNull(data, "collectedAt")
+      && validTimestampOrNull(data, "completedAt")
+      && validTimestampOrNull(data, "updatedAt")
+      && validTimestampOrNull(data, "anonymizedAt")
+      && (!("updatedBy" in data) || data.updatedBy is string)
+      && (!("completedBy" in data) || data.completedBy is string);
+    }
+
+    function orderOwnershipWasNotChanged() {
+      return request.resource.data.submittedBy == resource.data.submittedBy
+        && request.resource.data.agencyId == resource.data.agencyId
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function validStatusTransition(fromStatus, toStatus) {
+      return fromStatus == toStatus
+        || (fromStatus == "New" && toStatus == "Accepted")
+        || (fromStatus == "Accepted" && toStatus == "Ready for Collection")
+        || (fromStatus == "Ready for Collection" && toStatus == "archived");
+    }
+
+    function partnerCanUpdateOwnNewOrder() {
+      return isPartner()
+        && resource.data.agencyId == currentAgencyId()
+        && resource.data.submittedBy == request.auth.uid
+        && resource.data.status == "New"
+        && request.resource.data.status == resource.data.status;
+    }
+
     match /live_orders/{orderId} {
       allow read: if isActiveVolunteer() || isAdmin() || (isPartner() && resource.data.agencyId == currentAgencyId());
-      allow create: if isActiveVolunteer() || isAdmin() || (isPartner() && request.resource.data.agencyId == currentAgencyId() && request.resource.data.submittedBy == request.auth.uid);
-      allow update: if isActiveVolunteer() || isAdmin() || (isPartner() && resource.data.agencyId == currentAgencyId() && resource.data.submittedBy == request.auth.uid);
+      allow create: if validLiveOrder(request.resource.data)
+        && request.resource.data.status == "New"
+        && (
+          isActiveVolunteer() ||
+          isAdmin() ||
+          (
+            isPartner()
+            && request.resource.data.agencyId == currentAgencyId()
+            && request.resource.data.submittedBy == request.auth.uid
+          )
+        );
+      allow update: if validLiveOrder(request.resource.data)
+        && orderOwnershipWasNotChanged()
+        && validStatusTransition(resource.data.status, request.resource.data.status)
+        && (
+          isActiveVolunteer() ||
+          isAdmin() ||
+          partnerCanUpdateOwnNewOrder()
+        );
       allow delete: if isAdmin();
     }
 

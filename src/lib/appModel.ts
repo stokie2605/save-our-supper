@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { collection, doc, onSnapshot, serverTimestamp, setDoc, Timestamp, type DocumentData } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import type { HandoverNote, LiveOrder, NoticeboardConfig, OrderStatus, PartnerAgency, PublicBagStatus, UserProfile, UserRole } from '../types';
@@ -82,6 +82,11 @@ export function isCompletedToday(order: LiveOrder) {
   if (order.status !== 'archived' || !order.completedAt) return false;
   return Date.now() - order.completedAt.toDate().getTime() <= 24 * 60 * 60 * 1000;
 }
+export function safeFamilySize(value: unknown) {
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? 0 : Math.max(0, Math.trunc(parsed));
+}
+
 export function orderFromDocument(id: string, data: DocumentData): LiveOrder {
   return {
     id,
@@ -91,7 +96,7 @@ export function orderFromDocument(id: string, data: DocumentData): LiveOrder {
     recipientPhone: String(data.recipientPhone ?? ''),
     recipientEmail: String(data.recipientEmail ?? ''),
     targetCollectionTime: String(data.targetCollectionTime ?? ''),
-    familySize: Number(data.familySize ?? 1),
+    familySize: safeFamilySize(data.familySize ?? 1),
     dietaryNotes: String(data.dietaryNotes ?? ''),
     status: (['New', 'Accepted', 'Ready for Collection', 'archived'].includes(data.status) ? data.status : 'New') as OrderStatus,
     submittedBy: String(data.submittedBy ?? ''),
