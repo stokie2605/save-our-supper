@@ -25,7 +25,7 @@ import {
 } from 'firebase/firestore';
 import { AppShell } from './components/AppShell';
 import { Reports } from './components/Reports';
-import { SupportLinks } from './components/SupportLinks';
+import { SupportLinks, useSupportLinks, categoryBadgeClass } from './components/SupportLinks';
 import { useAuthRole } from './hooks/useAuthRole';
 import { db, firebaseAuth } from './lib/firebaseConfig';
 import { md5EmailKey, md5PhoneKey } from './lib/privacy';
@@ -1506,6 +1506,15 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
   const [purgeRunning, setPurgeRunning] = useState(false);
   const [purgeMessage, setPurgeMessage] = useState('');
 
+  // Support Links management state
+  const { links: supportLinks, loading: loadingSupportLinks } = useSupportLinks();
+  const [newLinkName, setNewLinkName] = useState('');
+  const [newLinkDesc, setNewLinkDesc] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newLinkPhone, setNewLinkPhone] = useState('');
+  const [newLinkCategory, setNewLinkCategory] = useState('Mental Health');
+  const [linkBusyId, setLinkBusyId] = useState<string | null>(null);
+
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(
@@ -1638,6 +1647,55 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
       window.alert(message);
     } finally {
       setPurgeRunning(false);
+    }
+  };
+
+  const addSupportLink = async () => {
+    const name = newLinkName.trim();
+    const description = newLinkDesc.trim();
+    const url = newLinkUrl.trim();
+    const phone = newLinkPhone.trim();
+    if (!name || !description || !url) return;
+
+    const slug = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const linkId = `${newLinkCategory.toLowerCase().replace(/[^a-z]+/g, '')}_${slug}`;
+
+    setLinkBusyId(linkId);
+    try {
+      const categoryLinks = supportLinks.filter((link) => link.category === newLinkCategory);
+      const nextOrder = categoryLinks.length
+        ? Math.max(...categoryLinks.map((link) => link.order)) + 1
+        : 0;
+
+      await setDoc(doc(db, 'support_links', linkId), {
+        name,
+        description,
+        url,
+        phone: phone || null,
+        category: newLinkCategory,
+        order: nextOrder,
+        createdAt: serverTimestamp(),
+      });
+
+      setNewLinkName('');
+      setNewLinkDesc('');
+      setNewLinkUrl('');
+      setNewLinkPhone('');
+    } catch (err) {
+      console.error('Failed to add support link:', err);
+    } finally {
+      setLinkBusyId(null);
+    }
+  };
+
+  const deleteSupportLink = async (linkId: string) => {
+    setLinkBusyId(linkId);
+    try {
+      await deleteDoc(doc(db, 'support_links', linkId));
+    } catch (err) {
+      console.error('Failed to delete support link:', err);
+    } finally {
+      setLinkBusyId(null);
     }
   };
 
@@ -1880,6 +1938,111 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
           >
             {noticeboardSaving ? 'Saving...' : 'Save Noticeboard'}
           </button>
+        </div>
+      </section>
+
+      {/* 5. Manage Support Links Directory */}
+      <section className="card-glass-base rounded-3xl p-5">
+        <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Manage Support Directory Links</p>
+        <p className="mt-1 text-sm font-semibold text-slate-400">Add or remove resource entries from the public and partner support directories.</p>
+        
+        <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          {/* Active Links Scrollbox */}
+          <div className="max-h-96 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Active Directory Links</p>
+            {loadingSupportLinks ? (
+              <p className="text-sm font-bold text-slate-400">Loading support links...</p>
+            ) : supportLinks.length === 0 ? (
+              <p className="text-sm font-bold text-slate-400">No support links in directory.</p>
+            ) : (
+              <div className="grid gap-2">
+                {supportLinks.map((link) => (
+                  <div key={link.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+                    <div className="min-w-0">
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-[8px] font-black uppercase tracking-widest ${categoryBadgeClass(link.category)}`}>
+                        {link.category}
+                      </span>
+                      <p className="mt-1 text-xs font-black text-slate-100 truncate">{link.name}</p>
+                      <a href={link.url} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-cyan-400 underline truncate block">{link.url}</a>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void deleteSupportLink(link.id)}
+                      disabled={linkBusyId === link.id}
+                      className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-red-200 disabled:opacity-50 hover:bg-red-500/20"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Add Link Form Card */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/20 p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-slate-500 mb-3">Add New Support Link</p>
+            <div className="grid gap-3">
+              <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                Category
+                <select
+                  value={newLinkCategory}
+                  onChange={(event) => setNewLinkCategory(event.target.value)}
+                  className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-black text-slate-200 focus:outline-none"
+                >
+                  <option value="Mental Health">Mental Health</option>
+                  <option value="Debt & Financial">Debt & Financial</option>
+                  <option value="Benefits & Housing">Benefits & Housing</option>
+                  <option value="Local Support">Local Support</option>
+                </select>
+              </label>
+              <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                Service Name
+                <input
+                  value={newLinkName}
+                  onChange={(event) => setNewLinkName(event.target.value)}
+                  placeholder="e.g. Citizens Advice"
+                  className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white outline-none"
+                />
+              </label>
+              <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                Description
+                <textarea
+                  value={newLinkDesc}
+                  onChange={(event) => setNewLinkDesc(event.target.value)}
+                  placeholder="Short description..."
+                  rows={2}
+                  className="resize-none rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white outline-none"
+                />
+              </label>
+              <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                URL Link
+                <input
+                  value={newLinkUrl}
+                  onChange={(event) => setNewLinkUrl(event.target.value)}
+                  placeholder="https://..."
+                  className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white outline-none"
+                />
+              </label>
+              <label className="grid gap-1.5 text-xs font-bold text-slate-300">
+                Phone Number (Optional)
+                <input
+                  value={newLinkPhone}
+                  onChange={(event) => setNewLinkPhone(event.target.value)}
+                  placeholder="e.g. 0808 278 7893"
+                  className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs text-white outline-none"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => void addSupportLink()}
+                disabled={!newLinkName.trim() || !newLinkDesc.trim() || !newLinkUrl.trim() || linkBusyId !== null}
+                className="mt-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-slate-950 disabled:opacity-50"
+              >
+                Add Support Link
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </section>
