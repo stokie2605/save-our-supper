@@ -26,12 +26,13 @@ import { Reports } from './components/Reports';
 import { SupportLinks } from './components/SupportLinks';
 import { useAuthRole } from './hooks/useAuthRole';
 import { db, firebaseAuth } from './lib/firebaseConfig';
-import { md5PhoneKey } from './lib/privacy';
+import { md5EmailKey, md5PhoneKey } from './lib/privacy';
 
 type UserRole = 'pending' | 'partner' | 'active_volunteer' | 'admin';
 type OrderStatus = 'New' | 'Accepted' | 'Ready for Collection' | 'archived';
 type ActiveTab = 'queue' | 'support' | 'reports' | 'admin';
 type QueueTab = 'referrals' | 'handovers' | 'partners';
+type PublicView = 'landing' | 'tracker' | 'support' | 'login';
 
 interface UserProfile {
   id: string;
@@ -49,6 +50,7 @@ interface LiveOrder {
   agencyName: string;
   recipientName: string;
   recipientPhone: string;
+  recipientEmail?: string;
   targetCollectionTime: string;
   familySize: number;
   dietaryNotes: string;
@@ -64,6 +66,7 @@ interface LiveOrder {
 interface OrderEditDraft {
   recipientName: string;
   recipientPhone: string;
+  recipientEmail?: string;
   targetCollectionTime: string;
   dietaryNotes: string;
 }
@@ -239,6 +242,7 @@ function orderFromDocument(id: string, data: DocumentData): LiveOrder {
     agencyName: String(data.agencyName ?? ''),
     recipientName: String(data.recipientName ?? ''),
     recipientPhone: String(data.recipientPhone ?? ''),
+    recipientEmail: String(data.recipientEmail ?? ''),
     targetCollectionTime: String(data.targetCollectionTime ?? ''),
     familySize: Number(data.familySize ?? 1),
     dietaryNotes: String(data.dietaryNotes ?? ''),
@@ -376,7 +380,7 @@ function SignInCard() {
 }
 
 function CheckStatusForm() {
-  const [phone, setPhone] = useState('');
+  const [lookupValue, setLookupValue] = useState('');
   const [result, setResult] = useState<PublicStatusResult | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -390,13 +394,14 @@ function CheckStatusForm() {
     setError('');
 
     try {
-      const phoneKey = md5PhoneKey(phone);
-      if (!phoneKey) {
-        setError('Please enter the phone number used on your referral.');
+      const normalizedLookup = lookupValue.trim();
+      const lookupKey = normalizedLookup.includes('@') ? md5EmailKey(normalizedLookup) : md5PhoneKey(normalizedLookup);
+      if (!lookupKey) {
+        setError('Please enter the phone number or email used on your referral.');
         return;
       }
 
-      const statusSnapshot = await getDoc(doc(db, 'public_status', phoneKey));
+      const statusSnapshot = await getDoc(doc(db, 'public_status', lookupKey));
       if (!statusSnapshot.exists()) {
         setNotFound(true);
         return;
@@ -425,17 +430,17 @@ function CheckStatusForm() {
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Public status check</p>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Check Your Bag Status</h2>
       <p className="mt-2 text-sm leading-6 text-slate-400">
-        Enter the phone number used when your referral was made to see the current status of your food parcel.
+        Enter the phone number or email used when your referral was made to see the current status of your food parcel.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
         <label className="grid gap-1.5 text-sm font-bold text-slate-300">
-          Phone Number
+          Phone Number or Email
           <input
-            type="tel"
-            value={phone}
-            onChange={(event) => setPhone(event.target.value)}
-            placeholder="e.g. 07123 456789"
+            type="text"
+            value={lookupValue}
+            onChange={(event) => setLookupValue(event.target.value)}
+            placeholder="Enter phone number or email"
             className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
             required
           />
@@ -479,7 +484,7 @@ function CheckStatusForm() {
         <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-800/70 p-4">
           <p className="text-sm font-black text-slate-100">No active referral found</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-slate-400">
-            We could not find an active food parcel status for that phone number. If you have already collected your parcel, your record has been securely removed.
+            We could not find an active food parcel status for that phone number or email. If you have already collected your parcel, your record has been securely removed.
           </p>
         </div>
       ) : null}
@@ -523,6 +528,7 @@ async function updateProfileDocument(userId: string, payload: Partial<UserProfil
 function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfile }) {
   const [recipientName, setRecipientName] = useState('');
   const [recipientPhone, setRecipientPhone] = useState('');
+  const [recipientEmail, setRecipientEmail] = useState('');
   const [targetCollectionTime, setTargetCollectionTime] = useState('');
   const [familySize, setFamilySize] = useState('1');
   const [dietaryNotes, setDietaryNotes] = useState('');
@@ -545,6 +551,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
         agencyName: profile.agencyName,
         recipientName: recipientName.trim(),
         recipientPhone: recipientPhone.trim(),
+        recipientEmail: recipientEmail.trim(),
         targetCollectionTime: targetCollectionTime.trim(),
         familySize: Math.max(1, Number.parseInt(familySize, 10) || 1),
         dietaryNotes: dietaryNotes.trim(),
@@ -559,16 +566,24 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
       await addDoc(collection(db, 'live_orders'), newOrder);
 
       const phoneKey = md5PhoneKey(newOrder.recipientPhone);
+      const emailKey = newOrder.recipientEmail ? md5EmailKey(newOrder.recipientEmail) : null;
+      const publicStatusPayload = {
+        bagStatus: 'New',
+        message: publicStatusContent.New.message,
+        updatedAt: serverTimestamp(),
+      };
+
       if (phoneKey) {
-        await setDoc(doc(db, 'public_status', phoneKey), {
-          bagStatus: 'New',
-          message: publicStatusContent.New.message,
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
+        await setDoc(doc(db, 'public_status', phoneKey), publicStatusPayload, { merge: true });
+      }
+
+      if (emailKey) {
+        await setDoc(doc(db, 'public_status', emailKey), publicStatusPayload, { merge: true });
       }
 
       setRecipientName('');
       setRecipientPhone('');
+      setRecipientEmail('');
       setTargetCollectionTime('');
       setFamilySize('1');
       setDietaryNotes('');
@@ -611,6 +626,17 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
             placeholder="e.g. 07123 456789"
             className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
             required
+          />
+        </label>
+
+        <label className="grid gap-1.5 text-sm font-bold text-slate-300">
+          Recipient Email Address <span className="text-xs font-semibold text-slate-500">Optional</span>
+          <input
+            type="email"
+            value={recipientEmail}
+            onChange={(event) => setRecipientEmail(event.target.value)}
+            placeholder="e.g. person@example.com"
+            className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
           />
         </label>
 
@@ -756,6 +782,7 @@ function LiveOrdersQueue({
     if (!canChangeStatus) return;
     const isCollectionComplete = status === 'archived';
     const phoneKey = md5PhoneKey(order.recipientPhone);
+    const emailKey = order.recipientEmail ? md5EmailKey(order.recipientEmail) : null;
     const lifecycleTimestamps = {
       ...(status === 'Accepted' ? { acceptedAt: serverTimestamp() } : {}),
       ...(status === 'Ready for Collection' ? { readyAt: serverTimestamp() } : {}),
@@ -765,6 +792,7 @@ function LiveOrdersQueue({
       ? {
           recipientName: anonymizedRecipientName,
           recipientPhone: '',
+          recipientEmail: 'ANONYMISED',
           dietaryNotes: '',
           anonymizedAt: serverTimestamp(),
         }
@@ -772,6 +800,16 @@ function LiveOrdersQueue({
 
     setBusyOrderId(order.id);
     try {
+      if (isCollectionComplete) {
+        if (phoneKey) {
+          await deleteDoc(doc(db, 'public_status', phoneKey));
+        }
+
+        if (emailKey) {
+          await deleteDoc(doc(db, 'public_status', emailKey));
+        }
+      }
+
       await updateDoc(doc(db, 'live_orders', order.id), {
         status,
         updatedAt: serverTimestamp(),
@@ -779,16 +817,21 @@ function LiveOrdersQueue({
         ...lifecycleTimestamps,
         ...anonymizedFields,
       });
-      if (phoneKey && isCollectionComplete) {
-        await deleteDoc(doc(db, 'public_status', phoneKey));
-      }
 
-      if (phoneKey && (status === 'Accepted' || status === 'Ready for Collection')) {
-        await setDoc(doc(db, 'public_status', phoneKey), {
+      if (!isCollectionComplete && (status === 'Accepted' || status === 'Ready for Collection')) {
+        const publicStatusPayload = {
           bagStatus: status,
           message: publicStatusContent[status].message,
           updatedAt: serverTimestamp(),
-        }, { merge: true });
+        };
+
+        if (phoneKey) {
+          await setDoc(doc(db, 'public_status', phoneKey), publicStatusPayload, { merge: true });
+        }
+
+        if (emailKey) {
+          await setDoc(doc(db, 'public_status', emailKey), publicStatusPayload, { merge: true });
+        }
       }
       setHandoverTarget(null);
     } finally {
@@ -1317,13 +1360,14 @@ function DataRetentionNotice() {
     <div className="card-glass-emerald mb-5 rounded-3xl p-4">
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Data Retention Notice</p>
       <p className="mt-2 text-sm font-semibold leading-6 text-emerald-100">
-        Personal referral details are anonymised as soon as a collection is completed. Names, phone numbers, dietary notes, and public status records are removed at collection, while non-identifying operational data is retained for reporting. Full referral records are automatically deleted after 30 days in line with GDPR data minimisation principles.
+        Personal referral details are anonymised as soon as a collection is completed. Names, phone numbers, email addresses, dietary notes, and public status records are removed at collection, while non-identifying operational data is retained for reporting. Full referral records are automatically deleted after 30 days in line with GDPR data minimisation principles.
       </p>
     </div>
   );
 }
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
+  const [publicView, setPublicView] = useState<PublicView>('landing');
   const { user, profile: authProfile, role, loading, error, isApproved } = useAuthRole();
   const profile: UserProfile | null = authProfile
     ? {
@@ -1337,29 +1381,89 @@ export default function App() {
       }
     : null;
   const visibleActiveTab: ActiveTab = role === 'admin' ? activeTab : activeTab === 'support' ? 'support' : 'queue';
+  const publicBackButton = (
+    <button
+      type="button"
+      onClick={() => setPublicView('landing')}
+      className="w-fit rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-4 py-2 text-sm font-black text-cyan-200 shadow-[0_0_18px_rgba(6,182,212,0.14)] hover:bg-cyan-500/20"
+    >
+      Back to Home
+    </button>
+  );
 
   return (
     <AppShell user={user} onSignOut={() => void signOut(firebaseAuth)}>
       {!user ? (
-        <div className="card-glass-cyan mb-5 flex flex-col gap-3 rounded-3xl p-5 text-white sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest text-cyan-400 text-glow-cyan">Save Our Supper</p>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-white text-glow-cyan">Zero-Paperwork Referrals</h1>
-            <p className="mt-1 text-sm text-slate-300">Referral in. Bag accepted. Collection logged.</p>
-          </div>
-        </div>
-      ) : null}
+        <section className="grid gap-5">
+          {publicView === 'landing' ? (
+            <>
+              <div className="card-glass-cyan sticky top-20 z-30 mb-1 flex flex-col gap-3 rounded-3xl p-5 text-white sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-cyan-400 text-glow-cyan">Save Our Supper</p>
+                  <h1 className="mt-1 text-2xl font-black tracking-tight text-white text-glow-cyan">Zero-Paperwork Referrals</h1>
+                  <p className="mt-1 text-sm text-slate-300">Track a food parcel, find support, or sign in as staff.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPublicView('login')}
+                  className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:from-cyan-600 hover:to-emerald-600"
+                >
+                  Staff Login
+                </button>
+              </div>
 
-      {!user ? (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SignInCard />
-            <CheckStatusForm />
-          </div>
-          <SupportLinks publicView />
-        </>
-      ) : null}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setPublicView('tracker')}
+                  className="card-glass-cyan rounded-3xl p-6 text-left transition hover:-translate-y-0.5 hover:border-cyan-300/60"
+                >
+                  <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Public tracker</p>
+                  <h2 className="mt-3 text-2xl font-black tracking-tight text-white">Track Your Food Parcel</h2>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-400">
+                    Use the phone number or email from the referral to see the current bag status.
+                  </p>
+                </button>
 
+                <button
+                  type="button"
+                  onClick={() => setPublicView('support')}
+                  className="card-glass-emerald rounded-3xl p-6 text-left transition hover:-translate-y-0.5 hover:border-emerald-300/60"
+                >
+                  <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Local help</p>
+                  <h2 className="mt-3 text-2xl font-black tracking-tight text-white">Community Support Links</h2>
+                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-400">
+                    Mental health, debt, housing, benefits, and local Cheshire East support links.
+                  </p>
+                </button>
+              </div>
+            </>
+          ) : null}
+
+          {publicView === 'tracker' ? (
+            <div className="grid gap-4">
+              {publicBackButton}
+              <CheckStatusForm />
+            </div>
+          ) : null}
+
+          {publicView === 'support' ? (
+            <div className="grid gap-4">
+              {publicBackButton}
+              <SupportLinks publicView />
+            </div>
+          ) : null}
+
+          {publicView === 'login' ? (
+            <div className="grid gap-4">
+              {publicBackButton}
+              <div className="mx-auto w-full max-w-2xl">
+                <SignInCard />
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
       {user && loading ? (
         <div className="card-glass-base rounded-3xl p-8 text-center font-bold text-slate-400">
           Verifying security profile...

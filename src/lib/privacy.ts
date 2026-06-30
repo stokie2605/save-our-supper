@@ -151,3 +151,8 @@ export function md5PhoneKey(phone: string) {
   const normalizedPhone = phone.trim();
   return normalizedPhone ? md5(normalizedPhone) : null;
 }
+
+export function md5EmailKey(email: string) {
+  const normalizedEmail = email.toLowerCase().trim();
+  return normalizedEmail ? md5(normalizedEmail) : null;
+}
