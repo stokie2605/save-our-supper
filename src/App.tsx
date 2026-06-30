@@ -297,7 +297,7 @@ function SignInCard() {
   };
 
   return (
-    <div className="card-glass-cyan mx-auto max-w-md rounded-3xl p-5 sm:p-6">
+    <div className="card-glass-cyan w-full rounded-3xl p-5 sm:p-6 flex flex-col h-full">
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Zero-paperwork access</p>
       <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-100">
         {creating ? 'Create partner account' : 'Sign in'}
@@ -421,7 +421,7 @@ function CheckStatusForm() {
   const activeStatusIndex = result ? statusSteps.indexOf(result.bagStatus) : -1;
 
   return (
-    <section className="card-glass-base mx-auto w-full max-w-2xl rounded-3xl p-5 sm:p-6">
+    <section className="card-glass-base w-full rounded-3xl p-5 sm:p-6 flex flex-col h-full">
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Public status check</p>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Check Your Bag Status</h2>
       <p className="mt-2 text-sm leading-6 text-slate-400">
