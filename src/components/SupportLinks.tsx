@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 interface SupportService {
   name: string;
   description: string;
@@ -116,6 +118,21 @@ function phoneHref(phone: string) {
 }
 
 export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
+  const [activeCategory, setActiveCategory] = useState<string>('All');
+
+  const categories = ['All', 'Mental Health', 'Debt & Financial', 'Benefits & Housing', 'Local Support'];
+
+  const filteredServices = supportCategories
+    .filter((cat) => activeCategory === 'All' || cat.category === activeCategory)
+    .flatMap((cat) =>
+      cat.services.map((service) => ({
+        ...service,
+        category: cat.category,
+        badgeClassName: cat.badgeClassName,
+        borderClassName: cat.borderClassName,
+      }))
+    );
+
   return (
     <section className={publicView ? 'mx-auto mt-6 max-w-5xl' : 'mx-auto max-w-5xl'}>
       <div className="card-glass-cyan rounded-3xl p-5">
@@ -131,38 +148,57 @@ export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
         </p>
       </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {supportCategories.map((cat) => (
-          <div key={cat.category} className={`card-glass-base rounded-3xl p-5 ${cat.borderClassName}`}>
-            <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${cat.badgeClassName}`}>
-              {cat.category}
-            </span>
-            <ul className="mt-3 divide-y divide-slate-800">
-              {cat.services.map((service) => (
-                <li key={service.name} className="py-3">
-                  <p className="text-sm font-black text-slate-100">{service.name}</p>
-                  <p className="mt-0.5 text-xs leading-5 text-slate-400">{service.description}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {service.phone ? (
-                      <a
-                        href={phoneHref(service.phone)}
-                        className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-black text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.16)] hover:bg-emerald-500/20"
-                      >
-                        {service.phone}
-                      </a>
-                    ) : null}
-                    <a
-                      href={service.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-black text-cyan-300 shadow-[0_0_14px_rgba(6,182,212,0.16)] hover:bg-cyan-500/20"
-                    >
-                      Visit
-                    </a>
-                  </div>
-                </li>
-              ))}
-            </ul>
+      {/* Category Tabs Selection */}
+      <div className="mt-4 flex flex-wrap gap-2 justify-center sm:justify-start">
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => setActiveCategory(cat)}
+            className={`rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-wider transition ${
+              activeCategory === cat
+                ? 'bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(6,182,212,0.22)] border border-transparent'
+                : 'border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
+      {/* Services Uniform Grid */}
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {filteredServices.map((service) => (
+          <div
+            key={service.name}
+            className={`card-glass-base rounded-3xl p-5 flex flex-col justify-between min-h-48 border-t-2 ${service.borderClassName}`}
+          >
+            <div>
+              <span className={`inline-flex rounded-full px-3 py-1 text-[9px] font-black uppercase tracking-widest ${service.badgeClassName}`}>
+                {service.category}
+              </span>
+              <h3 className="mt-3 text-sm font-black leading-tight text-slate-100">{service.name}</h3>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-400">{service.description}</p>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2 pt-2 border-t border-slate-800/40">
+              {service.phone ? (
+                <a
+                  href={phoneHref(service.phone)}
+                  className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-black text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.16)] hover:bg-emerald-500/20"
+                >
+                  {service.phone}
+                </a>
+              ) : null}
+              <a
+                href={service.url}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-black text-cyan-300 shadow-[0_0_14px_rgba(6,182,212,0.16)] hover:bg-cyan-500/20"
+              >
+                Visit
+              </a>
+            </div>
           </div>
         ))}
       </div>

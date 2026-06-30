@@ -1700,6 +1700,7 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
 
   return (
     <section className="grid gap-5">
+      {/* 1. Title/Stats card */}
       <div className="card-glass-purple w-full rounded-3xl p-5">
         <p className="text-xs font-black uppercase tracking-widest text-red-300">Admin</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">User Roles</h2>
@@ -1726,6 +1727,67 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
         </div>
       </div>
 
+      {/* 2. User Management (Pending Approvals & Active Users) */}
+      <div className="card-glass-purple w-full rounded-3xl p-5">
+        <div className="rounded-3xl border border-amber-400/30 bg-amber-500/10/60 p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-amber-300">Pending Approvals</p>
+              <h3 className="mt-1 text-xl font-black text-slate-100">Approve new accounts</h3>
+            </div>
+            <p className="text-sm font-bold text-amber-200">{pendingUsers.length} waiting</p>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {pendingUsers.length === 0 ? (
+              <p className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-slate-400">No accounts are waiting for approval.</p>
+            ) : (
+              pendingUsers.map((profile) => (
+                <div key={profile.id} className="grid gap-3 rounded-2xl border border-amber-400/30 bg-slate-900 p-3">
+                  <div className="min-w-0">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
+                      Pending Approval
+                    </span>
+                    <p className="mt-2 break-words text-sm font-black text-slate-100">{profile.name}</p>
+                    <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-400">
+                      Requested agency: <span className="text-slate-200">{profile.requestedAgencyName || 'Not provided'}</span>
+                    </p>
+                  </div>
+                  {renderAccessControls(profile, 'approve')}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-xs font-black uppercase tracking-widest text-slate-400">Active Users</p>
+          <div className="mt-3 grid gap-3">
+            {activeUsers.map((profile) => (
+              <div key={profile.id} className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-800/70 p-3 lg:grid-cols-[1fr_minmax(22rem,auto)] lg:items-center">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="break-words text-sm font-black text-slate-100">{profile.name}</p>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                      profile.role === 'admin'
+                        ? 'bg-red-100 text-red-300'
+                        : profile.role === 'active_volunteer'
+                          ? 'bg-emerald-100 text-emerald-300'
+                          : 'bg-amber-100 text-amber-300'
+                    }`}>
+                      {profile.role === 'pending' ? 'Pending Approval' : `${profile.role} - ${profile.agencyName || 'Foodbank Hub'}`}
+                    </span>
+                  </div>
+                  <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
+                </div>
+                {renderAccessControls(profile, 'save')}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. System Configurations Grid */}
       <div className="grid gap-5 xl:grid-cols-2">
         <section className="card-glass-cyan rounded-3xl p-5">
           <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Manage Partner Agencies</p>
@@ -1781,6 +1843,7 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
         </section>
       </div>
 
+      {/* 4. Foodbank Noticeboard Settings */}
       <section className="card-glass-base rounded-3xl p-5">
         <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Edit Foodbank Noticeboard</p>
         <div className="mt-4 grid gap-3">
@@ -1819,65 +1882,6 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
           </button>
         </div>
       </section>
-
-      <div className="card-glass-purple w-full rounded-3xl p-5">
-        <div className="rounded-3xl border border-amber-400/30 bg-amber-500/10/60 p-4">
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-widest text-amber-300">Pending Approvals</p>
-              <h3 className="mt-1 text-xl font-black text-slate-100">Approve new accounts</h3>
-            </div>
-            <p className="text-sm font-bold text-amber-200">{pendingUsers.length} waiting</p>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {pendingUsers.length === 0 ? (
-              <p className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-slate-400">No accounts are waiting for approval.</p>
-            ) : (
-              pendingUsers.map((profile) => (
-                <div key={profile.id} className="grid gap-3 rounded-2xl border border-amber-400/30 bg-slate-900 p-3">
-                  <div className="min-w-0">
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
-                      Pending Approval
-                    </span>
-                    <p className="mt-2 break-words text-sm font-black text-slate-100">{profile.name}</p>
-                    <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
-                    <p className="mt-1 text-xs font-bold text-slate-400">
-                      Requested agency: <span className="text-slate-200">{profile.requestedAgencyName || 'Not provided'}</span>
-                    </p>
-                  </div>
-                  {renderAccessControls(profile, 'approve')}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <p className="text-xs font-black uppercase tracking-widest text-slate-400">Active Users</p>
-          <div className="mt-3 grid gap-3">
-          {activeUsers.map((profile) => (
-            <div key={profile.id} className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-800/70 p-3 lg:grid-cols-[1fr_minmax(22rem,auto)] lg:items-center">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="break-words text-sm font-black text-slate-100">{profile.name}</p>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                    profile.role === 'admin'
-                      ? 'bg-red-100 text-red-300'
-                      : profile.role === 'active_volunteer'
-                        ? 'bg-emerald-100 text-emerald-300'
-                        : 'bg-amber-100 text-amber-300'
-                  }`}>
-                    {profile.role === 'pending' ? 'Pending Approval' : `${profile.role} - ${profile.agencyName || 'Foodbank Hub'}`}
-                  </span>
-                </div>
-                <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
-              </div>
-              {renderAccessControls(profile, 'save')}
-            </div>
-          ))}
-          </div>
-        </div>
-      </div>
     </section>
   );
 }
@@ -2043,13 +2047,15 @@ export default function App() {
               </div>
             </div>
           ) : (
-            <div className="grid gap-6">
-              <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+            <div className="grid gap-6 lg:grid-cols-[24rem_1fr] lg:items-start">
+              <div className="grid gap-6">
                 <PartnerReferralForm user={user} profile={profile} />
                 <FoodbankNoticeboard />
               </div>
-              <LiveOrdersQueue user={user} profile={profile} layoutMode="list" />
-              <PartnerHistory profile={profile} />
+              <div className="grid gap-6">
+                <LiveOrdersQueue user={user} profile={profile} layoutMode="list" />
+                <PartnerHistory profile={profile} />
+              </div>
             </div>
           )}
         </>
