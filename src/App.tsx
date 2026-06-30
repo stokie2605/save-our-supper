@@ -196,7 +196,7 @@ function PrimaryNavigation({
     ...(includeAdmin
       ? [
           { tab: 'reports' as ActiveTab, label: 'Reports', icon: 'M', tone: 'emerald' },
-          { tab: 'admin' as ActiveTab, label: 'User Roles', icon: 'R', tone: 'red' },
+          { tab: 'admin' as ActiveTab, label: 'Admin', icon: 'A', tone: 'red' },
         ]
       : []),
   ];
@@ -1761,7 +1761,7 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
       {/* 1. Title/Stats card */}
       <div className="card-glass-purple w-full rounded-3xl p-5">
         <p className="text-xs font-black uppercase tracking-widest text-red-300">Admin</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">User Roles</h2>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Admin Panel</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
           Review newly registered partner accounts and assign the correct access level for agency users or foodbank staff.
         </p>
