@@ -676,8 +676,10 @@ function PartnerHistory({ profile }: { profile: UserProfile }) {
 
   useEffect(() => {
     if (!profile.agencyId) {
-      setCompletedOrders([]);
-      setLoadingHistory(false);
+      queueMicrotask(() => {
+        setCompletedOrders([]);
+        setLoadingHistory(false);
+      });
       return undefined;
     }
 
@@ -962,7 +964,9 @@ function LiveOrdersQueue({
   }, [profile.agencyId, profile.role]);
   useEffect(() => {
     if (!canChangeStatus) {
-      setHandoverNotes([]);
+      queueMicrotask(() => {
+        setHandoverNotes([]);
+      });
       return undefined;
     }
 
@@ -1531,7 +1535,9 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
   }, []);
 
   useEffect(() => {
-    setNoticeboardDraft(noticeboard);
+    queueMicrotask(() => {
+      setNoticeboardDraft(noticeboard);
+    });
   }, [noticeboard]);
 
   const assignableAgencies = agencies.filter((agency) => !agency.disabled);

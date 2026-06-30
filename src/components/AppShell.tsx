@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 interface AppShellProps {
   children: ReactNode;
-  user?: any;
+  user?: unknown;
   onSignOut?: () => void;
 }
 

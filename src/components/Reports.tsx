@@ -269,7 +269,7 @@ export function Reports({ noticeboardHours }: { noticeboardHours?: string }) {
       highestMonthCount,
       daySummaries,
     };
-  }, [orders]);
+  }, [orders, noticeboardHours]);
 
   function handleExportCsv() {
     const rows: Array<Array<string | number>> = [
