@@ -114,9 +114,21 @@ service cloud.firestore {
     }
 
     match /agencies/{agencyId} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin() || isActiveVolunteer() || isPartner();
+      allow create, update, delete: if isAdmin();
     }
 
+
+    match /config/noticeboard {
+      allow read: if isAdmin() || isActiveVolunteer() || isPartner();
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /handover_notes/{noteId} {
+      allow read, create: if isAdmin() || isActiveVolunteer();
+      allow update, delete: if isAdmin();
+    }
     match /public_status/{phoneKey} {
       allow get: if true;
       allow list: if false;

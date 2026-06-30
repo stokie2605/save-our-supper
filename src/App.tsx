@@ -11,6 +11,8 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -107,14 +109,42 @@ const publicStatusContent: Record<PublicBagStatus, { label: string; message: str
   },
 };
 
-const partnerAgencies = [
-  { id: 'plus_dane', name: 'Plus Dane' },
+interface PartnerAgency {
+  id: string;
+  name: string;
+  disabled?: boolean;
+}
+
+interface NoticeboardConfig {
+  address: string;
+  hours: string;
+  announcement: string;
+}
+
+interface HandoverNote {
+  id: string;
+  text: string;
+  createdBy: string;
+  createdAt: Timestamp | null;
+}
+
+const defaultNoticeboard: NoticeboardConfig = {
+  address: 'Alsager Foodbank, Community Hub, ST7',
+  hours: 'Tue/Wed/Thu Mornings',
+  announcement: 'No urgent alerts today. Standard referral times apply.',
+};
+
+const defaultPartnerAgencies: PartnerAgency[] = [
+  { id: 'plus_dane', name: 'Plus Dane Housing' },
   { id: 'cheshire_east_council', name: 'Cheshire East Council' },
-  { id: 'alsager_school_support', name: 'Alsager School Support' },
+  { id: 'citizens_advice_cheshire_east', name: 'Citizens Advice Cheshire East' },
+  { id: 'jobcentre_plus', name: 'Jobcentre Plus' },
+  { id: 'local_schools', name: 'Local Schools' },
   { id: 'health_professional', name: 'Health Professional / GP' },
+  { id: 'camhs', name: 'CAMHS' },
   { id: 'local_church', name: 'Local Church / Faith Leader' },
+  { id: 'voluntary_agency', name: 'Voluntary Agency' },
   { id: 'other_approved_partner', name: 'Other Approved Partner' },
-  { id: 'foodbank_hub', name: 'Foodbank Hub' },
 ];
 
 function hasStaffAccess(role: UserRole) {
@@ -129,8 +159,9 @@ function normalizeRole(value: unknown, fallbackEmail?: string | null): UserRole 
   return 'pending';
 }
 
-function agencyNameFromId(agencyId: string | null) {
-  return partnerAgencies.find((agency) => agency.id === agencyId)?.name ?? '';
+function agencyNameFromId(agencyId: string | null, agencies: PartnerAgency[] = defaultPartnerAgencies) {
+  if (agencyId === 'foodbank_hub') return 'Foodbank Hub';
+  return agencies.find((agency) => agency.id === agencyId)?.name ?? defaultPartnerAgencies.find((agency) => agency.id === agencyId)?.name ?? '';
 }
 
 function formatTimestamp(value: Timestamp | null) {
@@ -510,6 +541,197 @@ function CheckStatusForm() {
     </section>
   );
 }
+function slugifyAgencyId(name: string) {
+  const normalized = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return normalized || `agency_${Date.now()}`;
+}
+
+function agencyFromDocument(id: string, data: DocumentData): PartnerAgency {
+  return {
+    id,
+    name: String(data.name ?? id),
+    disabled: Boolean(data.disabled),
+  };
+}
+
+function noticeboardFromDocument(data?: DocumentData): NoticeboardConfig {
+  return {
+    address: String(data?.address ?? defaultNoticeboard.address),
+    hours: String(data?.hours ?? defaultNoticeboard.hours),
+    announcement: String(data?.announcement ?? defaultNoticeboard.announcement),
+  };
+}
+
+function handoverNoteFromDocument(id: string, data: DocumentData): HandoverNote {
+  return {
+    id,
+    text: String(data.text ?? ''),
+    createdBy: String(data.createdBy ?? 'Foodbank team'),
+    createdAt: data.createdAt instanceof Timestamp ? data.createdAt : null,
+  };
+}
+
+function usePartnerAgencies(enabled: boolean, canSeed: boolean) {
+  const [agencies, setAgencies] = useState<PartnerAgency[]>(defaultPartnerAgencies);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    const unsubscribe = onSnapshot(
+      collection(db, 'agencies'),
+      (snapshot) => {
+        if (snapshot.empty) {
+          setAgencies(defaultPartnerAgencies);
+          if (canSeed) {
+            void Promise.all(defaultPartnerAgencies.map((agency) => setDoc(doc(db, 'agencies', agency.id), {
+              name: agency.name,
+              disabled: false,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            }, { merge: true })));
+          }
+          return;
+        }
+
+        setAgencies(
+          snapshot.docs
+            .map((agencyDoc) => agencyFromDocument(agencyDoc.id, agencyDoc.data()))
+            .sort((first, second) => Number(first.disabled) - Number(second.disabled) || first.name.localeCompare(second.name)),
+        );
+      },
+      (err) => {
+        console.error('Agency stream failed:', err);
+        setAgencies(defaultPartnerAgencies);
+      },
+    );
+
+    return unsubscribe;
+  }, [enabled, canSeed]);
+
+  return agencies;
+}
+
+function useNoticeboard(enabled: boolean) {
+  const [noticeboard, setNoticeboard] = useState<NoticeboardConfig>(defaultNoticeboard);
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+
+    const unsubscribe = onSnapshot(
+      doc(db, 'config', 'noticeboard'),
+      (snapshot) => setNoticeboard(snapshot.exists() ? noticeboardFromDocument(snapshot.data()) : defaultNoticeboard),
+      (err) => {
+        console.error('Noticeboard stream failed:', err);
+        setNoticeboard(defaultNoticeboard);
+      },
+    );
+
+    return unsubscribe;
+  }, [enabled]);
+
+  return noticeboard;
+}
+
+function monthKeyFromDate(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthLabelFromDate(date: Date) {
+  return date.toLocaleString('en-GB', { month: 'short', year: 'numeric' });
+}
+
+function timestampToMillis(value: Timestamp | null) {
+  return value?.toMillis() ?? 0;
+}
+
+function FoodbankNoticeboard() {
+  const noticeboard = useNoticeboard(true);
+  const hasActiveAnnouncement = noticeboard.announcement.trim() !== defaultNoticeboard.announcement;
+
+  return (
+    <section className="card-glass-cyan rounded-3xl p-5 sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Foodbank Noticeboard</p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Foodbank Noticeboard</h2>
+      <div className="mt-5 grid gap-3">
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Address</p>
+          <p className="mt-1 text-sm font-black text-slate-100">{noticeboard.address}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hours</p>
+          <p className="mt-1 text-sm font-black text-slate-100">{noticeboard.hours}</p>
+        </div>
+        <div className={`rounded-2xl border p-4 ${hasActiveAnnouncement ? 'border-amber-400/40 bg-amber-500/10 shadow-[0_0_18px_rgba(245,158,11,0.14)]' : 'border-slate-800 bg-slate-950/40'}`}>
+          <p className={`text-[10px] font-black uppercase tracking-widest ${hasActiveAnnouncement ? 'text-amber-300' : 'text-slate-400'}`}>Admin Announcement</p>
+          <p className={`mt-1 text-sm font-black ${hasActiveAnnouncement ? 'text-amber-100' : 'text-slate-100'}`}>{noticeboard.announcement}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PartnerHistory({ profile }: { profile: UserProfile }) {
+  const [completedOrders, setCompletedOrders] = useState<LiveOrder[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+
+  useEffect(() => {
+    if (!profile.agencyId) {
+      setCompletedOrders([]);
+      setLoadingHistory(false);
+      return undefined;
+    }
+
+    const historyQuery = query(
+      collection(db, 'live_orders'),
+      where('agencyId', '==', profile.agencyId),
+      where('status', '==', 'archived'),
+    );
+    const unsubscribe = onSnapshot(
+      historyQuery,
+      (snapshot) => {
+        setCompletedOrders(
+          snapshot.docs
+            .map((orderDoc) => orderFromDocument(orderDoc.id, orderDoc.data()))
+            .sort((first, second) => timestampToMillis(second.completedAt) - timestampToMillis(first.completedAt)),
+        );
+        setLoadingHistory(false);
+      },
+      (err) => {
+        console.error('Partner history stream failed:', err);
+        setCompletedOrders([]);
+        setLoadingHistory(false);
+      },
+    );
+
+    return unsubscribe;
+  }, [profile.agencyId]);
+
+  return (
+    <section className="card-glass-purple rounded-3xl p-5">
+      <p className="text-xs font-black uppercase tracking-widest text-purple-300">Agency Impact & History</p>
+      <div className="mt-3 grid gap-3 sm:grid-cols-[14rem_1fr]">
+        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Total Referrals Completed</p>
+          <p className="mt-2 text-4xl font-black text-emerald-100">{completedOrders.length}</p>
+        </div>
+        <div className="max-h-72 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950/40 p-3">
+          {loadingHistory ? (
+            <p className="text-sm font-bold text-slate-400">Loading anonymised history...</p>
+          ) : completedOrders.length === 0 ? (
+            <p className="text-sm font-bold text-slate-400">No completed referrals recorded for this agency yet.</p>
+          ) : (
+            completedOrders.map((order) => (
+              <div key={order.id} className="mb-2 rounded-xl border border-slate-800 bg-slate-900/80 px-3 py-2 last:mb-0">
+                <p className="text-sm font-black text-slate-100">Client Family of {order.familySize}</p>
+                <p className="mt-1 text-xs font-bold text-slate-400">Collected {formatTimestamp(order.completedAt)} - Status: GDPR-Archived</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
 async function updateProfileDocument(userId: string, payload: Partial<UserProfile>) {
   await setDoc(doc(db, 'users', userId), {
     uid: userId,
@@ -710,8 +932,11 @@ function LiveOrdersQueue({
     recipientPhone: '',
     targetCollectionTime: '',
     dietaryNotes: '',
-  });
-
+  });  const [handoverNotes, setHandoverNotes] = useState<HandoverNote[]>([]);
+  const [handoverNoteText, setHandoverNoteText] = useState('');
+  const [postingHandoverNote, setPostingHandoverNote] = useState(false);
+  const role = profile.role;
+  const canChangeStatus = hasStaffAccess(role);
   useEffect(() => {
     const ordersQuery = profile.role === 'partner' && profile.agencyId
       ? query(collection(db, 'live_orders'), where('agencyId', '==', profile.agencyId))
@@ -735,9 +960,26 @@ function LiveOrdersQueue({
 
     return unsubscribe;
   }, [profile.agencyId, profile.role]);
+  useEffect(() => {
+    if (!canChangeStatus) {
+      setHandoverNotes([]);
+      return undefined;
+    }
 
-  const role = profile.role;
-  const canChangeStatus = hasStaffAccess(role);
+    const notesQuery = query(collection(db, 'handover_notes'), orderBy('createdAt', 'desc'), limit(5));
+    const unsubscribe = onSnapshot(
+      notesQuery,
+      (snapshot) => {
+        setHandoverNotes(snapshot.docs.map((noteDoc) => handoverNoteFromDocument(noteDoc.id, noteDoc.data())));
+      },
+      (err) => {
+        console.error('Handover notes stream failed:', err);
+        setHandoverNotes([]);
+      },
+    );
+
+    return unsubscribe;
+  }, [canChangeStatus]);
   const activeOrders = orders.filter((order) => order.status === 'New' || order.status === 'Accepted' || order.status === 'Ready for Collection');
   const referralOrders = activeOrders.filter((order) => order.status === 'New' || order.status === 'Accepted');
   const handoverOrders = activeOrders.filter((order) => order.status === 'Ready for Collection');
@@ -777,8 +1019,20 @@ function LiveOrdersQueue({
     if (!normalizedSearch) return true;
     return partner.agencyName.toLowerCase().includes(normalizedSearch);
   });
-
-  const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const currentMonthOrders = orders.filter((order) => timestampToMillis(order.createdAt) >= currentMonthStart);
+  const currentMonthProcessed = currentMonthOrders.length;
+  const currentMonthFamiliesAssisted = currentMonthOrders
+    .filter((order) => order.status === 'archived')
+    .reduce((total, order) => total + order.familySize, 0);
+  const trendMonths = Array.from({ length: 6 }, (_, index) => {
+    const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+    const key = monthKeyFromDate(monthDate);
+    const count = orders.filter((order) => order.createdAt && monthKeyFromDate(order.createdAt.toDate()) === key).length;
+    return { key, label: monthLabelFromDate(monthDate), count };
+  });
+  const maxTrendCount = Math.max(1, ...trendMonths.map((month) => month.count));  const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
     if (!canChangeStatus) return;
     const isCollectionComplete = status === 'archived';
     const phoneKey = md5PhoneKey(order.recipientPhone);
@@ -865,16 +1119,97 @@ function LiveOrdersQueue({
       setBusyOrderId(null);
     }
   };
+  const postHandoverNote = async () => {
+    const text = handoverNoteText.trim();
+    if (!text || !canChangeStatus) return;
 
-  return (
+    setPostingHandoverNote(true);
+    try {
+      await addDoc(collection(db, 'handover_notes'), {
+        text,
+        createdBy: profile.name || user.email || 'Foodbank team',
+        createdAt: serverTimestamp(),
+      });
+      setHandoverNoteText('');
+    } finally {
+      setPostingHandoverNote(false);
+    }
+  };  return (
     <section className="mx-auto max-w-5xl">
       <div className="card-glass-cyan mb-5 rounded-3xl p-5 text-white">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Foodbank hub</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight">Live Orders Queue</h2>
         <p className="mt-2 text-sm text-slate-300">Accept referrals, mark bags ready, then record collection. That is the whole workflow.</p>
       </div>
+      {canChangeStatus ? (
+        <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_1.4fr]">
+          <section className="card-glass-purple rounded-3xl p-4">
+            <p className="text-xs font-black uppercase tracking-widest text-purple-300">Volunteer Morale Dashboard</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Total Referrals Processed This Month</p>
+                <p className="mt-2 text-4xl font-black text-cyan-100">{currentMonthProcessed}</p>
+              </div>
+              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Total Families Assisted</p>
+                <p className="mt-2 text-4xl font-black text-emerald-100">{currentMonthFamiliesAssisted}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {trendMonths.map((month) => (
+                <div key={month.key} className="grid grid-cols-[5.5rem_1fr_2rem] items-center gap-2 text-xs font-bold text-slate-300">
+                  <span>{month.label}</span>
+                  <div className="h-3 overflow-hidden rounded-full bg-slate-950/70">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 shadow-[0_0_16px_rgba(6,182,212,0.28)]"
+                      style={{ width: `${Math.max(6, (month.count / maxTrendCount) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-right text-slate-400">{month.count}</span>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      <div className="card-glass-base mb-4 grid gap-3 rounded-3xl p-3 md:grid-cols-[1fr_auto] md:items-center">
+          <section className="card-glass-cyan rounded-3xl p-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Shift Bulletin & Handover Notes</p>
+                <h3 className="mt-1 text-xl font-black text-slate-100">Latest notes</h3>
+              </div>
+              <p className="text-xs font-bold text-slate-400">Last 5 notes</p>
+            </div>
+            <div className="mt-4 grid gap-2">
+              {handoverNotes.length === 0 ? (
+                <p className="rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-bold text-slate-400">No handover notes posted yet.</p>
+              ) : (
+                handoverNotes.map((note) => (
+                  <div key={note.id} className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2">
+                    <p className="text-sm font-semibold leading-5 text-slate-200">{note.text}</p>
+                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-500">{note.createdBy} - {formatTimestamp(note.createdAt)}</p>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+              <input
+                value={handoverNoteText}
+                onChange={(event) => setHandoverNoteText(event.target.value)}
+                placeholder="Add a short note for the next shift..."
+                className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
+              />
+              <button
+                type="button"
+                onClick={() => void postHandoverNote()}
+                disabled={postingHandoverNote || !handoverNoteText.trim()}
+                className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_0_18px_rgba(6,182,212,0.22)] disabled:opacity-50"
+              >
+                {postingHandoverNote ? 'Posting...' : 'Post Note'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}      <div className="card-glass-base mb-4 grid gap-3 rounded-3xl p-3 md:grid-cols-[1fr_auto] md:items-center">
         <div className="grid gap-2 sm:grid-cols-3">
           <button
             type="button"
@@ -1160,9 +1495,16 @@ function LiveOrdersQueue({
   );
 }
 
-function AdminUserPanel() {
+function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [accessDrafts, setAccessDrafts] = useState<Record<string, { role: UserRole; agencyId: string }>>({});
+  const [newAgencyName, setNewAgencyName] = useState('');
+  const [agencyBusyId, setAgencyBusyId] = useState<string | null>(null);
+  const noticeboard = useNoticeboard(true);
+  const [noticeboardDraft, setNoticeboardDraft] = useState<NoticeboardConfig>(defaultNoticeboard);
+  const [noticeboardSaving, setNoticeboardSaving] = useState(false);
+  const [purgeRunning, setPurgeRunning] = useState(false);
+  const [purgeMessage, setPurgeMessage] = useState('');
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -1179,11 +1521,18 @@ function AdminUserPanel() {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    setNoticeboardDraft(noticeboard);
+  }, [noticeboard]);
+
+  const assignableAgencies = agencies.filter((agency) => !agency.disabled);
+  const fallbackAgencyId = assignableAgencies[0]?.id ?? defaultPartnerAgencies[0].id;
+
   const draftFor = (profile: UserProfile) => {
     const role = accessDrafts[profile.id]?.role ?? (profile.role === 'pending' ? (profile.requestedAgencyName ? 'partner' : 'active_volunteer') : profile.role);
     const agencyId = accessDrafts[profile.id]?.agencyId
       ?? profile.agencyId
-      ?? (role === 'partner' ? partnerAgencies[0].id : 'foodbank_hub');
+      ?? (role === 'partner' ? fallbackAgencyId : 'foodbank_hub');
 
     return { role, agencyId };
   };
@@ -1194,7 +1543,7 @@ function AdminUserPanel() {
       const nextRole = nextDraft.role ?? existing.role;
       const nextAgencyId = nextDraft.agencyId
         ?? (nextRole === 'partner'
-          ? (existing.agencyId === 'foodbank_hub' ? partnerAgencies[0].id : existing.agencyId)
+          ? (existing.agencyId === 'foodbank_hub' ? fallbackAgencyId : existing.agencyId)
           : 'foodbank_hub');
 
       return {
@@ -1210,13 +1559,86 @@ function AdminUserPanel() {
   const saveAccess = async (profile: UserProfile) => {
     const draft = draftFor(profile);
     const agencyId = draft.role === 'pending' ? null : draft.role === 'partner' ? draft.agencyId : 'foodbank_hub';
-    const agencyName = agencyNameFromId(agencyId);
+    const agencyName = agencyNameFromId(agencyId, agencies);
     await updateDoc(doc(db, 'users', profile.id), {
       role: draft.role,
       agencyId,
       agencyName,
       updatedAt: serverTimestamp(),
     });
+  };
+
+  const addAgency = async () => {
+    const name = newAgencyName.trim();
+    if (!name) return;
+
+    const agencyId = slugifyAgencyId(name);
+    setAgencyBusyId(agencyId);
+    try {
+      await setDoc(doc(db, 'agencies', agencyId), {
+        name,
+        disabled: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setNewAgencyName('');
+    } finally {
+      setAgencyBusyId(null);
+    }
+  };
+
+  const toggleAgencyDisabled = async (agency: PartnerAgency) => {
+    setAgencyBusyId(agency.id);
+    try {
+      await setDoc(doc(db, 'agencies', agency.id), {
+        name: agency.name,
+        disabled: !agency.disabled,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } finally {
+      setAgencyBusyId(null);
+    }
+  };
+
+  const saveNoticeboard = async () => {
+    setNoticeboardSaving(true);
+    try {
+      await setDoc(doc(db, 'config', 'noticeboard'), {
+        address: noticeboardDraft.address.trim() || defaultNoticeboard.address,
+        hours: noticeboardDraft.hours.trim() || defaultNoticeboard.hours,
+        announcement: noticeboardDraft.announcement.trim() || defaultNoticeboard.announcement,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    } finally {
+      setNoticeboardSaving(false);
+    }
+  };
+
+  const runManualPurge = async () => {
+    setPurgeRunning(true);
+    setPurgeMessage('');
+    try {
+      const cutoff = Timestamp.fromDate(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+      const expiredQuery = query(collection(db, 'live_orders'), where('status', '==', 'archived'), where('completedAt', '<', cutoff));
+      const snapshot = await getDocs(expiredQuery);
+
+      await Promise.all(snapshot.docs.map(async (orderDoc) => {
+        const order = orderFromDocument(orderDoc.id, orderDoc.data());
+        const phoneKey = md5PhoneKey(order.recipientPhone);
+        const emailKey = order.recipientEmail && order.recipientEmail !== 'ANONYMISED' ? md5EmailKey(order.recipientEmail) : null;
+        await Promise.all([
+          ...(phoneKey ? [deleteDoc(doc(db, 'public_status', phoneKey)).catch(() => undefined)] : []),
+          ...(emailKey ? [deleteDoc(doc(db, 'public_status', emailKey)).catch(() => undefined)] : []),
+          deleteDoc(doc(db, 'live_orders', orderDoc.id)),
+        ]);
+      }));
+
+      const message = `Purged ${snapshot.docs.length} expired records successfully.`;
+      setPurgeMessage(message);
+      window.alert(message);
+    } finally {
+      setPurgeRunning(false);
+    }
   };
 
   const roleCounts = users.reduce<Record<UserRole, number>>(
@@ -1231,7 +1653,10 @@ function AdminUserPanel() {
     const roleChoices = mode === 'approve'
       ? roleOptions.filter((role) => role !== 'pending')
       : roleOptions;
-    const activeAgencyId = draft.agencyId || 'foodbank_hub';
+    const activeAgencyId = draft.agencyId || fallbackAgencyId;
+    const agencyOptions = assignableAgencies.some((agency) => agency.id === activeAgencyId)
+      ? assignableAgencies
+      : [...assignableAgencies, ...agencies.filter((agency) => agency.id === activeAgencyId)];
 
     return (
       <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -1255,8 +1680,8 @@ function AdminUserPanel() {
             onChange={(event) => setAccessDraft(profile, { agencyId: event.target.value })}
             className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm font-black text-slate-200 disabled:opacity-60"
           >
-            {partnerAgencies.map((agency) => (
-              <option key={agency.id} value={agency.id}>{agency.name}</option>
+            {agencyOptions.map((agency) => (
+              <option key={agency.id} value={agency.id}>{agency.name}{agency.disabled ? ' (disabled)' : ''}</option>
             ))}
           </select>
         </label>
@@ -1274,87 +1699,188 @@ function AdminUserPanel() {
   };
 
   return (
-    <section className="card-glass-purple w-full rounded-3xl p-5">
-      <p className="text-xs font-black uppercase tracking-widest text-red-300">Admin</p>
-      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">User Roles</h2>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
-        Review newly registered partner accounts and assign the correct access level for agency users or foodbank staff.
-      </p>
-      <div className="mt-5 grid gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Pending Approval</p>
-          <p className="mt-1 text-2xl font-black text-amber-100">{roleCounts.pending}</p>
-        </div>
-        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Volunteers</p>
-          <p className="mt-1 text-2xl font-black text-emerald-100">{roleCounts.active_volunteer}</p>
-        </div>
-        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Admins</p>
-          <p className="mt-1 text-2xl font-black text-red-100">{roleCounts.admin}</p>
+    <section className="grid gap-5">
+      <div className="card-glass-purple w-full rounded-3xl p-5">
+        <p className="text-xs font-black uppercase tracking-widest text-red-300">Admin</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">User Roles</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
+          Review newly registered partner accounts and assign the correct access level for agency users or foodbank staff.
+        </p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Pending Approval</p>
+            <p className="mt-1 text-2xl font-black text-amber-100">{roleCounts.pending}</p>
+          </div>
+          <div className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Partners</p>
+            <p className="mt-1 text-2xl font-black text-cyan-100">{roleCounts.partner}</p>
+          </div>
+          <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Volunteers</p>
+            <p className="mt-1 text-2xl font-black text-emerald-100">{roleCounts.active_volunteer}</p>
+          </div>
+          <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Admins</p>
+            <p className="mt-1 text-2xl font-black text-red-100">{roleCounts.admin}</p>
+          </div>
         </div>
       </div>
 
-      <div className="mt-6 rounded-3xl border border-amber-400/30 bg-amber-500/10/60 p-4">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-widest text-amber-300">Pending Approvals</p>
-            <h3 className="mt-1 text-xl font-black text-slate-100">Approve new accounts</h3>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="card-glass-cyan rounded-3xl p-5">
+          <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Manage Partner Agencies</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <input
+              value={newAgencyName}
+              onChange={(event) => setNewAgencyName(event.target.value)}
+              placeholder="Agency Name"
+              className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
+            />
+            <button
+              type="button"
+              onClick={() => void addAgency()}
+              disabled={!newAgencyName.trim() || agencyBusyId !== null}
+              className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wider text-slate-950 disabled:opacity-50"
+            >
+              Add Agency
+            </button>
           </div>
-          <p className="text-sm font-bold text-amber-800">{pendingUsers.length} waiting</p>
-        </div>
-        <div className="mt-4 grid gap-3">
-          {pendingUsers.length === 0 ? (
-            <p className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-slate-400">No accounts are waiting for approval.</p>
-          ) : (
-            pendingUsers.map((profile) => (
-              <div key={profile.id} className="grid gap-3 rounded-2xl border border-amber-400/30 bg-slate-900 p-3">
-                <div className="min-w-0">
-                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
-                    Pending Approval
-                  </span>
-                  <p className="mt-2 break-words text-sm font-black text-slate-100">{profile.name}</p>
-                  <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
-                  <p className="mt-1 text-xs font-bold text-slate-400">
-                    Requested agency: <span className="text-slate-200">{profile.requestedAgencyName || 'Not provided'}</span>
-                  </p>
+          <div className="mt-4 grid gap-2">
+            {agencies.map((agency) => (
+              <div key={agency.id} className="flex flex-col gap-2 rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-black text-slate-100">{agency.name}</p>
+                  <p className="text-xs font-bold text-slate-500">{agency.id}</p>
                 </div>
-                {renderAccessControls(profile, 'approve')}
+                <button
+                  type="button"
+                  onClick={() => void toggleAgencyDisabled(agency)}
+                  disabled={agencyBusyId === agency.id}
+                  className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wider ${agency.disabled ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-200'}`}
+                >
+                  {agency.disabled ? 'Enable' : 'Disable'}
+                </button>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="card-glass-emerald rounded-3xl p-5">
+          <p className="text-xs font-black uppercase tracking-widest text-emerald-300">GDPR & Data Retention Health</p>
+          <h3 className="mt-2 text-xl font-black text-slate-100">Nightly GDPR Auto-Purge: Enabled</h3>
+          <p className="mt-2 text-sm font-semibold text-slate-400">30-day data retention standard.</p>
+          <button
+            type="button"
+            onClick={() => void runManualPurge()}
+            disabled={purgeRunning}
+            className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-black uppercase tracking-wider text-emerald-100 disabled:opacity-50"
+          >
+            {purgeRunning ? 'Purging...' : 'Run Manual Purge Now'}
+          </button>
+          {purgeMessage ? <p className="mt-3 rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-100">{purgeMessage}</p> : null}
+        </section>
       </div>
 
-      <div className="mt-6">
-        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Active Users</p>
-        <div className="mt-3 grid gap-3">
-        {activeUsers.map((profile) => (
-          <div key={profile.id} className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-800/70 p-3 lg:grid-cols-[1fr_minmax(22rem,auto)] lg:items-center">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="break-words text-sm font-black text-slate-100">{profile.name}</p>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
-                  profile.role === 'admin'
-                    ? 'bg-red-100 text-red-300'
-                    : profile.role === 'active_volunteer'
-                      ? 'bg-emerald-100 text-emerald-300'
-                      : 'bg-amber-100 text-amber-300'
-                }`}>
-                  {profile.role === 'pending' ? 'Pending Approval' : `${profile.role} - ${profile.agencyName || 'Foodbank Hub'}`}
-                </span>
-              </div>
-              <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
+      <section className="card-glass-base rounded-3xl p-5">
+        <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Edit Foodbank Noticeboard</p>
+        <div className="mt-4 grid gap-3">
+          <label className="grid gap-1.5 text-sm font-bold text-slate-300">
+            Address
+            <input
+              value={noticeboardDraft.address}
+              onChange={(event) => setNoticeboardDraft((draft) => ({ ...draft, address: event.target.value }))}
+              className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm font-bold text-slate-300">
+            Hours
+            <input
+              value={noticeboardDraft.hours}
+              onChange={(event) => setNoticeboardDraft((draft) => ({ ...draft, hours: event.target.value }))}
+              className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
+            />
+          </label>
+          <label className="grid gap-1.5 text-sm font-bold text-slate-300">
+            Active Announcement
+            <textarea
+              value={noticeboardDraft.announcement}
+              onChange={(event) => setNoticeboardDraft((draft) => ({ ...draft, announcement: event.target.value }))}
+              rows={3}
+              className="resize-none rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => void saveNoticeboard()}
+            disabled={noticeboardSaving}
+            className="w-fit rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wider text-slate-950 disabled:opacity-50"
+          >
+            {noticeboardSaving ? 'Saving...' : 'Save Noticeboard'}
+          </button>
+        </div>
+      </section>
+
+      <div className="card-glass-purple w-full rounded-3xl p-5">
+        <div className="rounded-3xl border border-amber-400/30 bg-amber-500/10/60 p-4">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-amber-300">Pending Approvals</p>
+              <h3 className="mt-1 text-xl font-black text-slate-100">Approve new accounts</h3>
             </div>
-            {renderAccessControls(profile, 'save')}
+            <p className="text-sm font-bold text-amber-200">{pendingUsers.length} waiting</p>
           </div>
-        ))}
+          <div className="mt-4 grid gap-3">
+            {pendingUsers.length === 0 ? (
+              <p className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-slate-400">No accounts are waiting for approval.</p>
+            ) : (
+              pendingUsers.map((profile) => (
+                <div key={profile.id} className="grid gap-3 rounded-2xl border border-amber-400/30 bg-slate-900 p-3">
+                  <div className="min-w-0">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
+                      Pending Approval
+                    </span>
+                    <p className="mt-2 break-words text-sm font-black text-slate-100">{profile.name}</p>
+                    <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
+                    <p className="mt-1 text-xs font-bold text-slate-400">
+                      Requested agency: <span className="text-slate-200">{profile.requestedAgencyName || 'Not provided'}</span>
+                    </p>
+                  </div>
+                  {renderAccessControls(profile, 'approve')}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-xs font-black uppercase tracking-widest text-slate-400">Active Users</p>
+          <div className="mt-3 grid gap-3">
+          {activeUsers.map((profile) => (
+            <div key={profile.id} className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-800/70 p-3 lg:grid-cols-[1fr_minmax(22rem,auto)] lg:items-center">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="break-words text-sm font-black text-slate-100">{profile.name}</p>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                    profile.role === 'admin'
+                      ? 'bg-red-100 text-red-300'
+                      : profile.role === 'active_volunteer'
+                        ? 'bg-emerald-100 text-emerald-300'
+                        : 'bg-amber-100 text-amber-300'
+                  }`}>
+                    {profile.role === 'pending' ? 'Pending Approval' : `${profile.role} - ${profile.agencyName || 'Foodbank Hub'}`}
+                  </span>
+                </div>
+                <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
+              </div>
+              {renderAccessControls(profile, 'save')}
+            </div>
+          ))}
+          </div>
         </div>
       </div>
     </section>
   );
 }
-
 function DataRetentionNotice() {
   return (
     <div className="card-glass-emerald mb-5 rounded-3xl p-4">
@@ -1380,6 +1906,7 @@ export default function App() {
         requestedAgencyName: authProfile.requestedAgencyName ?? '',
       }
     : null;
+  const agencies = usePartnerAgencies(Boolean(user && isApproved), role === 'admin');
   const visibleActiveTab: ActiveTab = role === 'admin' ? activeTab : activeTab === 'support' ? 'support' : 'queue';
   const publicBackButton = (
     <button
@@ -1510,16 +2037,19 @@ export default function App() {
                 {visibleActiveTab === 'admin' ? (
                   <>
                     <DataRetentionNotice />
-                    <AdminUserPanel />
+                    <AdminUserPanel agencies={agencies} />
                   </>
                 ) : null}
               </div>
             </div>
           ) : (
-            // Partner portal view: Side-by-side layout on desktop, stacked on mobile
-            <div className="grid gap-6 lg:grid-cols-[24rem_1fr] lg:items-start">
-              <PartnerReferralForm user={user} profile={profile} />
+            <div className="grid gap-6">
+              <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+                <PartnerReferralForm user={user} profile={profile} />
+                <FoodbankNoticeboard />
+              </div>
               <LiveOrdersQueue user={user} profile={profile} layoutMode="list" />
+              <PartnerHistory profile={profile} />
             </div>
           )}
         </>
