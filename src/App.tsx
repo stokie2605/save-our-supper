@@ -663,7 +663,15 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
   );
 }
 
-function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }) {
+function LiveOrdersQueue({
+  user,
+  profile,
+  layoutMode = 'grid',
+}: {
+  user: User;
+  profile: UserProfile;
+  layoutMode?: 'grid' | 'list';
+}) {
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [handoverTarget, setHandoverTarget] = useState<string | null>(null);
@@ -876,7 +884,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
           <p className="mt-2 text-sm text-slate-400">New partner requests will appear here automatically.</p>
         </div>
       ) : queueTab === 'partners' ? (
-        <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className={layoutMode === 'list' ? "grid gap-3 grid-cols-1" : "grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3"}>
           {partnerSummaries.map((partner) => (
             <article key={partner.agencyName} className="card-glass-base rounded-2xl p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Partner Agency</p>
@@ -906,7 +914,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
           ) : null}
         </div>
       ) : (
-        <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className={layoutMode === 'list' ? "grid gap-3 grid-cols-1" : "grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3"}>
           {visibleActiveOrders.map((order) => {
             const isReady = order.status === 'Ready for Collection';
             const isAccepted = order.status === 'Accepted';
@@ -1404,12 +1412,10 @@ export default function App() {
               </div>
             </div>
           ) : (
-            // Partner portal view: centered single-column layout with no navigation sidebar/bottom-nav
-            <div className="mx-auto max-w-2xl">
-              <div className="grid gap-6">
-                <PartnerReferralForm user={user} profile={profile} />
-                <LiveOrdersQueue user={user} profile={profile} />
-              </div>
+            // Partner portal view: Side-by-side layout on desktop, stacked on mobile
+            <div className="grid gap-6 lg:grid-cols-[24rem_1fr] lg:items-start">
+              <PartnerReferralForm user={user} profile={profile} />
+              <LiveOrdersQueue user={user} profile={profile} layoutMode="list" />
             </div>
           )}
         </>
