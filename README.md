@@ -1,115 +1,194 @@
 # Save Our Supper - Foodbank Referral Pipeline
 
-Save Our Supper is a streamlined, paperless foodbank referral and operational pipeline. 
-
-It connects trusted partner agencies (such as housing associations, Citizens Advice, GP surgeries, and schools) with foodbank volunteers and managers to request, track, and log emergency food parcel distributions.
+Save Our Supper is a responsive, paperless foodbank referral and operations platform for Alsager & District Foodbank. It helps trusted partner agencies submit referrals, lets volunteers manage parcel status in real time, and gives admins GDPR-aware reporting and configuration tools.
 
 **Live app:** https://save-our-supper.web.app/
 
 ---
 
+## Screenshots
+
+| Desktop public gateway | Mobile public gateway |
+| --- | --- |
+| <img src="screenshots/save-our-supper-desktop.png" alt="Save Our Supper desktop public gateway" width="520" /> | <img src="screenshots/save-our-supper-mobile.png" alt="Save Our Supper mobile public gateway" width="220" /> |
+
+---
+
 ## Current Product Shape
 
-The application is structured into four distinct, role-based views:
+The application is split into focused role-based experiences:
 
-*   **Public Gateway (Unauthenticated Client View):**
-    *   **Landing Page:** A clean portal directing users to status tracking or local help resources.
-    *   **Parcel Tracker:** Allows clients to search their referral status using either their phone number or email address (fully anonymized via MD5 hashes in the database).
-    *   **Support Directory:** A tab-filtered links page (`All`, `Mental Health`, `Debt & Financial`, `Benefits & Housing`, `Local Support`) with clean card links.
-*   **Pending User:** Sees an awaiting authorization screen until an Admin approves their account and assigns their role or partner agency.
-*   **Partner User:** A dedicated, side-by-side agency portal:
-    *   **Submit Referral Form:** Simple form to request food parcels (recipient name, phone, optional email, family size, dietary notes).
-    *   **Foodbank Noticeboard:** Shows the foodbank's collection address, dynamic operating window, and active admin announcements.
-    *   **Live Queue (Filtered):** A list of only the active orders submitted by their specific agency.
-    *   **Anonymized History Log:** Displays their total referrals completed and a list of GDPR-archived orders (`Client Family of [X] — Collected [Date] — GDPR-Archived`).
-*   **Active Volunteer:** The operational staff dashboard:
-    *   **Volunteer Morale Dashboard:** Visual metrics showing total processed referrals this month, families helped, and a 6-month activity trend bar chart.
-    *   **Shift Handover Notes:** A real-time bulletin board where volunteers write and post updates (low-stock alerts, shift logs) for the next shift.
-    *   **Master Queue:** Accept new referrals, mark bags as ready, and record collected handovers.
-*   **Admin:** The manager's console with full access to the Volunteer dashboard, plus:
-    *   **Reports Panel:** View detailed monthly summaries, agency submission breakdowns, and export GDPR-compliant CSV data.
-    *   **User Roles Manager:** Approve new accounts and map user roles and verified partner agencies.
-    *   **Manage Partner Agencies:** Add, edit, or disable partner agencies dynamically in Firestore (dropdown fields populate live from this stream).
-    *   **GDPR Audit & Manual Purge:** View data retention health and trigger immediate data anonymization on completed records older than 30 days.
-    *   **Noticeboard Settings Editor:** Update the live operating window, hours, address, and alerts shown on the partner portals.
-    *   **Support Links Directory Editor:** Add or delete links from the local directory (stored dynamically in Firestore).
+### Public Gateway
+
+Unauthenticated users can access a clean public landing screen with:
+
+- **Track Your Food Parcel:** a privacy-safe status checker using the phone number or email used on the referral.
+- **Community Support Links:** local Cheshire East support services for mental health, debt, benefits, housing, and foodbank contact details.
+- **Staff Login:** a separate entry point for approved partner, volunteer, and admin users.
+
+The public tracker only reads a single hashed lookup document from `/public_status`. It never exposes names, phone numbers, email addresses, or referral details.
+
+### Partner Portal
+
+Approved partner agencies get a dedicated portal with:
+
+- **Submit Referral Form:** captures recipient name, phone, optional email, family size, collection target, and dietary/access notes.
+- **Foodbank Noticeboard:** live address, operating hours, and admin announcement from `/config/noticeboard`.
+- **Agency Queue:** partners only see active referrals for their own verified `agencyId`.
+- **Agency Impact & History:** anonymised completed referral history showing family size, collection date, and GDPR-archived status.
+
+### Volunteer Dashboard
+
+Active volunteers get the operational queue and shift tools:
+
+- **Live Orders Queue:** accept referrals, mark parcels ready, and confirm collection.
+- **Volunteer Morale Dashboard:** this-month processed referrals, families assisted, and a simple six-month trend bar chart.
+- **Shift Bulletin & Handover Notes:** real-time notes for the next shift, stored in `/handover_notes`.
+- **Support Directory:** same local support links available inside the logged-in workspace.
+
+### Admin Console
+
+Admins can access everything volunteers can, plus:
+
+- **Monthly Reports:** GDPR-safe monthly reporting, agency breakdowns, operating-day analysis, and CSV export.
+- **User Roles Manager:** approve users and assign partner, volunteer, or admin roles.
+- **Manage Partner Agencies:** add or disable agencies from Firestore-backed `/agencies`.
+- **GDPR & Data Retention Health:** confirms the 30-day retention standard and includes a manual purge button.
+- **Noticeboard Settings:** edit public partner-facing address, hours, and active announcement.
+- **Support Links Editor:** add and remove local support links stored in `/support_links`.
+
+---
+
+## GDPR & Privacy Model
+
+Save Our Supper uses a two-tier privacy approach:
+
+1. **Immediate anonymisation on collection:** when a referral is marked collected, personal fields are wiped from `live_orders` and matching public status lookup documents are deleted.
+2. **Thirty-day purge:** archived records older than 30 days can be removed entirely, keeping reporting useful while minimising retained personal data.
+
+Reports and partner history never display names, phone numbers, email addresses, or dietary notes.
 
 ---
 
 ## Firestore Collections
 
 ### `/users`
-Stores user role records.
-*   `uid` (string)
-*   `email` (string)
-*   `name` (string)
-*   `role` (string - `pending`, `partner`, `active_volunteer`, or `admin`)
-*   `agencyId` (string, optional - links partners to their agency document)
-*   `agencyName` (string, optional)
+
+Stores account and access records.
+
+- `uid`
+- `email`
+- `displayName`
+- `role`: `pending`, `partner`, `active_volunteer`, or `admin`
+- `agencyId`
+- `agencyName`
+- `requestedAgencyName`
+- `createdAt`
+- `updatedAt`
 
 ### `/live_orders`
-Stores active referral requests.
-*   `agencyId` / `agencyName` (string)
-*   `recipientName` (string - wiped upon collection)
-*   `recipientPhone` (string - wiped upon collection)
-*   `recipientEmail` (string - wiped upon collection)
-*   `familySize` (number)
-*   `dietaryNotes` (string - wiped upon collection)
-*   `targetCollectionTime` (string)
-*   `status` (string - `New`, `Accepted`, `Ready for Collection`, `archived`)
-*   `createdAt` / `acceptedAt` / `readyAt` / `collectedAt` / `completedAt` (timestamps)
+
+Stores referral workflow records.
+
+- `agencyId`
+- `agencyName`
+- `recipientName` - wiped on collection
+- `recipientPhone` - wiped on collection
+- `recipientEmail` - wiped on collection
+- `targetCollectionTime`
+- `familySize`
+- `dietaryNotes` - wiped on collection
+- `status`: `New`, `Accepted`, `Ready for Collection`, or `archived`
+- `submittedBy`
+- `createdAt`
+- `acceptedAt`
+- `readyAt`
+- `collectedAt`
+- `completedAt`
+- `anonymizedAt`
 
 ### `/public_status`
-Stores MD5 phone and email status keys for unauthenticated client lookups. Keys are deleted upon collection.
-*   `status` (string)
-*   `targetCollectionTime` (string)
-*   `updatedAt` (timestamp)
+
+Stores one-document public lookup records keyed by MD5 phone or email hashes.
+
+- `bagStatus`
+- `message`
+- `updatedAt`
+
+These records are deleted immediately when a parcel is collected.
 
 ### `/agencies`
-Stores partner agencies.
-*   `name` (string)
-*   `disabled` (boolean)
-*   `createdAt` / `updatedAt` (timestamps)
+
+Stores partner agency options used by admin role assignment and partner workflows.
+
+- `name`
+- `disabled`
+- `createdAt`
+- `updatedAt`
+
+### `/config/noticeboard`
+
+Stores the foodbank noticeboard shown to partner users.
+
+- `address`
+- `hours`
+- `announcement`
+- `updatedAt`
 
 ### `/handover_notes`
-Stores shift handover bulletins.
-*   `text` (string)
-*   `createdBy` (string)
-*   `createdAt` (timestamp)
+
+Stores volunteer/admin shift bulletin notes.
+
+- `text`
+- `createdBy`
+- `createdAt`
 
 ### `/support_links`
+
 Stores local support directory entries.
-*   `name` (string)
-*   `description` (string)
-*   `url` (string)
-*   `phone` (string, optional)
-*   `category` (string)
-*   `order` (number)
+
+- `name`
+- `description`
+- `url`
+- `phone`
+- `category`
+- `order`
+- `createdAt`
+- `updatedAt`
 
 ---
 
 ## Security Model
 
-The security model is strictly enforced in `firestore.rules`:
-*   Unauthenticated users can only request a single matching document in `/public_status/{key}` and cannot list resources.
-*   Read permissions on `/support_links` are open to the public.
-*   `partner` users can only read live orders that contain their verified `agencyId`.
-*   `active_volunteer` and `admin` roles can read all active collections.
-*   Only `admin` users can write/edit/delete `/agencies`, `/config/noticeboard`, and `/support_links`.
-*   Only `active_volunteer` and `admin` roles can read and write to `/handover_notes`.
+Security is enforced in `firestore.rules`:
+
+- Public users can `get` only exact `/public_status/{key}` documents and cannot list lookup data.
+- Public users can read support links.
+- Partners can read and create only referrals linked to their verified `agencyId`.
+- Volunteers and admins can manage operational queue records.
+- Admins manage agencies, noticeboard settings, support links, users, and expired record purges.
+- Volunteers and admins can read and create handover notes.
+- Everything else is denied by default.
+
+---
+
+## Tech Stack
+
+- React 19
+- TypeScript
+- Vite
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Hosting
+- Tailwind CSS v4 utilities with custom glassmorphism styling
 
 ---
 
 ## Local Development
 
 ```bash
-# Install dependencies
 npm install
-
-# Run Vite dev server
 npm run dev
-
-# Compile TypeScript and Vite production bundle
 npm run build
 ```
 
@@ -118,6 +197,15 @@ npm run build
 ## Deployment
 
 ```bash
-# Deploy code and firestore rules
+npm run build
 npx firebase-tools deploy
 ```
+
+---
+
+## Problems Faced & Solved
+
+- **Privacy-safe public tracking:** instead of SMS costs or exposing referral records, the app writes small hashed lookup documents to `/public_status`.
+- **GDPR reporting without personal data:** collected referrals are anonymised immediately, while non-identifying fields remain useful for reporting.
+- **Role-specific complexity:** partner, volunteer, and admin users share one app shell, but Firestore rules and UI filters keep each role focused on only what they need.
+- **Live configuration:** agencies, support links, noticeboard settings, and handover notes now come from Firestore instead of being hardcoded in the UI.
