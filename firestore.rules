@@ -53,7 +53,10 @@ service cloud.firestore {
         "agencyName",
         "requestedAgencyName",
         "createdAt",
-        "updatedAt"
+        "updatedAt",
+        "name",
+        "organization_name",
+        "id"
       ])
       && data.uid is string
       && data.role is string
@@ -63,6 +66,9 @@ service cloud.firestore {
       && (!("requestedAgencyName" in data) || data.requestedAgencyName == null || data.requestedAgencyName is string)
       && (!("email" in data) || data.email == null || data.email is string)
       && (!("displayName" in data) || data.displayName == null || data.displayName is string)
+      && (!("name" in data) || data.name == null || data.name is string)
+      && (!("organization_name" in data) || data.organization_name == null || data.organization_name is string)
+      && (!("id" in data) || data.id == null || data.id is string)
       && (!("photoURL" in data) || data.photoURL == null || data.photoURL is string);
     }
 
@@ -87,11 +93,11 @@ service cloud.firestore {
         );
 
       allow update: if signedIn()
-        && validUserProfile(request.resource.data)
         && request.resource.data.uid == userId
         && (
           isAdmin() ||
           (
+            validUserProfile(request.resource.data) &&
             request.auth.uid == userId &&
             roleWasNotChanged()
           )
