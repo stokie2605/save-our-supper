@@ -184,6 +184,23 @@ Security is enforced in `firestore.rules`:
 
 ---
 
+## ✅ Automated Testing
+
+The project includes a `vitest` unit test suite to verify the application's core data-modeling and hashing logic:
+- **Privacy Hashing:** Validates correct MD5 generation for emails (`md5EmailKey`) and phone numbers (`md5PhoneKey`) using standard lowercase-and-trim normalization.
+- **Firestore Document Mappers:** Asserts accurate mappings from raw Firestore documents to `LiveOrder` and `UserProfile` objects, including default fallback logic.
+- **Date & Month Helpers:** Tests correct format rendering for month-based keys and labels.
+- **Access Control & Roles:** Asserts correct volunteer/staff access levels and role normalization.
+
+To run the test suite locally:
+```bash
+npm run test
+```
+
+The GitHub Actions CI pipeline runs these tests automatically on every push to the `main` branch.
+
+---
+
 ## Local Development
 
 ```bash
