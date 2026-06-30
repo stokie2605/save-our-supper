@@ -84,21 +84,21 @@ const publicStatusContent: Record<PublicBagStatus, { label: string; message: str
   New: {
     label: 'Waiting to be processed',
     message: 'Your referral has been received and is waiting to be processed.',
-    badgeClassName: 'bg-blue-100 text-blue-700',
+    badgeClassName: 'bg-blue-100 text-blue-300',
     iconClassName: 'bg-blue-600 text-white',
     icon: 'N',
   },
   Accepted: {
     label: 'Being prepared',
     message: 'Your referral has been accepted. Your food parcel is being prepared.',
-    badgeClassName: 'bg-amber-100 text-amber-700',
-    iconClassName: 'bg-amber-500 text-slate-950',
+    badgeClassName: 'bg-amber-100 text-amber-300',
+    iconClassName: 'bg-amber-500/100 text-slate-100',
     icon: 'A',
   },
   'Ready for Collection': {
     label: 'Ready to collect!',
     message: 'Your food parcel is packed and ready to collect. Please come to Alsager Foodbank at your earliest convenience.',
-    badgeClassName: 'bg-emerald-100 text-emerald-700',
+    badgeClassName: 'bg-emerald-100 text-emerald-300',
     iconClassName: 'bg-emerald-600 text-white',
     icon: 'R',
   },
@@ -168,7 +168,7 @@ function PrimaryNavigation({
   return (
     <>
       <aside className="hidden md:block">
-        <nav className="sticky top-24 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+        <nav className="sticky top-24 rounded-3xl border border-slate-800 bg-slate-900 p-3 shadow-sm">
           <p className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Workspace</p>
           <div className="grid gap-2">
             {items.map((item) => {
@@ -181,11 +181,11 @@ function PrimaryNavigation({
                   className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-black transition ${
                     isActive
                       ? item.tone === 'red'
-                        ? 'bg-red-50 text-red-700 shadow-sm ring-1 ring-red-100'
+                        ? 'bg-red-500/10 text-red-300 shadow-sm ring-1 ring-red-400/30'
                         : item.tone === 'blue'
-                          ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-100'
-                          : 'bg-emerald-50 text-emerald-700 shadow-sm ring-1 ring-emerald-100'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-950'
+                          ? 'bg-blue-500/10 text-blue-300 shadow-sm ring-1 ring-blue-400/30'
+                          : 'bg-emerald-500/10 text-emerald-300 shadow-sm ring-1 ring-emerald-400/30'
+                      : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
                   }`}
                 >
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-xs font-black ${
@@ -195,7 +195,7 @@ function PrimaryNavigation({
                         : item.tone === 'blue'
                           ? 'bg-blue-600 text-white'
                           : 'bg-emerald-700 text-white'
-                      : 'bg-slate-100 text-slate-500'
+                      : 'bg-slate-800 text-slate-400'
                   }`}>
                     {item.icon}
                   </span>
@@ -207,7 +207,7 @@ function PrimaryNavigation({
         </nav>
       </aside>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-200 bg-white/95 px-4 py-2 shadow-[0_-12px_30px_rgb(15,23,42,0.08)] backdrop-blur md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-900/95 px-4 py-2 shadow-[0_-12px_30px_rgb(15,23,42,0.08)] backdrop-blur md:hidden">
         <div className={`mx-auto grid max-w-md gap-2 ${includeAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
           {items.map((item) => {
             const isActive = activeTab === item.tab;
@@ -219,11 +219,11 @@ function PrimaryNavigation({
                 className={`flex min-h-14 flex-col items-center justify-center rounded-2xl text-[11px] font-black uppercase tracking-wide transition ${
                   isActive
                     ? item.tone === 'red'
-                      ? 'bg-red-50 text-red-700 ring-1 ring-red-100'
+                      ? 'bg-red-500/10 text-red-300 ring-1 ring-red-400/30'
                       : item.tone === 'blue'
-                        ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
-                        : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
-                    : 'text-slate-500'
+                        ? 'bg-blue-500/10 text-blue-300 ring-1 ring-blue-400/30'
+                        : 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30'
+                    : 'text-slate-400'
                 }`}
               >
                 <span className={`mb-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
@@ -233,7 +233,7 @@ function PrimaryNavigation({
                         : item.tone === 'blue'
                           ? 'bg-blue-600 text-white'
                           : 'bg-emerald-700 text-white'
-                    : 'bg-slate-100 text-slate-500'
+                    : 'bg-slate-800 text-slate-400'
                 }`}>
                   {item.icon}
                 </span>
@@ -312,66 +312,66 @@ function SignInCard() {
   };
 
   return (
-    <div className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Zero-paperwork access</p>
-      <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">
+    <div className="mx-auto max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Zero-paperwork access</p>
+      <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-100">
         {creating ? 'Create partner account' : 'Sign in'}
       </h1>
-      <p className="mt-2 text-sm leading-6 text-slate-500">
+      <p className="mt-2 text-sm leading-6 text-slate-400">
         Partners submit referrals. Foodbank staff accept them and mark collections.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-5 grid gap-4">
         {creating ? (
-          <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          <label className="grid gap-1.5 text-sm font-bold text-slate-300">
             Agency / Name
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+              className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
               required
             />
           </label>
         ) : null}
 
         {creating ? (
-          <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          <label className="grid gap-1.5 text-sm font-bold text-slate-300">
             Organisation / Agency Request
             <input
               value={requestedAgencyName}
               onChange={(event) => setRequestedAgencyName(event.target.value)}
               placeholder="e.g. Plus Dane, school support, GP surgery"
-              className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+              className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
               required
             />
           </label>
         ) : null}
 
-        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-300">
           Email
           <input
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
             required
           />
         </label>
 
-        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-300">
           Password
           <input
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
             required
           />
         </label>
 
-        {error ? <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{error}</p> : null}
+        {error ? <p className="rounded-xl border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm font-bold text-red-300">{error}</p> : null}
 
-        <button className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-700">
+        <button className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-600">
           {creating ? 'Create Account' : 'Sign In'}
         </button>
 
@@ -381,7 +381,7 @@ function SignInCard() {
             setCreating((current) => !current);
             setError('');
           }}
-          className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700"
+          className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-bold text-slate-300"
         >
           {creating ? 'Already have an account? Sign in' : 'Need an account? Create one'}
         </button>
@@ -432,52 +432,74 @@ function CheckStatusForm() {
   };
 
   const statusConfig = result ? publicStatusContent[result.bagStatus] : null;
+  const statusSteps: PublicBagStatus[] = ['New', 'Accepted', 'Ready for Collection'];
+  const activeStatusIndex = result ? statusSteps.indexOf(result.bagStatus) : -1;
 
   return (
-    <section className="mx-auto mt-6 max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Public status check</p>
-      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Check Your Bag Status</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">
+    <section className="mx-auto w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Public status check</p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Check Your Bag Status</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-400">
         Enter the phone number used when your referral was made to see the current status of your food parcel.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
-        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-300">
           Phone Number
           <input
             type="tel"
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             placeholder="e.g. 07123 456789"
-            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
             required
           />
         </label>
         <button
           disabled={checking}
-          className="self-end rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="self-end rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 hover:bg-emerald-600 disabled:opacity-50"
         >
           {checking ? 'Checking...' : 'Check Status'}
         </button>
       </form>
 
+      <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {statusSteps.map((step, index) => {
+            const stepConfig = publicStatusContent[step];
+            const isActive = activeStatusIndex >= index;
+            return (
+              <div key={step} className="flex items-center gap-3 sm:flex-col sm:items-start">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black ${isActive ? stepConfig.iconClassName : 'bg-slate-800 text-slate-500'}`}>
+                  {index + 1}
+                </span>
+                <div>
+                  <p className={`text-xs font-black uppercase tracking-widest ${isActive ? 'text-slate-100' : 'text-slate-500'}`}>{stepConfig.label}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{step === 'New' ? 'Received' : step === 'Accepted' ? 'Being Prepared' : 'Ready to Collect'}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {checking ? (
-        <p className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">Checking your referral status...</p>
+        <p className="mt-4 rounded-xl border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-sm font-bold text-blue-300">Checking your referral status...</p>
       ) : null}
 
-      {error ? <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-xl border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm font-bold text-red-300">{error}</p> : null}
 
       {notFound ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-black text-slate-950">No active referral found</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
+        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-800/70 p-4">
+          <p className="text-sm font-black text-slate-100">No active referral found</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-400">
             We could not find an active food parcel status for that phone number. If you have already collected your parcel, your record has been securely removed.
           </p>
         </div>
       ) : null}
 
       {result && statusConfig ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-800/70 p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${statusConfig.iconClassName}`}>
               {statusConfig.icon}
@@ -486,8 +508,8 @@ function CheckStatusForm() {
               <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${statusConfig.badgeClassName}`}>
                 {statusConfig.label}
               </span>
-              <p className="mt-3 text-sm font-semibold leading-6 text-slate-700">{result.message}</p>
-              <p className="mt-3 text-xs font-bold leading-5 text-slate-500">
+              <p className="mt-3 text-sm font-semibold leading-6 text-slate-300">{result.message}</p>
+              <p className="mt-3 text-xs font-bold leading-5 text-slate-400">
                 If you have already collected your parcel, your record has been securely removed.
               </p>
             </div>
@@ -573,80 +595,80 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
   };
 
   return (
-    <section className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Partner referral</p>
-      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Submit Referral Form</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">Send one clear request to the hub. No stock counts. No paperwork.</p>
+    <section className="mx-auto max-w-2xl rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm sm:p-6">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Partner referral</p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Submit Referral Form</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-400">Send one clear request to the hub. No stock counts. No paperwork.</p>
 
       <form onSubmit={handleSubmit} className="mt-5 grid gap-4">
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Verified partner agency</p>
-          <p className="mt-1 text-sm font-black text-emerald-950">{profile.agencyName || 'Awaiting agency assignment'}</p>
+        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Verified partner agency</p>
+          <p className="mt-1 text-sm font-black text-emerald-100">{profile.agencyName || 'Awaiting agency assignment'}</p>
         </div>
 
-        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-300">
           Recipient Full Name
           <input
             value={recipientName}
             onChange={(event) => setRecipientName(event.target.value)}
-            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
             required
           />
         </label>
 
-        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-300">
           Recipient Phone Number
           <input
             type="tel"
             value={recipientPhone}
             onChange={(event) => setRecipientPhone(event.target.value)}
             placeholder="e.g. 07123 456789"
-            className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
             required
           />
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          <label className="grid gap-1.5 text-sm font-bold text-slate-300">
             Target Collection Time
             <input
               value={targetCollectionTime}
               onChange={(event) => setTargetCollectionTime(event.target.value)}
               placeholder="e.g. Today after 3pm"
-              className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+              className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
               required
             />
           </label>
 
-          <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+          <label className="grid gap-1.5 text-sm font-bold text-slate-300">
             Family Size
             <input
               type="number"
               min="1"
               value={familySize}
               onChange={(event) => setFamilySize(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+              className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
               required
             />
           </label>
         </div>
 
-        <label className="grid gap-1.5 text-sm font-bold text-slate-700">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-300">
           Dietary Notes
           <textarea
             value={dietaryNotes}
             onChange={(event) => setDietaryNotes(event.target.value)}
             rows={4}
             placeholder="Allergies, halal/vegetarian needs, baby items, pet food, or access notes."
-            className="resize-none rounded-xl border border-slate-200 bg-[#FBF7EF] px-3 py-2.5 outline-none focus:border-emerald-600"
+            className="resize-none rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
           />
         </label>
 
-        {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">{message}</p> : null}
+        {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-200">{message}</p> : null}
 
         <button
           disabled={submitting}
-          className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-600 disabled:opacity-50"
         >
           {submitting ? 'Sending...' : 'Submit Referral'}
         </button>
@@ -815,85 +837,85 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
         <p className="mt-2 text-sm text-slate-300">Accept referrals, mark bags ready, then record collection. That is the whole workflow.</p>
       </div>
 
-      <div className="mb-4 grid gap-3 rounded-3xl border border-slate-200 bg-white p-3 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
+      <div className="mb-4 grid gap-3 rounded-3xl border border-slate-800 bg-slate-900 p-3 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
         <div className="grid gap-2 sm:grid-cols-3">
           <button
             type="button"
             onClick={() => setQueueTab('referrals')}
             className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'referrals' ? 'border-blue-300 bg-blue-50 shadow-sm' : 'border-slate-200 bg-[#FBF7EF] hover:border-blue-200'
+              queueTab === 'referrals' ? 'border-blue-400/60 bg-blue-500/10 shadow-sm' : 'border-slate-800 bg-slate-950 hover:border-blue-200'
             }`}
           >
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Referrals</p>
-            <p className="text-lg font-black text-slate-950">{referralOrders.length} active</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Referrals</p>
+            <p className="text-lg font-black text-slate-100">{referralOrders.length} active</p>
           </button>
           <button
             type="button"
             onClick={() => setQueueTab('handovers')}
             className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'handovers' ? 'border-emerald-300 bg-emerald-50 shadow-sm' : 'border-slate-200 bg-[#FBF7EF] hover:border-emerald-200'
+              queueTab === 'handovers' ? 'border-emerald-300 bg-emerald-500/10 shadow-sm' : 'border-slate-800 bg-slate-950 hover:border-emerald-200'
             }`}
           >
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ready for Collection</p>
-            <p className="text-lg font-black text-emerald-700">{handoverOrders.length} waiting</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ready for Collection</p>
+            <p className="text-lg font-black text-emerald-300">{handoverOrders.length} waiting</p>
           </button>
           <button
             type="button"
             onClick={() => setQueueTab('partners')}
             className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'partners' ? 'border-slate-400 bg-slate-100 shadow-sm' : 'border-slate-200 bg-[#FBF7EF] hover:border-slate-300'
+              queueTab === 'partners' ? 'border-slate-400 bg-slate-800 shadow-sm' : 'border-slate-800 bg-slate-950 hover:border-slate-300'
             }`}
           >
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Partners</p>
-            <p className="text-lg font-black text-slate-950">{partnerSummaries.length} active</p>
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Partners</p>
+            <p className="text-lg font-black text-slate-100">{partnerSummaries.length} active</p>
           </button>
         </div>
-        <label className="grid gap-1.5 text-sm font-bold text-slate-700 md:min-w-64">
+        <label className="grid gap-1.5 text-sm font-bold text-slate-300 md:min-w-64">
           Search
           <input
             type="search"
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder={queueTab === 'partners' ? 'Search agency...' : 'Name, agency, date...'}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none focus:border-emerald-600"
+            className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
           />
         </label>
       </div>
 
       {loading ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500">Loading live orders...</div>
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center font-bold text-slate-400">Loading live orders...</div>
       ) : activeOrders.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center">
-          <p className="text-lg font-black text-slate-800">No active referrals waiting.</p>
-          <p className="mt-2 text-sm text-slate-500">New partner requests will appear here automatically.</p>
+        <div className="rounded-3xl border border-dashed border-slate-800 bg-slate-900 p-8 text-center">
+          <p className="text-lg font-black text-slate-200">No active referrals waiting.</p>
+          <p className="mt-2 text-sm text-slate-400">New partner requests will appear here automatically.</p>
         </div>
       ) : queueTab === 'partners' ? (
         <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
           {partnerSummaries.map((partner) => (
-            <article key={partner.agencyName} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Partner Agency</p>
-              <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-950">{partner.agencyName}</h3>
+            <article key={partner.agencyName} className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Partner Agency</p>
+              <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-100">{partner.agencyName}</h3>
               <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-xl bg-blue-50 p-2 text-center">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-blue-700">New</p>
+                <div className="rounded-xl bg-blue-500/10 p-2 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-blue-300">New</p>
                   <p className="text-lg font-black text-blue-950">{partner.referrals}</p>
                 </div>
-                <div className="rounded-xl bg-emerald-50 p-2 text-center">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Ready</p>
-                  <p className="text-lg font-black text-emerald-950">{partner.handovers}</p>
+                <div className="rounded-xl bg-emerald-500/10 p-2 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-emerald-300">Ready</p>
+                  <p className="text-lg font-black text-emerald-100">{partner.handovers}</p>
                 </div>
-                <div className="rounded-xl bg-slate-100 p-2 text-center">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-600">Total</p>
-                  <p className="text-lg font-black text-slate-950">{partner.activeCount}</p>
+                <div className="rounded-xl bg-slate-800 p-2 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Total</p>
+                  <p className="text-lg font-black text-slate-100">{partner.activeCount}</p>
                 </div>
               </div>
-              <p className="mt-3 text-xs font-bold text-slate-500">Last submitted: {formatTimestamp(partner.lastSubmitted)}</p>
+              <p className="mt-3 text-xs font-bold text-slate-400">Last submitted: {formatTimestamp(partner.lastSubmitted)}</p>
             </article>
           ))}
           {partnerSummaries.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center md:col-span-2 xl:col-span-3">
-              <p className="text-lg font-black text-slate-800">No matching partners.</p>
-              <p className="mt-2 text-sm text-slate-500">Active agency summaries will appear here.</p>
+            <div className="rounded-3xl border border-dashed border-slate-800 bg-slate-900 p-8 text-center md:col-span-2 xl:col-span-3">
+              <p className="text-lg font-black text-slate-200">No matching partners.</p>
+              <p className="mt-2 text-sm text-slate-400">Active agency summaries will appear here.</p>
             </div>
           ) : null}
         </div>
@@ -910,30 +932,30 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
               key={order.id}
               className={`rounded-2xl border p-3 shadow-sm ${
                 isReady
-                  ? 'border-emerald-300 bg-emerald-50/80'
+                  ? 'border-emerald-300 bg-emerald-500/10'
                   : isAccepted
-                    ? 'border-blue-300 bg-blue-50/80'
-                  : 'border-blue-300 bg-blue-50/80'
+                    ? 'border-blue-400/60 bg-blue-500/10/80'
+                  : 'border-blue-400/60 bg-blue-500/10/80'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">{order.agencyName}</p>
-                  <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-950">{order.recipientName}</h3>
-                  <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-600">Family of {order.familySize}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{order.agencyName}</p>
+                  <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-100">{order.recipientName}</h3>
+                  <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">Family of {order.familySize}</p>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {canEditOrder ? (
                     <button
                       type="button"
                       onClick={() => startEditingOrder(order)}
-                      className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-600"
+                      className="rounded-full border border-slate-800 bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400"
                     >
                       Edit
                     </button>
                   ) : null}
                   <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                    isReady ? 'bg-emerald-100 text-emerald-800' : isAccepted ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
+                    isReady ? 'bg-emerald-100 text-emerald-200' : isAccepted ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
                   }`}>
                     {isReady ? 'Ready for Collection' : isAccepted ? 'Accepted' : 'Needs acceptance'}
                   </span>
@@ -941,41 +963,41 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
               </div>
 
               {isEditing ? (
-                <div className="mt-4 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="mt-4 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                    <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
                       Name
                       <input
                         value={editDraft.recipientName}
                         onChange={(event) => setEditDraft((draft) => ({ ...draft, recipientName: event.target.value }))}
-                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-900"
+                        className="rounded-xl border border-slate-800 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-100"
                       />
                     </label>
-                    <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                    <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
                       Phone
                       <input
                         type="tel"
                         value={editDraft.recipientPhone}
                         onChange={(event) => setEditDraft((draft) => ({ ...draft, recipientPhone: event.target.value }))}
-                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-900"
+                        className="rounded-xl border border-slate-800 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-100"
                       />
                     </label>
                   </div>
-                  <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                  <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
                     Collection Time
                     <input
                       value={editDraft.targetCollectionTime}
                       onChange={(event) => setEditDraft((draft) => ({ ...draft, targetCollectionTime: event.target.value }))}
-                      className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-900"
+                      className="rounded-xl border border-slate-800 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-100"
                     />
                   </label>
-                  <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-500">
+                  <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
                     Dietary Notes
                     <textarea
                       value={editDraft.dietaryNotes}
                       onChange={(event) => setEditDraft((draft) => ({ ...draft, dietaryNotes: event.target.value }))}
                       rows={3}
-                      className="resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-900"
+                      className="resize-none rounded-xl border border-slate-800 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-100"
                     />
                   </label>
                   <div className="flex flex-col gap-2 sm:flex-row">
@@ -990,7 +1012,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                     <button
                       type="button"
                       onClick={() => setEditingOrderId(null)}
-                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700"
+                      className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-black text-slate-300"
                     >
                       Cancel
                     </button>
@@ -999,30 +1021,30 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
               ) : (
                 <div className="mt-3 grid gap-3">
                   <div className="grid grid-cols-[1fr_auto] gap-2">
-                    <div className="rounded-xl border border-slate-200 bg-white p-2">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Referral Details</p>
-                      <p className="mt-1 text-xs font-bold text-slate-700">Submitted: {formatTimestamp(order.createdAt)}</p>
-                      <a className="mt-1 block break-words text-xs font-black text-emerald-700 underline-offset-2 hover:underline" href={`tel:${order.recipientPhone}`}>
+                    <div className="rounded-xl border border-slate-800 bg-slate-900 p-2">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Referral Details</p>
+                      <p className="mt-1 text-xs font-bold text-slate-300">Submitted: {formatTimestamp(order.createdAt)}</p>
+                      <a className="mt-1 block break-words text-xs font-black text-emerald-300 underline-offset-2 hover:underline" href={`tel:${order.recipientPhone}`}>
                         {order.recipientPhone || 'No phone listed'}
                       </a>
                     </div>
                     <div className={`rounded-xl border p-2 text-center ${
-                      isReady ? 'border-emerald-200 bg-emerald-100' : 'border-amber-200 bg-amber-100'
+                      isReady ? 'border-emerald-200 bg-emerald-100' : 'border-amber-400/40 bg-amber-100'
                     }`}>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Target Collection</p>
-                      <p className="mt-1 max-w-28 break-words text-sm font-black uppercase leading-tight text-slate-950">{order.targetCollectionTime}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Target Collection</p>
+                      <p className="mt-1 max-w-28 break-words text-sm font-black uppercase leading-tight text-slate-100">{order.targetCollectionTime}</p>
                     </div>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-white p-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Dietary / Access Notes</p>
-                    <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-800">{order.dietaryNotes || 'None listed'}</p>
+                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dietary / Access Notes</p>
+                    <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-200">{order.dietaryNotes || 'None listed'}</p>
                   </div>
                 </div>
               )}
 
               {canChangeStatus && handoverTarget === order.id ? (
-                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-sm font-black text-amber-900">Are you sure you want to mark this referral collected?</p>
+                <div className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3">
+                  <p className="text-sm font-black text-amber-200">Are you sure you want to mark this referral collected?</p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
                     <button
                       onClick={() => void updateOrderStatus(order, 'archived')}
@@ -1033,7 +1055,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                     </button>
                     <button
                       onClick={() => setHandoverTarget(null)}
-                      className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-black text-slate-700"
+                      className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-black text-slate-300"
                     >
                       Cancel
                     </button>
@@ -1045,7 +1067,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                     <button
                       onClick={() => void updateOrderStatus(order, 'Accepted')}
                       disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-700 disabled:opacity-50"
+                      className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-600 disabled:opacity-50"
                     >
                       Accept Referral
                     </button>
@@ -1054,7 +1076,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                     <button
                       onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
                       disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-700 disabled:opacity-50"
+                      className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-600 disabled:opacity-50"
                     >
                       Mark Ready
                     </button>
@@ -1072,16 +1094,16 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
             </article>
           )})}
           {visibleActiveOrders.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center">
-              <p className="text-lg font-black text-slate-800">No matching active referrals.</p>
-              <p className="mt-2 text-sm text-slate-500">Try another recipient or agency search.</p>
+            <div className="rounded-3xl border border-dashed border-slate-800 bg-slate-900 p-8 text-center">
+              <p className="text-lg font-black text-slate-200">No matching active referrals.</p>
+              <p className="mt-2 text-sm text-slate-400">Try another recipient or agency search.</p>
             </div>
           ) : null}
         </div>
       )}
 
-      <details className="mt-5 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-        <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-700">
+      <details className="mt-5 rounded-3xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+        <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-300">
           Collected Today ({completedToday.length})
         </summary>
         <div className="mt-4 grid gap-2">
@@ -1089,9 +1111,9 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
             <p className="text-sm font-semibold text-slate-400">No collections logged in the last 24 hours.</p>
           ) : (
             completedToday.map((order) => (
-              <div key={order.id} className="rounded-2xl bg-slate-50 px-3 py-2 text-sm">
-                <span className="font-black text-slate-900">{order.recipientName}</span>
-                <span className="text-slate-500"> from {order.agencyName} collected {formatTimestamp(order.completedAt)}</span>
+              <div key={order.id} className="rounded-2xl bg-slate-800/70 px-3 py-2 text-sm">
+                <span className="font-black text-slate-100">{order.recipientName}</span>
+                <span className="text-slate-400"> from {order.agencyName} collected {formatTimestamp(order.completedAt)}</span>
               </div>
             ))
           )}
@@ -1176,25 +1198,25 @@ function AdminUserPanel() {
 
     return (
       <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <label className="grid gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+        <label className="grid gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
           Role
           <select
             value={draft.role}
             onChange={(event) => setAccessDraft(profile, { role: event.target.value as UserRole })}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800"
+            className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm font-black text-slate-200"
           >
             {roleChoices.map((role) => (
               <option key={role} value={role}>{role}</option>
             ))}
           </select>
         </label>
-        <label className="grid gap-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+        <label className="grid gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
           Agency
           <select
             value={activeAgencyId}
             disabled={draft.role !== 'partner'}
             onChange={(event) => setAccessDraft(profile, { agencyId: event.target.value })}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-black text-slate-800 disabled:opacity-60"
+            className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm font-black text-slate-200 disabled:opacity-60"
           >
             {partnerAgencies.map((agency) => (
               <option key={agency.id} value={agency.id}>{agency.name}</option>
@@ -1215,49 +1237,49 @@ function AdminUserPanel() {
   };
 
   return (
-    <section className="w-full rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-widest text-red-700">Admin</p>
-      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">User Roles</h2>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+    <section className="w-full rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-widest text-red-300">Admin</p>
+      <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">User Roles</h2>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
         Review newly registered partner accounts and assign the correct access level for agency users or foodbank staff.
       </p>
       <div className="mt-5 grid gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Pending Approval</p>
-          <p className="mt-1 text-2xl font-black text-amber-950">{roleCounts.pending}</p>
+        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">Pending Approval</p>
+          <p className="mt-1 text-2xl font-black text-amber-100">{roleCounts.pending}</p>
         </div>
-        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Volunteers</p>
-          <p className="mt-1 text-2xl font-black text-emerald-950">{roleCounts.active_volunteer}</p>
+        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Volunteers</p>
+          <p className="mt-1 text-2xl font-black text-emerald-100">{roleCounts.active_volunteer}</p>
         </div>
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-red-700">Admins</p>
-          <p className="mt-1 text-2xl font-black text-red-950">{roleCounts.admin}</p>
+        <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Admins</p>
+          <p className="mt-1 text-2xl font-black text-red-100">{roleCounts.admin}</p>
         </div>
       </div>
 
-      <div className="mt-6 rounded-3xl border border-amber-100 bg-amber-50/60 p-4">
+      <div className="mt-6 rounded-3xl border border-amber-400/30 bg-amber-500/10/60 p-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-widest text-amber-700">Pending Approvals</p>
-            <h3 className="mt-1 text-xl font-black text-slate-950">Approve new accounts</h3>
+            <p className="text-xs font-black uppercase tracking-widest text-amber-300">Pending Approvals</p>
+            <h3 className="mt-1 text-xl font-black text-slate-100">Approve new accounts</h3>
           </div>
           <p className="text-sm font-bold text-amber-800">{pendingUsers.length} waiting</p>
         </div>
         <div className="mt-4 grid gap-3">
           {pendingUsers.length === 0 ? (
-            <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">No accounts are waiting for approval.</p>
+            <p className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-slate-400">No accounts are waiting for approval.</p>
           ) : (
             pendingUsers.map((profile) => (
-              <div key={profile.id} className="grid gap-3 rounded-2xl border border-amber-100 bg-white p-3">
+              <div key={profile.id} className="grid gap-3 rounded-2xl border border-amber-400/30 bg-slate-900 p-3">
                 <div className="min-w-0">
                   <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-800">
                     Pending Approval
                   </span>
-                  <p className="mt-2 break-words text-sm font-black text-slate-950">{profile.name}</p>
-                  <p className="break-all text-xs font-semibold text-slate-500">{profile.email}</p>
-                  <p className="mt-1 text-xs font-bold text-slate-500">
-                    Requested agency: <span className="text-slate-800">{profile.requestedAgencyName || 'Not provided'}</span>
+                  <p className="mt-2 break-words text-sm font-black text-slate-100">{profile.name}</p>
+                  <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
+                  <p className="mt-1 text-xs font-bold text-slate-400">
+                    Requested agency: <span className="text-slate-200">{profile.requestedAgencyName || 'Not provided'}</span>
                   </p>
                 </div>
                 {renderAccessControls(profile, 'approve')}
@@ -1268,24 +1290,24 @@ function AdminUserPanel() {
       </div>
 
       <div className="mt-6">
-        <p className="text-xs font-black uppercase tracking-widest text-slate-500">Active Users</p>
+        <p className="text-xs font-black uppercase tracking-widest text-slate-400">Active Users</p>
         <div className="mt-3 grid gap-3">
         {activeUsers.map((profile) => (
-          <div key={profile.id} className="grid gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 lg:grid-cols-[1fr_minmax(22rem,auto)] lg:items-center">
+          <div key={profile.id} className="grid gap-3 rounded-2xl border border-slate-800 bg-slate-800/70 p-3 lg:grid-cols-[1fr_minmax(22rem,auto)] lg:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="break-words text-sm font-black text-slate-950">{profile.name}</p>
+                <p className="break-words text-sm font-black text-slate-100">{profile.name}</p>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${
                   profile.role === 'admin'
-                    ? 'bg-red-100 text-red-700'
+                    ? 'bg-red-100 text-red-300'
                     : profile.role === 'active_volunteer'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-amber-100 text-amber-700'
+                      ? 'bg-emerald-100 text-emerald-300'
+                      : 'bg-amber-100 text-amber-300'
                 }`}>
                   {profile.role === 'pending' ? 'Pending Approval' : `${profile.role} - ${profile.agencyName || 'Foodbank Hub'}`}
                 </span>
               </div>
-              <p className="break-all text-xs font-semibold text-slate-500">{profile.email}</p>
+              <p className="break-all text-xs font-semibold text-slate-400">{profile.email}</p>
             </div>
             {renderAccessControls(profile, 'save')}
           </div>
@@ -1298,9 +1320,9 @@ function AdminUserPanel() {
 
 function DataRetentionNotice() {
   return (
-    <div className="mb-5 rounded-3xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
-      <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Data Retention Notice</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-emerald-950">
+    <div className="mb-5 rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-4 shadow-sm">
+      <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Data Retention Notice</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-emerald-100">
         Personal referral details are anonymised as soon as a collection is completed. Names, phone numbers, dietary notes, and public status records are removed at collection, while non-identifying operational data is retained for reporting. Full referral records are automatically deleted after 30 days in line with GDPR data minimisation principles.
       </p>
     </div>
@@ -1333,7 +1355,7 @@ export default function App() {
         {user ? (
           <button
             onClick={() => void signOut(firebaseAuth)}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black uppercase tracking-wider hover:bg-white hover:text-slate-950"
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-400 hover:text-slate-950"
           >
             Sign Out
           </button>
@@ -1351,28 +1373,28 @@ export default function App() {
       ) : null}
 
       {user && loading ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center font-bold text-slate-500">
+        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center font-bold text-slate-400">
           Verifying security profile...
         </div>
       ) : null}
 
       {user && error ? (
-        <section className="mx-auto max-w-2xl rounded-3xl border border-red-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-xs font-black uppercase tracking-widest text-red-700">Security Check Failed</p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">We could not verify your account profile.</h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-500">{error.message}</p>
+        <section className="mx-auto max-w-2xl rounded-3xl border border-red-400/40 bg-slate-900 p-8 text-center shadow-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-red-300">Security Check Failed</p>
+          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-100">We could not verify your account profile.</h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-400">{error.message}</p>
         </section>
       ) : null}
 
       {user && !loading && !error && !isApproved ? (
-        <section className="mx-auto max-w-2xl rounded-3xl border border-amber-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-xs font-black uppercase tracking-widest text-amber-700">Account Pending Approval</p>
-          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Account Pending Approval.</h2>
-          <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-500">
+        <section className="mx-auto max-w-2xl rounded-3xl border border-amber-400/40 bg-slate-900 p-8 text-center shadow-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-amber-300">Account Pending Approval</p>
+          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-100">Account Pending Approval.</h2>
+          <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-400">
             A Save Our Supper administrator must authorize your account before you can access the platform.
           </p>
           {profile?.requestedAgencyName ? (
-            <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold text-amber-900">
+            <p className="mt-4 rounded-2xl bg-amber-500/10 px-4 py-3 text-sm font-bold text-amber-200">
               Requested agency: {profile.requestedAgencyName}
             </p>
           ) : null}

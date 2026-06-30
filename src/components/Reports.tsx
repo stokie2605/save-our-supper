@@ -119,10 +119,10 @@ function downloadCsv(filename: string, rows: Array<Array<string | number>>) {
 
 function StatCard({ label, value, helper }: { label: string; value: string; helper: string }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-black tracking-tight text-slate-950">{value}</p>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{helper}</p>
+      <p className="mt-3 text-3xl font-black tracking-tight text-slate-100">{value}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">{helper}</p>
     </div>
   );
 }
@@ -260,7 +260,7 @@ export function Reports() {
 
   return (
     <section className="mx-auto max-w-6xl">
-      <div className="rounded-3xl bg-slate-950 p-5 text-white shadow-sm sm:flex sm:items-start sm:justify-between sm:gap-4">
+      <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 text-white shadow-sm sm:flex sm:items-start sm:justify-between sm:gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Admin reports</p>
           <h2 className="mt-2 text-2xl font-black tracking-tight">Monthly Reports - Alsager & District Foodbank</h2>
@@ -279,15 +279,15 @@ export function Reports() {
       </div>
 
       {loading ? (
-        <div className="mt-5 rounded-3xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-slate-500 shadow-sm">
+        <div className="mt-5 rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center text-sm font-bold text-slate-400 shadow-sm">
           Loading monthly report data...
         </div>
       ) : null}
 
       {error ? (
-        <div className="mt-5 rounded-3xl border border-red-200 bg-white p-8 text-center shadow-sm">
-          <p className="text-xs font-black uppercase tracking-widest text-red-700">Reports unavailable</p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{error}</p>
+        <div className="mt-5 rounded-3xl border border-red-400/40 bg-slate-900 p-8 text-center shadow-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-red-300">Reports unavailable</p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">{error}</p>
         </div>
       ) : null}
 
@@ -296,10 +296,10 @@ export function Reports() {
           <section>
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Section 1</p>
-                <h3 className="text-xl font-black tracking-tight text-slate-950">This Month at a Glance</h3>
+                <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 1</p>
+                <h3 className="text-xl font-black tracking-tight text-slate-100">This Month at a Glance</h3>
               </div>
-              <p className="text-sm font-bold text-slate-500">{reportData.currentMonthLabel}</p>
+              <p className="text-sm font-bold text-slate-400">{reportData.currentMonthLabel}</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard label="Referrals submitted" value={String(reportData.totalSubmitted)} helper="Created during the current calendar month." />
@@ -309,30 +309,30 @@ export function Reports() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Section 2</p>
-            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">Referrals by Partner Agency</h3>
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 2</p>
+            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-100">Referrals by Partner Agency</h3>
             <div className="mt-4 overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
+              <table className="min-w-full text-left text-sm text-slate-300">
                 <thead className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  <tr className="border-b border-slate-200">
+                  <tr className="border-b border-slate-800">
                     <th className="py-3 pr-4">Partner Agency</th>
                     <th className="py-3 pr-4">Referrals Submitted</th>
                     <th className="py-3 pr-4">Collections Completed</th>
                     <th className="py-3 pr-4">Completion Rate</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
+                <tbody className="divide-y divide-slate-800 font-bold text-slate-300">
                   {reportData.agencySummaries.length ? reportData.agencySummaries.map((agency) => (
                     <tr key={agency.agencyName}>
-                      <td className="py-3 pr-4 text-slate-950">{agency.agencyName}</td>
+                      <td className="py-3 pr-4 text-slate-100">{agency.agencyName}</td>
                       <td className="py-3 pr-4">{agency.submitted}</td>
                       <td className="py-3 pr-4">{agency.completed}</td>
                       <td className="py-3 pr-4">{agency.completionRate}%</td>
                     </tr>
                   )) : (
                     <tr>
-                      <td className="py-5 text-slate-500" colSpan={4}>No referrals submitted this month yet.</td>
+                      <td className="py-5 text-slate-400" colSpan={4}>No referrals submitted this month yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -340,19 +340,19 @@ export function Reports() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Section 3</p>
-            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">Last 6 Months Trend</h3>
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 3</p>
+            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-100">Last 6 Months Trend</h3>
             <div className="mt-4 grid gap-3">
               {reportData.sixMonthTrend.map((month) => {
                 const width = Math.max(4, Math.round((month.submitted / reportData.highestMonthCount) * 100));
                 return (
-                  <div key={month.key} className="grid gap-2 rounded-2xl bg-slate-50 p-4 sm:grid-cols-[11rem_1fr_10rem] sm:items-center">
-                    <p className="font-black text-slate-950">{month.label}</p>
-                    <div className="h-3 overflow-hidden rounded-full bg-slate-200">
+                  <div key={month.key} className="grid gap-2 rounded-2xl bg-slate-800/70 p-4 sm:grid-cols-[11rem_1fr_10rem] sm:items-center">
+                    <p className="font-black text-slate-100">{month.label}</p>
+                    <div className="h-3 overflow-hidden rounded-full bg-slate-950">
                       <div className="h-full rounded-full bg-emerald-500" style={{ width: `${width}%` }} />
                     </div>
-                    <p className="text-sm font-bold text-slate-600">
+                    <p className="text-sm font-bold text-slate-400">
                       {month.submitted} submitted / {month.completed} completed
                     </p>
                   </div>
@@ -361,22 +361,22 @@ export function Reports() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-widest text-emerald-700">Section 4</p>
-            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-950">Operating Day Breakdown</h3>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 4</p>
+            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-100">Operating Day Breakdown</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
               Referral counts by submission day for the last 3 months. Tuesday, Wednesday, and Thursday are the foodbank operating mornings.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {reportData.daySummaries.map((day) => (
-                <div key={day.index} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <div key={day.index} className="rounded-2xl border border-slate-800 bg-slate-800/70 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-lg font-black text-slate-950">{day.label}</p>
-                      <p className="mt-1 text-3xl font-black text-slate-950">{day.count}</p>
+                      <p className="text-lg font-black text-slate-100">{day.label}</p>
+                      <p className="mt-1 text-3xl font-black text-slate-100">{day.count}</p>
                     </div>
                     <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
-                      day.isOperatingDay ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'
+                      day.isOperatingDay ? 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30' : 'bg-slate-800 text-slate-400'
                     }`}>
                       {day.isOperatingDay ? 'Operating day' : 'Outside hours'}
                     </span>

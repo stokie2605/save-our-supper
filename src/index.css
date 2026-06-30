@@ -1,8 +1,31 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-cream: #FAF8F5;
-  --color-brand-forest: #1E3F20;
-  --color-brand-amber: #E68A00;
-  --color-brand-slateSoft: #E2E8F0;
+  --color-brand-cream: #0b0f19;
+  --color-brand-forest: #34d399;
+  --color-brand-amber: #f59e0b;
+  --color-brand-slateSoft: #94a3b8;
+}
+
+:root {
+  color-scheme: dark;
+  background: #0b0f19;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  background: #0b0f19;
+}
+
+body {
+  margin: 0;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
 }

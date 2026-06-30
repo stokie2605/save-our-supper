@@ -15,8 +15,8 @@ interface SupportCategory {
 const supportCategories: SupportCategory[] = [
   {
     category: 'Mental Health',
-    badgeClassName: 'bg-blue-100 text-blue-700',
-    borderClassName: 'border-blue-100',
+    badgeClassName: 'bg-blue-500/10 text-blue-300 ring-1 ring-blue-400/30',
+    borderClassName: 'border-blue-400/20',
     services: [
       {
         name: 'Cheshire & Wirral NHS Foundation Trust',
@@ -39,8 +39,8 @@ const supportCategories: SupportCategory[] = [
   },
   {
     category: 'Debt & Financial',
-    badgeClassName: 'bg-amber-100 text-amber-700',
-    borderClassName: 'border-amber-100',
+    badgeClassName: 'bg-amber-500/10 text-amber-300 ring-1 ring-amber-400/30',
+    borderClassName: 'border-amber-400/20',
     services: [
       {
         name: 'Citizens Advice Cheshire East',
@@ -64,8 +64,8 @@ const supportCategories: SupportCategory[] = [
   },
   {
     category: 'Benefits & Housing',
-    badgeClassName: 'bg-purple-100 text-purple-700',
-    borderClassName: 'border-purple-100',
+    badgeClassName: 'bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-400/30',
+    borderClassName: 'border-cyan-400/20',
     services: [
       {
         name: 'Cheshire East Housing Options',
@@ -93,8 +93,8 @@ const supportCategories: SupportCategory[] = [
   },
   {
     category: 'Local Support',
-    badgeClassName: 'bg-emerald-100 text-emerald-700',
-    borderClassName: 'border-emerald-100',
+    badgeClassName: 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30',
+    borderClassName: 'border-emerald-400/20',
     services: [
       {
         name: 'Alsager & District Foodbank',
@@ -117,36 +117,36 @@ function phoneHref(phone: string) {
 
 export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
   return (
-    <section className={publicView ? 'mx-auto mt-6 max-w-4xl' : 'mx-auto max-w-4xl'}>
-      <div className="rounded-3xl bg-slate-950 p-5 text-white shadow-sm">
+    <section className={publicView ? 'mx-auto mt-6 max-w-5xl' : 'mx-auto max-w-5xl'}>
+      <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-300">
           {publicView ? 'Need more help?' : 'Support directory'}
         </p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight">Local Cheshire East Support Links</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-300">
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Local Cheshire East Support Links</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
           These services are here to help. Share this page with anyone who needs more support.
         </p>
-        <p className="mt-2 text-xs text-slate-500">
-          For information only. Save Our Supper is not affiliated with these services.
+        <p className="mt-2 max-w-3xl text-xs font-semibold leading-5 text-slate-500">
+          These links are provided for information only. Save Our Supper is not affiliated with these services.
         </p>
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {supportCategories.map((cat) => (
-          <div key={cat.category} className={`rounded-3xl border bg-white p-5 shadow-sm ${cat.borderClassName}`}>
+          <div key={cat.category} className={`rounded-3xl border bg-slate-900 p-5 shadow-sm ${cat.borderClassName}`}>
             <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${cat.badgeClassName}`}>
               {cat.category}
             </span>
-            <ul className="mt-3 divide-y divide-slate-100">
+            <ul className="mt-3 divide-y divide-slate-800">
               {cat.services.map((service) => (
                 <li key={service.name} className="py-3">
-                  <p className="text-sm font-black text-slate-950">{service.name}</p>
-                  <p className="mt-0.5 text-xs leading-5 text-slate-500">{service.description}</p>
+                  <p className="text-sm font-black text-slate-100">{service.name}</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-400">{service.description}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {service.phone ? (
                       <a
                         href={phoneHref(service.phone)}
-                        className="rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1.5 text-xs font-black text-emerald-700 hover:bg-emerald-100"
+                        className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/20"
                       >
                         {service.phone}
                       </a>
@@ -155,9 +155,9 @@ export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
                       href={service.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-lg bg-slate-950 px-2.5 py-1.5 text-xs font-black text-white hover:bg-emerald-700"
+                      className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-black text-cyan-300 hover:bg-cyan-500/20"
                     >
-                      Visit →
+                      Visit
                     </a>
                   </div>
                 </li>
