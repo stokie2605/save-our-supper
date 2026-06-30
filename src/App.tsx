@@ -658,7 +658,7 @@ function FoodbankNoticeboard() {
           <p className="mt-1 text-sm font-black text-slate-100">{noticeboard.address}</p>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Hours</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Operating Window</p>
           <p className="mt-1 text-sm font-black text-slate-100">{noticeboard.hours}</p>
         </div>
         <div className={`rounded-2xl border p-4 ${hasActiveAnnouncement ? 'border-amber-400/40 bg-amber-500/10 shadow-[0_0_18px_rgba(245,158,11,0.14)]' : 'border-slate-800 bg-slate-950/40'}`}>
@@ -1856,7 +1856,7 @@ function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
             />
           </label>
           <label className="grid gap-1.5 text-sm font-bold text-slate-300">
-            Hours
+            Operating Window / Hours
             <input
               value={noticeboardDraft.hours}
               onChange={(event) => setNoticeboardDraft((draft) => ({ ...draft, hours: event.target.value }))}
@@ -1911,6 +1911,7 @@ export default function App() {
       }
     : null;
   const agencies = usePartnerAgencies(Boolean(user && isApproved), role === 'admin');
+  const noticeboard = useNoticeboard(Boolean(user && isApproved));
   const visibleActiveTab: ActiveTab = role === 'admin' ? activeTab : activeTab === 'support' ? 'support' : 'queue';
   const publicBackButton = (
     <button
@@ -2037,7 +2038,7 @@ export default function App() {
               <div className="min-w-0">
                 {visibleActiveTab === 'queue' ? <LiveOrdersQueue user={user} profile={profile} /> : null}
                 {visibleActiveTab === 'support' ? <SupportLinks /> : null}
-                {visibleActiveTab === 'reports' ? <Reports /> : null}
+                {visibleActiveTab === 'reports' ? <Reports noticeboardHours={noticeboard.hours} /> : null}
                 {visibleActiveTab === 'admin' ? (
                   <>
                     <DataRetentionNotice />

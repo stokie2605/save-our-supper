@@ -40,8 +40,35 @@ interface DaySummary {
   isOperatingDay: boolean;
 }
 
-const operatingDays = new Set([2, 3, 4]);
 const dayLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function parseOperatingDays(hoursString: string): Set<number> {
+  const normalized = hoursString.toLowerCase();
+  const days = new Set<number>();
+
+  if (normalized.includes('monday-friday') || normalized.includes('mon-fri') || normalized.includes('monday to friday')) {
+    return new Set([1, 2, 3, 4, 5]);
+  }
+  if (normalized.includes('monday-thursday') || normalized.includes('mon-thu') || normalized.includes('monday to thursday')) {
+    return new Set([1, 2, 3, 4]);
+  }
+  if (normalized.includes('tuesday-thursday') || normalized.includes('tue-thu') || normalized.includes('tuesday to thursday')) {
+    return new Set([2, 3, 4]);
+  }
+
+  if (normalized.includes('sunday') || normalized.includes('sun')) days.add(0);
+  if (normalized.includes('monday') || normalized.includes('mon')) days.add(1);
+  if (normalized.includes('tuesday') || normalized.includes('tue')) days.add(2);
+  if (normalized.includes('wednesday') || normalized.includes('wed')) days.add(3);
+  if (normalized.includes('thursday') || normalized.includes('thu')) days.add(4);
+  if (normalized.includes('friday') || normalized.includes('fri')) days.add(5);
+  if (normalized.includes('saturday') || normalized.includes('sat')) days.add(6);
+
+  if (days.size === 0) {
+    return new Set([2, 3, 4]);
+  }
+  return days;
+}
 
 function timestampFromValue(value: unknown): Timestamp | null {
   return value instanceof Timestamp ? value : null;
@@ -129,7 +156,7 @@ function StatCard({ label, value, helper, tone = 'cyan' }: { label: string; valu
   );
 }
 
-export function Reports() {
+export function Reports({ noticeboardHours }: { noticeboardHours?: string }) {
   const [orders, setOrders] = useState<ReportOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -214,11 +241,13 @@ export function Reports() {
 
     const highestMonthCount = Math.max(1, ...sixMonthTrend.map((month) => month.submitted));
 
+    const activeOperatingDays = noticeboardHours ? parseOperatingDays(noticeboardHours) : new Set([2, 3, 4]);
+
     const daySummaries: DaySummary[] = dayLabels.map((label, index) => ({
       index,
       label,
       count: 0,
-      isOperatingDay: operatingDays.has(index),
+      isOperatingDay: activeOperatingDays.has(index),
     }));
 
     orders.forEach((order) => {
@@ -367,7 +396,7 @@ export function Reports() {
             <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 4</p>
             <h3 className="mt-1 text-xl font-black tracking-tight text-white">Operating Day Breakdown</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
-              Referral counts by submission day for the last 3 months. Tuesday, Wednesday, and Thursday are the foodbank operating mornings.
+              Referral counts by submission day for the last 3 months. The current operating window is: <span className="font-black text-cyan-300">{noticeboardHours || 'Tuesday, Wednesday, and Thursday'}</span>.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {reportData.daySummaries.map((day) => (
