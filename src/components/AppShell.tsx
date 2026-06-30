@@ -2,9 +2,11 @@ import type { ReactNode } from 'react';
 
 interface AppShellProps {
   children: ReactNode;
+  user?: any;
+  onSignOut?: () => void;
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, user, onSignOut }: AppShellProps) {
   return (
     <div className="min-h-screen overflow-x-hidden bg-transparent text-slate-100 font-sans">
       <header className="sticky top-0 z-50 bg-transparent px-3 pt-3 backdrop-blur">
@@ -18,9 +20,20 @@ export function AppShell({ children }: AppShellProps) {
               <span className="block truncate text-[11px] font-semibold text-slate-400 sm:text-xs">Zero-paperwork foodbank referrals.</span>
             </div>
           </div>
-          <span className="hidden rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300 text-glow-emerald md:inline-flex">
-            Database Active
-          </span>
+          <div className="flex items-center gap-3">
+            {user && onSignOut ? (
+              <button
+                onClick={onSignOut}
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-rose-300 hover:bg-rose-600 hover:text-white transition"
+              >
+                Sign Out
+              </button>
+            ) : (
+              <span className="hidden rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300 text-glow-emerald md:inline-flex">
+                Database Active
+              </span>
+            )}
+          </div>
         </div>
       </header>
 

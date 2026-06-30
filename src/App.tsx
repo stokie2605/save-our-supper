@@ -1329,22 +1329,16 @@ export default function App() {
   const visibleActiveTab: ActiveTab = role === 'admin' ? activeTab : activeTab === 'support' ? 'support' : 'queue';
 
   return (
-    <AppShell>
-      <div className="card-glass-cyan mb-5 flex flex-col gap-3 rounded-3xl p-5 text-white sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Save Our Supper</p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight">Zero-Paperwork Referrals</h1>
-          <p className="mt-1 text-sm text-slate-300">Referral in. Bag accepted. Collection logged.</p>
+    <AppShell user={user} onSignOut={() => void signOut(firebaseAuth)}>
+      {!user ? (
+        <div className="card-glass-cyan mb-5 flex flex-col gap-3 rounded-3xl p-5 text-white sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-widest text-cyan-400 text-glow-cyan">Save Our Supper</p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-white text-glow-cyan">Zero-Paperwork Referrals</h1>
+            <p className="mt-1 text-sm text-slate-300">Referral in. Bag accepted. Collection logged.</p>
+          </div>
         </div>
-        {user ? (
-          <button
-            onClick={() => void signOut(firebaseAuth)}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-400 hover:text-slate-950"
-          >
-            Sign Out
-          </button>
-        ) : null}
-      </div>
+      ) : null}
 
       {!user ? (
         <>
