@@ -1,5 +1,7 @@
 # Save Our Supper - Foodbank Referral Pipeline
 
+[![CI](https://github.com/stokie2605/save-our-supper/actions/workflows/ci.yml/badge.svg)](https://github.com/stokie2605/save-our-supper/actions/workflows/ci.yml)
+
 Save Our Supper is a responsive, paperless foodbank referral and operations platform for Alsager & District Foodbank. It helps trusted partner agencies submit referrals, lets volunteers manage parcel status in real time, and gives admins GDPR-aware reporting and configuration tools.
 
 **Live app:** https://save-our-supper.web.app/
