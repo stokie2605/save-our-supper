@@ -1,26 +1,86 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-cream: #0b0f19;
-  --color-brand-forest: #34d399;
-  --color-brand-amber: #f59e0b;
-  --color-brand-slateSoft: #94a3b8;
+  --color-brand-cream: #FAF8F5;
+  --color-brand-forest: #1E3F20;
+  --color-brand-amber: #E68A00;
+  --color-brand-slateSoft: #E2E8F0;
+}
+
+/* Custom UI Overhaul Utilities for Option A (Neon Glassmorphic SaaS) */
+@utility card-glass-cyan {
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  box-shadow: 0 0 20px rgba(6, 182, 212, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+@utility card-glass-purple {
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+@utility card-glass-emerald {
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+@utility card-glass-base {
+  background-color: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+}
+
+@utility text-glow-cyan {
+  text-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+}
+
+@utility text-glow-emerald {
+  text-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+}
+
+@utility text-glow-purple {
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+}
+
+@utility border-glow-cyan {
+  border-color: rgba(6, 182, 212, 0.5);
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+}
+
+@utility border-glow-emerald {
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
 
 :root {
   color-scheme: dark;
-  background: #0b0f19;
+  background: #080c14;
 }
 
 html,
 body,
 #root {
   min-height: 100%;
-  background: #0b0f19;
+  background: #080c14;
 }
 
 body {
   margin: 0;
+  background-color: #080c14;
+  background-image: radial-gradient(circle at 15% 20%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
+                    radial-gradient(circle at 85% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
+  background-attachment: fixed;
+  color: #f1f5f9;
 }
 
 input,

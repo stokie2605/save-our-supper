@@ -118,11 +118,11 @@ function phoneHref(phone: string) {
 export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
   return (
     <section className={publicView ? 'mx-auto mt-6 max-w-5xl' : 'mx-auto max-w-5xl'}>
-      <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+      <div className="card-glass-cyan rounded-3xl p-5">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-300">
           {publicView ? 'Need more help?' : 'Support directory'}
         </p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Local Cheshire East Support Links</h2>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-white text-glow-cyan">Local Cheshire East Support Links</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
           These services are here to help. Share this page with anyone who needs more support.
         </p>
@@ -133,7 +133,7 @@ export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         {supportCategories.map((cat) => (
-          <div key={cat.category} className={`rounded-3xl border bg-slate-900 p-5 shadow-sm ${cat.borderClassName}`}>
+          <div key={cat.category} className={`card-glass-base rounded-3xl p-5 ${cat.borderClassName}`}>
             <span className={`inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-widest ${cat.badgeClassName}`}>
               {cat.category}
             </span>
@@ -146,7 +146,7 @@ export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
                     {service.phone ? (
                       <a
                         href={phoneHref(service.phone)}
-                        className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-black text-emerald-300 hover:bg-emerald-500/20"
+                        className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-black text-emerald-300 shadow-[0_0_14px_rgba(16,185,129,0.16)] hover:bg-emerald-500/20"
                       >
                         {service.phone}
                       </a>
@@ -155,7 +155,7 @@ export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
                       href={service.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-black text-cyan-300 hover:bg-cyan-500/20"
+                      className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2.5 py-1.5 text-xs font-black text-cyan-300 shadow-[0_0_14px_rgba(6,182,212,0.16)] hover:bg-cyan-500/20"
                     >
                       Visit
                     </a>

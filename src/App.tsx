@@ -168,7 +168,7 @@ function PrimaryNavigation({
   return (
     <>
       <aside className="hidden md:block">
-        <nav className="sticky top-24 rounded-3xl border border-slate-800 bg-slate-900 p-3 shadow-sm">
+        <nav className="card-glass-base sticky top-24 rounded-3xl p-3">
           <p className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Workspace</p>
           <div className="grid gap-2">
             {items.map((item) => {
@@ -178,24 +178,16 @@ function PrimaryNavigation({
                   key={item.tab}
                   type="button"
                   onClick={() => onChange(item.tab)}
-                  className={`flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-black transition ${
+                  className={`flex items-center gap-3 rounded-2xl border-l-2 px-3 py-3 text-left text-sm font-black transition ${
                     isActive
-                      ? item.tone === 'red'
-                        ? 'bg-red-500/10 text-red-300 shadow-sm ring-1 ring-red-400/30'
-                        : item.tone === 'blue'
-                          ? 'bg-blue-500/10 text-blue-300 shadow-sm ring-1 ring-blue-400/30'
-                          : 'bg-emerald-500/10 text-emerald-300 shadow-sm ring-1 ring-emerald-400/30'
-                      : 'text-slate-400 hover:bg-slate-800/70 hover:text-slate-100'
+                      ? 'border-cyan-500 bg-cyan-500/10 text-white shadow-[0_0_18px_rgba(6,182,212,0.18)]'
+                      : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-100'
                   }`}
                 >
                   <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-xs font-black ${
                     isActive
-                      ? item.tone === 'red'
-                        ? 'bg-red-600 text-white'
-                        : item.tone === 'blue'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-emerald-700 text-white'
-                      : 'bg-slate-800 text-slate-400'
+                      ? 'bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 shadow-[0_0_16px_rgba(6,182,212,0.28)]'
+                      : 'bg-slate-950/50 text-slate-400'
                   }`}>
                     {item.icon}
                   </span>
@@ -207,7 +199,7 @@ function PrimaryNavigation({
         </nav>
       </aside>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-slate-900/95 px-4 py-2 shadow-[0_-12px_30px_rgb(15,23,42,0.08)] backdrop-blur md:hidden">
+      <nav className="card-glass-base fixed bottom-3 left-3 right-3 z-50 rounded-3xl px-4 py-2 backdrop-blur md:hidden">
         <div className={`mx-auto grid max-w-md gap-2 ${includeAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
           {items.map((item) => {
             const isActive = activeTab === item.tab;
@@ -216,24 +208,16 @@ function PrimaryNavigation({
                 key={item.tab}
                 type="button"
                 onClick={() => onChange(item.tab)}
-                className={`flex min-h-14 flex-col items-center justify-center rounded-2xl text-[11px] font-black uppercase tracking-wide transition ${
+                className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border-l-2 text-[11px] font-black uppercase tracking-wide transition ${
                   isActive
-                    ? item.tone === 'red'
-                      ? 'bg-red-500/10 text-red-300 ring-1 ring-red-400/30'
-                      : item.tone === 'blue'
-                        ? 'bg-blue-500/10 text-blue-300 ring-1 ring-blue-400/30'
-                        : 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-400/30'
-                    : 'text-slate-400'
+                    ? 'border-cyan-500 bg-cyan-500/10 text-white shadow-[0_0_16px_rgba(6,182,212,0.16)]'
+                    : 'border-transparent text-slate-400'
                 }`}
               >
                 <span className={`mb-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
                   isActive
-                    ? item.tone === 'red'
-                        ? 'bg-red-600 text-white'
-                        : item.tone === 'blue'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-emerald-700 text-white'
-                    : 'bg-slate-800 text-slate-400'
+                    ? 'bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950'
+                    : 'bg-slate-950/50 text-slate-400'
                 }`}>
                   {item.icon}
                 </span>
@@ -246,7 +230,6 @@ function PrimaryNavigation({
     </>
   );
 }
-
 function orderFromDocument(id: string, data: DocumentData): LiveOrder {
   return {
     id,
@@ -312,7 +295,7 @@ function SignInCard() {
   };
 
   return (
-    <div className="mx-auto max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm sm:p-6">
+    <div className="card-glass-cyan mx-auto max-w-md rounded-3xl p-5 sm:p-6">
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Zero-paperwork access</p>
       <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-100">
         {creating ? 'Create partner account' : 'Sign in'}
@@ -328,7 +311,7 @@ function SignInCard() {
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+              className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
               required
             />
           </label>
@@ -341,7 +324,7 @@ function SignInCard() {
               value={requestedAgencyName}
               onChange={(event) => setRequestedAgencyName(event.target.value)}
               placeholder="e.g. Plus Dane, school support, GP surgery"
-              className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+              className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
               required
             />
           </label>
@@ -353,7 +336,7 @@ function SignInCard() {
             type="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
             required
           />
         </label>
@@ -364,14 +347,14 @@ function SignInCard() {
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
             required
           />
         </label>
 
         {error ? <p className="rounded-xl border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm font-bold text-red-300">{error}</p> : null}
 
-        <button className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-600">
+        <button className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50">
           {creating ? 'Create Account' : 'Sign In'}
         </button>
 
@@ -436,7 +419,7 @@ function CheckStatusForm() {
   const activeStatusIndex = result ? statusSteps.indexOf(result.bagStatus) : -1;
 
   return (
-    <section className="mx-auto w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm sm:p-6">
+    <section className="card-glass-base mx-auto w-full max-w-2xl rounded-3xl p-5 sm:p-6">
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Public status check</p>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Check Your Bag Status</h2>
       <p className="mt-2 text-sm leading-6 text-slate-400">
@@ -451,20 +434,21 @@ function CheckStatusForm() {
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             placeholder="e.g. 07123 456789"
-            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
             required
           />
         </label>
         <button
           disabled={checking}
-          className="self-end rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 hover:bg-emerald-600 disabled:opacity-50"
+          className="self-end rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50"
         >
           {checking ? 'Checking...' : 'Check Status'}
         </button>
       </form>
 
-      <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-        <div className="grid gap-3 sm:grid-cols-3">
+      <div className="relative mt-5 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+        <div className="pointer-events-none absolute bottom-7 left-8 top-7 w-px bg-gradient-to-b from-blue-500 via-amber-400 to-emerald-400 shadow-[0_0_16px_rgba(6,182,212,0.3)] sm:bottom-auto sm:left-8 sm:right-8 sm:top-8 sm:h-px sm:w-auto sm:bg-gradient-to-r" />
+        <div className="relative grid gap-3 sm:grid-cols-3">
           {statusSteps.map((step, index) => {
             const stepConfig = publicStatusContent[step];
             const isActive = activeStatusIndex >= index;
@@ -595,7 +579,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
   };
 
   return (
-    <section className="mx-auto max-w-2xl rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm sm:p-6">
+    <section className="card-glass-emerald mx-auto max-w-2xl rounded-3xl p-5 sm:p-6">
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Partner referral</p>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">Submit Referral Form</h2>
       <p className="mt-2 text-sm leading-6 text-slate-400">Send one clear request to the hub. No stock counts. No paperwork.</p>
@@ -611,7 +595,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
           <input
             value={recipientName}
             onChange={(event) => setRecipientName(event.target.value)}
-            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
             required
           />
         </label>
@@ -623,7 +607,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
             value={recipientPhone}
             onChange={(event) => setRecipientPhone(event.target.value)}
             placeholder="e.g. 07123 456789"
-            className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
             required
           />
         </label>
@@ -635,7 +619,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
               value={targetCollectionTime}
               onChange={(event) => setTargetCollectionTime(event.target.value)}
               placeholder="e.g. Today after 3pm"
-              className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+              className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
               required
             />
           </label>
@@ -647,7 +631,7 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
               min="1"
               value={familySize}
               onChange={(event) => setFamilySize(event.target.value)}
-              className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+              className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
               required
             />
           </label>
@@ -660,15 +644,15 @@ function PartnerReferralForm({ user, profile }: { user: User; profile: UserProfi
             onChange={(event) => setDietaryNotes(event.target.value)}
             rows={4}
             placeholder="Allergies, halal/vegetarian needs, baby items, pet food, or access notes."
-            className="resize-none rounded-xl border border-slate-800 bg-slate-950 px-3 py-2.5 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            className="resize-none rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
           />
         </label>
 
-        {message ? <p className="rounded-xl border border-emerald-200 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-200">{message}</p> : null}
+        {message ? <p className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-sm font-bold text-emerald-200">{message}</p> : null}
 
         <button
           disabled={submitting}
-          className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-black uppercase tracking-wider text-white hover:bg-emerald-600 disabled:opacity-50"
+          className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50"
         >
           {submitting ? 'Sending...' : 'Submit Referral'}
         </button>
@@ -831,19 +815,19 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
 
   return (
     <section className="mx-auto max-w-5xl">
-      <div className="mb-5 rounded-3xl bg-slate-950 p-5 text-white shadow-sm">
+      <div className="card-glass-cyan mb-5 rounded-3xl p-5 text-white">
         <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Foodbank hub</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight">Live Orders Queue</h2>
         <p className="mt-2 text-sm text-slate-300">Accept referrals, mark bags ready, then record collection. That is the whole workflow.</p>
       </div>
 
-      <div className="mb-4 grid gap-3 rounded-3xl border border-slate-800 bg-slate-900 p-3 shadow-sm md:grid-cols-[1fr_auto] md:items-center">
+      <div className="card-glass-base mb-4 grid gap-3 rounded-3xl p-3 md:grid-cols-[1fr_auto] md:items-center">
         <div className="grid gap-2 sm:grid-cols-3">
           <button
             type="button"
             onClick={() => setQueueTab('referrals')}
             className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'referrals' ? 'border-blue-400/60 bg-blue-500/10 shadow-sm' : 'border-slate-800 bg-slate-950 hover:border-blue-200'
+              queueTab === 'referrals' ? 'border-glow-cyan bg-cyan-500/10 shadow-sm' : 'border-slate-800 bg-slate-950/40 hover:border-cyan-400/40'
             }`}
           >
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Referrals</p>
@@ -853,7 +837,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
             type="button"
             onClick={() => setQueueTab('handovers')}
             className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'handovers' ? 'border-emerald-300 bg-emerald-500/10 shadow-sm' : 'border-slate-800 bg-slate-950 hover:border-emerald-200'
+              queueTab === 'handovers' ? 'border-glow-emerald bg-emerald-500/10 shadow-sm' : 'border-slate-800 bg-slate-950/40 hover:border-emerald-400/40'
             }`}
           >
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ready for Collection</p>
@@ -863,7 +847,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
             type="button"
             onClick={() => setQueueTab('partners')}
             className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'partners' ? 'border-slate-400 bg-slate-800 shadow-sm' : 'border-slate-800 bg-slate-950 hover:border-slate-300'
+              queueTab === 'partners' ? 'border-glow-cyan bg-cyan-500/10 shadow-sm' : 'border-slate-800 bg-slate-950/40 hover:border-slate-500'
             }`}
           >
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Partners</p>
@@ -877,28 +861,28 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
             placeholder={queueTab === 'partners' ? 'Search agency...' : 'Name, agency, date...'}
-            className="rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20"
+            className="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
           />
         </label>
       </div>
 
       {loading ? (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center font-bold text-slate-400">Loading live orders...</div>
+        <div className="card-glass-base rounded-3xl p-8 text-center font-bold text-slate-400">Loading live orders...</div>
       ) : activeOrders.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-800 bg-slate-900 p-8 text-center">
+        <div className="card-glass-base rounded-3xl border-dashed p-8 text-center">
           <p className="text-lg font-black text-slate-200">No active referrals waiting.</p>
           <p className="mt-2 text-sm text-slate-400">New partner requests will appear here automatically.</p>
         </div>
       ) : queueTab === 'partners' ? (
         <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
           {partnerSummaries.map((partner) => (
-            <article key={partner.agencyName} className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+            <article key={partner.agencyName} className="card-glass-base rounded-2xl p-4">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Partner Agency</p>
               <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-100">{partner.agencyName}</h3>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <div className="rounded-xl bg-blue-500/10 p-2 text-center">
                   <p className="text-[9px] font-black uppercase tracking-wider text-blue-300">New</p>
-                  <p className="text-lg font-black text-blue-950">{partner.referrals}</p>
+                  <p className="text-lg font-black text-blue-200">{partner.referrals}</p>
                 </div>
                 <div className="rounded-xl bg-emerald-500/10 p-2 text-center">
                   <p className="text-[9px] font-black uppercase tracking-wider text-emerald-300">Ready</p>
@@ -932,10 +916,10 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
               key={order.id}
               className={`rounded-2xl border p-3 shadow-sm ${
                 isReady
-                  ? 'border-emerald-300 bg-emerald-500/10'
+                  ? 'card-glass-emerald border-emerald-400/40'
                   : isAccepted
-                    ? 'border-blue-400/60 bg-blue-500/10/80'
-                  : 'border-blue-400/60 bg-blue-500/10/80'
+                    ? 'card-glass-cyan border-cyan-400/40'
+                  : 'card-glass-base border-cyan-400/20'
               }`}
             >
               <div className="flex items-start justify-between gap-2">
@@ -955,7 +939,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                     </button>
                   ) : null}
                   <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                    isReady ? 'bg-emerald-100 text-emerald-200' : isAccepted ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
+                    isReady ? 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : isAccepted ? 'border border-cyan-400/30 bg-cyan-500/10 text-cyan-300' : 'border border-amber-400/30 bg-amber-500/10 text-amber-300'
                   }`}>
                     {isReady ? 'Ready for Collection' : isAccepted ? 'Accepted' : 'Needs acceptance'}
                   </span>
@@ -963,7 +947,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
               </div>
 
               {isEditing ? (
-                <div className="mt-4 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                <div className="card-glass-base mt-4 grid gap-3 rounded-2xl p-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
                       Name
@@ -1021,7 +1005,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
               ) : (
                 <div className="mt-3 grid gap-3">
                   <div className="grid grid-cols-[1fr_auto] gap-2">
-                    <div className="rounded-xl border border-slate-800 bg-slate-900 p-2">
+                    <div className="card-glass-base rounded-xl p-2">
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Referral Details</p>
                       <p className="mt-1 text-xs font-bold text-slate-300">Submitted: {formatTimestamp(order.createdAt)}</p>
                       <a className="mt-1 block break-words text-xs font-black text-emerald-300 underline-offset-2 hover:underline" href={`tel:${order.recipientPhone}`}>
@@ -1029,13 +1013,13 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                       </a>
                     </div>
                     <div className={`rounded-xl border p-2 text-center ${
-                      isReady ? 'border-emerald-200 bg-emerald-100' : 'border-amber-400/40 bg-amber-100'
+                      isReady ? 'border-emerald-400/40 bg-emerald-500/10' : 'border-amber-400/40 bg-amber-500/10'
                     }`}>
                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Target Collection</p>
                       <p className="mt-1 max-w-28 break-words text-sm font-black uppercase leading-tight text-slate-100">{order.targetCollectionTime}</p>
                     </div>
                   </div>
-                  <div className="rounded-xl border border-slate-800 bg-slate-900 p-2">
+                  <div className="card-glass-base rounded-xl p-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dietary / Access Notes</p>
                     <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-200">{order.dietaryNotes || 'None listed'}</p>
                   </div>
@@ -1049,7 +1033,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                     <button
                       onClick={() => void updateOrderStatus(order, 'archived')}
                       disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
+                      className="rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2.5 text-sm font-black text-slate-950 shadow-[0_0_18px_rgba(16,185,129,0.22)] disabled:opacity-50"
                     >
                       Mark Collected
                     </button>
@@ -1067,7 +1051,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                     <button
                       onClick={() => void updateOrderStatus(order, 'Accepted')}
                       disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-600 disabled:opacity-50"
+                      className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.22)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50"
                     >
                       Accept Referral
                     </button>
@@ -1076,7 +1060,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                     <button
                       onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
                       disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-600 disabled:opacity-50"
+                      className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.22)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50"
                     >
                       Mark Ready
                     </button>
@@ -1084,7 +1068,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
                   {order.status === 'Ready for Collection' ? (
                     <button
                       onClick={() => setHandoverTarget(order.id)}
-                      className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-white hover:bg-emerald-800"
+                      className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.22)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50"
                     >
                       Mark Collected
                     </button>
@@ -1094,7 +1078,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
             </article>
           )})}
           {visibleActiveOrders.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-800 bg-slate-900 p-8 text-center">
+            <div className="card-glass-base rounded-3xl border-dashed p-8 text-center">
               <p className="text-lg font-black text-slate-200">No matching active referrals.</p>
               <p className="mt-2 text-sm text-slate-400">Try another recipient or agency search.</p>
             </div>
@@ -1102,7 +1086,7 @@ function LiveOrdersQueue({ user, profile }: { user: User; profile: UserProfile }
         </div>
       )}
 
-      <details className="mt-5 rounded-3xl border border-slate-800 bg-slate-900 p-4 shadow-sm">
+      <details className="card-glass-base mt-5 rounded-3xl p-4">
         <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-300">
           Collected Today ({completedToday.length})
         </summary>
@@ -1237,7 +1221,7 @@ function AdminUserPanel() {
   };
 
   return (
-    <section className="w-full rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+    <section className="card-glass-purple w-full rounded-3xl p-5">
       <p className="text-xs font-black uppercase tracking-widest text-red-300">Admin</p>
       <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-100">User Roles</h2>
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
@@ -1320,7 +1304,7 @@ function AdminUserPanel() {
 
 function DataRetentionNotice() {
   return (
-    <div className="mb-5 rounded-3xl border border-emerald-400/30 bg-emerald-500/10 p-4 shadow-sm">
+    <div className="card-glass-emerald mb-5 rounded-3xl p-4">
       <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Data Retention Notice</p>
       <p className="mt-2 text-sm font-semibold leading-6 text-emerald-100">
         Personal referral details are anonymised as soon as a collection is completed. Names, phone numbers, dietary notes, and public status records are removed at collection, while non-identifying operational data is retained for reporting. Full referral records are automatically deleted after 30 days in line with GDPR data minimisation principles.
@@ -1346,7 +1330,7 @@ export default function App() {
 
   return (
     <AppShell>
-      <div className="mb-5 flex flex-col gap-3 rounded-3xl bg-slate-950 p-5 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="card-glass-cyan mb-5 flex flex-col gap-3 rounded-3xl p-5 text-white sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Save Our Supper</p>
           <h1 className="mt-1 text-2xl font-black tracking-tight">Zero-Paperwork Referrals</h1>
@@ -1373,13 +1357,13 @@ export default function App() {
       ) : null}
 
       {user && loading ? (
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center font-bold text-slate-400">
+        <div className="card-glass-base rounded-3xl p-8 text-center font-bold text-slate-400">
           Verifying security profile...
         </div>
       ) : null}
 
       {user && error ? (
-        <section className="mx-auto max-w-2xl rounded-3xl border border-red-400/40 bg-slate-900 p-8 text-center shadow-sm">
+        <section className="card-glass-base mx-auto max-w-2xl rounded-3xl p-8 text-center">
           <p className="text-xs font-black uppercase tracking-widest text-red-300">Security Check Failed</p>
           <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-100">We could not verify your account profile.</h2>
           <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-400">{error.message}</p>
@@ -1387,7 +1371,7 @@ export default function App() {
       ) : null}
 
       {user && !loading && !error && !isApproved ? (
-        <section className="mx-auto max-w-2xl rounded-3xl border border-amber-400/40 bg-slate-900 p-8 text-center shadow-sm">
+        <section className="card-glass-purple mx-auto max-w-2xl rounded-3xl p-8 text-center">
           <p className="text-xs font-black uppercase tracking-widest text-amber-300">Account Pending Approval</p>
           <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-100">Account Pending Approval.</h2>
           <p className="mx-auto mt-3 max-w-lg text-sm font-semibold leading-6 text-slate-400">

@@ -117,11 +117,13 @@ function downloadCsv(filename: string, rows: Array<Array<string | number>>) {
   URL.revokeObjectURL(url);
 }
 
-function StatCard({ label, value, helper }: { label: string; value: string; helper: string }) {
+function StatCard({ label, value, helper, tone = 'cyan' }: { label: string; value: string; helper: string; tone?: 'cyan' | 'purple' }) {
+  const cardClassName = tone === 'purple' ? 'card-glass-purple' : 'card-glass-cyan';
+
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+    <div className={`${cardClassName} rounded-3xl p-5`}>
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-      <p className="mt-3 text-3xl font-black tracking-tight text-slate-100">{value}</p>
+      <p className="mt-3 text-3xl font-black tracking-tight text-white">{value}</p>
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">{helper}</p>
     </div>
   );
@@ -260,10 +262,10 @@ export function Reports() {
 
   return (
     <section className="mx-auto max-w-6xl">
-      <div className="rounded-3xl border border-slate-800 bg-slate-900 p-5 text-white shadow-sm sm:flex sm:items-start sm:justify-between sm:gap-4">
+      <div className="card-glass-cyan rounded-3xl p-5 text-white sm:flex sm:items-start sm:justify-between sm:gap-4">
         <div>
           <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Admin reports</p>
-          <h2 className="mt-2 text-2xl font-black tracking-tight">Monthly Reports - Alsager & District Foodbank</h2>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-glow-cyan">Monthly Reports - Alsager & District Foodbank</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
             All reports contain anonymised data only. Personal details are never included in line with GDPR.
           </p>
@@ -272,20 +274,20 @@ export function Reports() {
           type="button"
           onClick={handleExportCsv}
           disabled={loading || Boolean(error)}
-          className="mt-4 rounded-xl bg-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0"
+          className="mt-4 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:from-cyan-600 hover:to-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 sm:mt-0"
         >
           Export as CSV
         </button>
       </div>
 
       {loading ? (
-        <div className="mt-5 rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center text-sm font-bold text-slate-400 shadow-sm">
+        <div className="card-glass-base mt-5 rounded-3xl p-8 text-center text-sm font-bold text-slate-400">
           Loading monthly report data...
         </div>
       ) : null}
 
       {error ? (
-        <div className="mt-5 rounded-3xl border border-red-400/40 bg-slate-900 p-8 text-center shadow-sm">
+        <div className="card-glass-base mt-5 rounded-3xl p-8 text-center">
           <p className="text-xs font-black uppercase tracking-widest text-red-300">Reports unavailable</p>
           <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">{error}</p>
         </div>
@@ -297,21 +299,21 @@ export function Reports() {
             <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 1</p>
-                <h3 className="text-xl font-black tracking-tight text-slate-100">This Month at a Glance</h3>
+                <h3 className="text-xl font-black tracking-tight text-white">This Month at a Glance</h3>
               </div>
               <p className="text-sm font-bold text-slate-400">{reportData.currentMonthLabel}</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard label="Referrals submitted" value={String(reportData.totalSubmitted)} helper="Created during the current calendar month." />
-              <StatCard label="Collections completed" value={String(reportData.totalCompleted)} helper="Submitted referrals now marked archived." />
+              <StatCard label="Collections completed" value={String(reportData.totalCompleted)} helper="Submitted referrals now marked archived." tone="purple" />
               <StatCard label="Average collection time" value={formatHours(reportData.averageCollectionHours)} helper="From referral submission to collected timestamp." />
-              <StatCard label="Families helped" value={String(reportData.totalFamiliesHelped)} helper="Sum of family sizes for completed referrals." />
+              <StatCard label="Families helped" value={String(reportData.totalFamiliesHelped)} helper="Sum of family sizes for completed referrals." tone="purple" />
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+          <section className="card-glass-cyan rounded-3xl p-5">
             <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 2</p>
-            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-100">Referrals by Partner Agency</h3>
+            <h3 className="mt-1 text-xl font-black tracking-tight text-white">Referrals by Partner Agency</h3>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full text-left text-sm text-slate-300">
                 <thead className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -340,17 +342,17 @@ export function Reports() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+          <section className="card-glass-cyan rounded-3xl p-5">
             <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 3</p>
-            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-100">Last 6 Months Trend</h3>
+            <h3 className="mt-1 text-xl font-black tracking-tight text-white">Last 6 Months Trend</h3>
             <div className="mt-4 grid gap-3">
               {reportData.sixMonthTrend.map((month) => {
                 const width = Math.max(4, Math.round((month.submitted / reportData.highestMonthCount) * 100));
                 return (
-                  <div key={month.key} className="grid gap-2 rounded-2xl bg-slate-800/70 p-4 sm:grid-cols-[11rem_1fr_10rem] sm:items-center">
+                  <div key={month.key} className="card-glass-base grid gap-2 rounded-2xl p-4 sm:grid-cols-[11rem_1fr_10rem] sm:items-center">
                     <p className="font-black text-slate-100">{month.label}</p>
                     <div className="h-3 overflow-hidden rounded-full bg-slate-950">
-                      <div className="h-full rounded-full bg-emerald-500" style={{ width: `${width}%` }} />
+                      <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 shadow-[0_0_16px_rgba(6,182,212,0.28)]" style={{ width: `${width}%` }} />
                     </div>
                     <p className="text-sm font-bold text-slate-400">
                       {month.submitted} submitted / {month.completed} completed
@@ -361,15 +363,15 @@ export function Reports() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+          <section className="card-glass-cyan rounded-3xl p-5">
             <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Section 4</p>
-            <h3 className="mt-1 text-xl font-black tracking-tight text-slate-100">Operating Day Breakdown</h3>
+            <h3 className="mt-1 text-xl font-black tracking-tight text-white">Operating Day Breakdown</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-400">
               Referral counts by submission day for the last 3 months. Tuesday, Wednesday, and Thursday are the foodbank operating mornings.
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {reportData.daySummaries.map((day) => (
-                <div key={day.index} className="rounded-2xl border border-slate-800 bg-slate-800/70 p-4">
+                <div key={day.index} className="card-glass-base rounded-2xl p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-lg font-black text-slate-100">{day.label}</p>
