@@ -1,6 +1,6 @@
 import type { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'pending' | 'partner' | 'active_volunteer' | 'admin';
+export type UserRole = 'pending' | 'partner' | 'active_volunteer' | 'admin' | 'demo_volunteer';
 export type OrderStatus = 'New' | 'Accepted' | 'Ready for Collection' | 'archived';
 export type ActiveTab = 'queue' | 'support' | 'reports' | 'admin';
 export type QueueTab = 'referrals' | 'handovers' | 'partners';

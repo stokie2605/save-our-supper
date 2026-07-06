@@ -53,7 +53,7 @@ export function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
         snapshot.docs
           .map((profileDoc) => profileFromDocument(profileDoc.id, profileDoc.data()))
           .sort((first, second) => {
-            const roleWeight: Record<UserRole, number> = { pending: 0, partner: 1, active_volunteer: 2, admin: 3 };
+            const roleWeight: Record<UserRole, number> = { pending: 0, partner: 1, demo_volunteer: 1.5, active_volunteer: 2, admin: 3 };
             return roleWeight[first.role] - roleWeight[second.role] || first.email.localeCompare(second.email);
           }),
       );
@@ -235,7 +235,7 @@ export function AdminUserPanel({ agencies }: { agencies: PartnerAgency[] }) {
 
   const roleCounts = users.reduce<Record<UserRole, number>>(
     (counts, profile) => ({ ...counts, [profile.role]: counts[profile.role] + 1 }),
-    { pending: 0, partner: 0, active_volunteer: 0, admin: 0 },
+    { pending: 0, partner: 0, active_volunteer: 0, admin: 0, demo_volunteer: 0 },
   );
   const pendingUsers = users.filter((profile) => profile.role === 'pending');
   const activeUsers = users.filter((profile) => profile.role !== 'pending');

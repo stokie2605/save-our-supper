@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db, firebaseAuth } from '../lib/firebaseConfig';
 
-export type UserRole = 'pending' | 'partner' | 'active_volunteer' | 'admin';
+export type UserRole = 'pending' | 'partner' | 'active_volunteer' | 'admin' | 'demo_volunteer';
 
 export interface UserProfile {
   uid: string;
@@ -35,7 +35,7 @@ export interface AuthRoleState {
 }
 
 function isUserRole(value: unknown): value is UserRole {
-  return value === 'pending' || value === 'partner' || value === 'active_volunteer' || value === 'admin';
+  return value === 'pending' || value === 'partner' || value === 'active_volunteer' || value === 'admin' || value === 'demo_volunteer';
 }
 
 function createPendingProfile(user: User): UserProfile {

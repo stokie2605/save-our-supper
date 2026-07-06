@@ -1,11 +1,11 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { collection, doc, onSnapshot, serverTimestamp, setDoc, Timestamp, type DocumentData } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import type { HandoverNote, LiveOrder, NoticeboardConfig, OrderStatus, PartnerAgency, PublicBagStatus, UserProfile, UserRole } from '../types';
 
 export const adminEmail = 'stokie2605@gmail.com';
-export const roleOptions: UserRole[] = ['pending', 'partner', 'active_volunteer', 'admin'];
-export const staffRoles: UserRole[] = ['active_volunteer', 'admin'];
+export const roleOptions: UserRole[] = ['pending', 'partner', 'active_volunteer', 'admin', 'demo_volunteer'];
+export const staffRoles: UserRole[] = ['active_volunteer', 'admin', 'demo_volunteer'];
 export const anonymizedRecipientName = 'Anonymous';
 
 export const publicStatusContent: Record<PublicBagStatus, { label: string; message: string; badgeClassName: string; iconClassName: string; icon: string }> = {
@@ -58,7 +58,7 @@ export function hasStaffAccess(role: UserRole) {
 export function normalizeRole(value: unknown, fallbackEmail?: string | null): UserRole {
   if (fallbackEmail === adminEmail) return 'admin';
   const role = String(value ?? 'pending').toLowerCase().trim();
-  if (role === 'admin' || role === 'partner' || role === 'active_volunteer' || role === 'pending') return role;
+  if (role === 'admin' || role === 'partner' || role === 'active_volunteer' || role === 'pending' || role === 'demo_volunteer') return role;
   if (role === 'volunteer') return 'active_volunteer';
   return 'pending';
 }
