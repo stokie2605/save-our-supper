@@ -29,6 +29,7 @@ function SignInCard() {
   const [requestedAgencyName, setRequestedAgencyName] = useState('');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -51,6 +52,38 @@ function SignInCard() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed.');
+    }
+  };
+
+  const handleDemoLogin = async () => {
+    setError('');
+    setDemoLoading(true);
+    const demoEmail = 'demo@saveoursupper.org';
+    const demoPassword = 'DemoPassword123!';
+
+    try {
+      await signInWithEmailAndPassword(firebaseAuth, demoEmail, demoPassword);
+    } catch (err: any) {
+      try {
+        const credential = await createUserWithEmailAndPassword(firebaseAuth, demoEmail, demoPassword);
+        await updateProfileDocument(credential.user.uid, {
+          id: credential.user.uid,
+          email: demoEmail,
+          name: 'Demo Guest',
+          role: 'active_volunteer',
+          agencyId: 'demo-agency',
+          agencyName: 'Demo Agency',
+          requestedAgencyName: '',
+        });
+      } catch (createErr: any) {
+        if (createErr.code === 'auth/email-already-in-use') {
+          setError('Demo credentials are out of sync. Please contact Dean.');
+        } else {
+          setError('Failed to initialize demo account: ' + createErr.message);
+        }
+      }
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -116,6 +149,15 @@ function SignInCard() {
 
         <button className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-3 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.25)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50">
           {creating ? 'Create Account' : 'Sign In'}
+        </button>
+
+        <button
+          type="button"
+          disabled={demoLoading}
+          onClick={handleDemoLogin}
+          className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm font-black uppercase tracking-wider text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+        >
+          {demoLoading ? 'Starting Demo...' : 'Try Guest Demo'}
         </button>
 
         <button
