@@ -63,7 +63,7 @@ function SignInCard() {
 
     try {
       await signInWithEmailAndPassword(firebaseAuth, demoEmail, demoPassword);
-    } catch (err: any) {
+    } catch {
       try {
         const credential = await createUserWithEmailAndPassword(firebaseAuth, demoEmail, demoPassword);
         await updateProfileDocument(credential.user.uid, {
@@ -75,11 +75,12 @@ function SignInCard() {
           agencyName: 'Demo Agency',
           requestedAgencyName: '',
         });
-      } catch (createErr: any) {
-        if (createErr.code === 'auth/email-already-in-use') {
+      } catch (createErr) {
+        const err = createErr as { code?: string; message?: string };
+        if (err.code === 'auth/email-already-in-use') {
           setError('Demo credentials are out of sync. Please contact Dean.');
         } else {
-          setError('Failed to initialize demo account: ' + createErr.message);
+          setError('Failed to initialize demo account: ' + (err.message || 'Unknown error'));
         }
       }
     } finally {
