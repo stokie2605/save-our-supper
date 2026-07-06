@@ -116,3 +116,124 @@ export const anonymizeCollectedReferral = onDocumentUpdated("live_orders/{orderI
     publicStatusDeleted: Boolean(phoneKey),
   });
 });
+
+export const resetDemoAgencyData = onSchedule(
+  {
+    schedule: "0 3 * * *",
+    timeZone: "Europe/London",
+  },
+  async () => {
+    const demoOrders = await db
+      .collection("live_orders")
+      .where("agencyId", "==", "demo-agency")
+      .get();
+
+    let batch = db.batch();
+    let operations = 0;
+
+    for (const doc of demoOrders.docs) {
+      const order = doc.data();
+      const phoneKey = phoneKeyFor(order.recipientPhone);
+
+      batch.delete(doc.ref);
+      operations += 1;
+
+      if (phoneKey) {
+        batch.delete(db.collection("public_status").doc(phoneKey));
+        operations += 1;
+      }
+
+      if (operations >= maxBatchSize) {
+        await commitBatch(batch, operations);
+        batch = db.batch();
+        operations = 0;
+      }
+    }
+
+    await commitBatch(batch, operations);
+
+    const seedTime = Timestamp.now();
+    const seedOrders = [
+      {
+        agencyId: "demo-agency",
+        agencyName: "Demo Agency",
+        recipientName: "Demo Household A",
+        recipientPhone: "07700 900001",
+        recipientEmail: "demo.a@example.com",
+        targetCollectionTime: "12:00 - 13:00",
+        familySize: 4,
+        dietaryNotes: "Gluten free, vegetarian",
+        status: "New",
+        submittedBy: "demo-user-id",
+        createdAt: seedTime,
+        updatedAt: seedTime,
+      },
+      {
+        agencyId: "demo-agency",
+        agencyName: "Demo Agency",
+        recipientName: "Demo Household B",
+        recipientPhone: "07700 900002",
+        recipientEmail: "demo.b@example.com",
+        targetCollectionTime: "15:30 - 16:30",
+        familySize: 1,
+        dietaryNotes: "None",
+        status: "Accepted",
+        submittedBy: "demo-user-id",
+        createdAt: seedTime,
+        acceptedAt: seedTime,
+        updatedAt: seedTime,
+      },
+      {
+        agencyId: "demo-agency",
+        agencyName: "Demo Agency",
+        recipientName: "Sample Referral 001",
+        recipientPhone: "07700 900003",
+        recipientEmail: "sample.001@example.com",
+        targetCollectionTime: "17:00 - 18:00",
+        familySize: 2,
+        dietaryNotes: "Nut allergy",
+        status: "Ready for Collection",
+        submittedBy: "demo-user-id",
+        createdAt: seedTime,
+        acceptedAt: seedTime,
+        readyAt: seedTime,
+        updatedAt: seedTime,
+      }
+    ];
+
+    batch = db.batch();
+    operations = 0;
+
+    for (const seed of seedOrders) {
+      const docRef = db.collection("live_orders").doc();
+      batch.set(docRef, seed);
+      operations += 1;
+
+      const phoneKey = phoneKeyFor(seed.recipientPhone);
+      if (phoneKey && seed.status !== "New") {
+        const publicStatusPayload = {
+          bagStatus: seed.status,
+          message: seed.status === "Ready for Collection"
+            ? "Your food parcel is ready to be collected."
+            : "Your food parcel request has been accepted.",
+          updatedAt: seedTime,
+        };
+        batch.set(db.collection("public_status").doc(phoneKey), publicStatusPayload);
+        operations += 1;
+      }
+
+      if (operations >= maxBatchSize) {
+        await commitBatch(batch, operations);
+        batch = db.batch();
+        operations = 0;
+      }
+    }
+
+    await commitBatch(batch, operations);
+
+    logger.info("Demo-agency sandbox data reset and seeded successfully", {
+      deletedCount: demoOrders.docs.length,
+      seededCount: seedOrders.length,
+    });
+  }
+);

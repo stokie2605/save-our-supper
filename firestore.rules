@@ -32,6 +32,10 @@ service cloud.firestore {
       return currentRole() == "partner";
     }
 
+    function isDemoVolunteer() {
+      return currentRole() == "demo_volunteer" && currentAgencyId() == "demo-agency";
+    }
+
     function currentAgencyId() {
       return signedIn() && exists(userPath(request.auth.uid))
         ? currentUserDoc().data.agencyId
@@ -39,7 +43,7 @@ service cloud.firestore {
     }
 
     function validRole(role) {
-      return role in ["pending", "partner", "active_volunteer", "admin"];
+      return role in ["pending", "partner", "active_volunteer", "admin", "demo_volunteer"];
     }
 
     function validUserProfile(data) {
@@ -181,7 +185,7 @@ service cloud.firestore {
     }
 
     match /live_orders/{orderId} {
-      allow read: if isActiveVolunteer() || isAdmin() || (isPartner() && resource.data.agencyId == currentAgencyId());
+      allow read: if isActiveVolunteer() || isAdmin() || (isPartner() && resource.data.agencyId == currentAgencyId()) || (isDemoVolunteer() && resource.data.agencyId == "demo-agency");
       allow create: if validLiveOrder(request.resource.data)
         && request.resource.data.status == "New"
         && (
@@ -191,6 +195,10 @@ service cloud.firestore {
             isPartner()
             && request.resource.data.agencyId == currentAgencyId()
             && request.resource.data.submittedBy == request.auth.uid
+          ) ||
+          (
+            isDemoVolunteer()
+            && request.resource.data.agencyId == "demo-agency"
           )
         );
       allow update: if validLiveOrder(request.resource.data)
@@ -199,19 +207,24 @@ service cloud.firestore {
         && (
           isActiveVolunteer() ||
           isAdmin() ||
-          partnerCanUpdateOwnNewOrder()
+          partnerCanUpdateOwnNewOrder() ||
+          (
+            isDemoVolunteer()
+            && resource.data.agencyId == "demo-agency"
+            && request.resource.data.agencyId == "demo-agency"
+          )
         );
       allow delete: if isAdmin();
     }
 
     match /agencies/{agencyId} {
-      allow read: if isAdmin() || isActiveVolunteer() || isPartner();
+      allow read: if isAdmin() || isActiveVolunteer() || isPartner() || (isDemoVolunteer() && agencyId == "demo-agency");
       allow create, update, delete: if isAdmin();
     }
 
 
     match /config/noticeboard {
-      allow read: if isAdmin() || isActiveVolunteer() || isPartner();
+      allow read: if isAdmin() || isActiveVolunteer() || isPartner() || isDemoVolunteer();
       allow create, update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -229,7 +242,7 @@ service cloud.firestore {
     match /public_status/{phoneKey} {
       allow get: if true;
       allow list: if false;
-      allow create, update, delete: if isActiveVolunteer() || isAdmin() || isPartner();
+      allow create, update, delete: if isActiveVolunteer() || isAdmin() || isPartner() || isDemoVolunteer();
     }
 
     match /{document=**} {

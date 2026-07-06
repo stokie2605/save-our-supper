@@ -70,7 +70,7 @@ function SignInCard() {
           id: credential.user.uid,
           email: demoEmail,
           name: 'Demo Guest',
-          role: 'active_volunteer',
+          role: 'demo_volunteer',
           agencyId: 'demo-agency',
           agencyName: 'Demo Agency',
           requestedAgencyName: '',
