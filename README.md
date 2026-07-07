@@ -81,7 +81,7 @@ Stores account and access records.
 - `uid`
 - `email`
 - `displayName`
-- `role`: `pending`, `partner`, `active_volunteer`, or `admin`
+- `role`: `pending`, `partner`, `active_volunteer`, `demo_volunteer`, or `admin`
 - `agencyId`
 - `agencyName`
 - `requestedAgencyName`
@@ -168,6 +168,7 @@ Security is enforced in `firestore.rules`:
 - Public users can read support links.
 - Partners can read and create only referrals linked to their verified `agencyId`.
 - Volunteers and admins can manage operational queue records.
+- Demo volunteers are fenced to the `demo-agency` sandbox and cannot access live agency referrals.
 - Admins manage agencies, noticeboard settings, support links, users, and expired record purges.
 - Volunteers and admins can read and create handover notes.
 - Everything else is denied by default.
@@ -186,7 +187,7 @@ Security is enforced in `firestore.rules`:
 
 ---
 
-## ✅ Automated Testing
+## Automated Testing
 
 The project includes a `vitest` unit test suite to verify the application's core data-modeling and hashing logic:
 - **Privacy Hashing:** Validates correct MD5 generation for emails (`md5EmailKey`) and phone numbers (`md5PhoneKey`) using standard lowercase-and-trim normalization.
@@ -221,6 +222,12 @@ npx firebase-tools deploy
 ```
 
 ---
+
+## Operational Guardrails
+
+- **Fenced demo access:** guest demo users use the `demo_volunteer` role and are restricted by Firestore rules to `demo-agency` records only.
+- **Nightly demo reset:** the `resetDemoAgencyData` scheduled Cloud Function wipes and reseeds demo referrals each night so reviewer activity does not pollute the sandbox.
+- **Privacy-first public lookup:** public parcel tracking reads only hashed lookup records and cannot list referral data.
 
 ## Problems Faced & Solved
 
