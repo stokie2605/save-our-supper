@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeTestEnvironment, RulesTestEnvironment } from '@firebase/rules-unit-testing';
 import { beforeAll, afterAll, beforeEach, describe, it, expect } from 'vitest';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
 let testEnv: RulesTestEnvironment;
 
@@ -30,7 +30,7 @@ async function seedUserDocument(uid: string, role: string, agencyId: string | nu
 }
 
 // Helper to seed order directly bypassing rules
-async function seedOrderDocument(orderId: string, data: any) {
+async function seedOrderDocument(orderId: string, data: Record<string, unknown>) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     const orderDocRef = doc(db, 'live_orders', orderId);
