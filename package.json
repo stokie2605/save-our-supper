@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:rules": "firebase emulators:exec \"vitest run tests/firestore-rules.test.ts\""
+    "test:rules": "firebase emulators:exec --only firestore \"vitest run tests/firestore-rules.test.ts\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.0",
