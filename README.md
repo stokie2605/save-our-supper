@@ -1,5 +1,8 @@
 # Save Our Supper — Foodbank Referral Pipeline
+
 > **The 1-Line Mission:** Firebase-backed digital referral and operations dashboard streamlining food parcel workflows and securing client privacy for local charities.
+
+🔴 **Live Demo:** [save-our-supper.web.app](https://save-our-supper.web.app)
 
 ### ⚡ Engineering Breakdown
 * **The Problem:** Traditional foodbanks rely on slow, paper-based forms and insecure communications, creating tracking delays and raising GDPR exposure for vulnerable recipients.
@@ -8,15 +11,23 @@
 
 ---
 
-## 🎥 Visual Preview
+## 🎥 UI Showcase
 
-| Desktop Public Gateway | Mobile Public Gateway |
-| --- | --- |
-| <img src="screenshots/save-our-supper-desktop.png" alt="Save Our Supper desktop" width="500" /> | <img src="screenshots/save-our-supper-mobile.png" alt="Save Our Supper mobile" width="220" /> |
+### Public Homepage — Zero-Paperwork Gateway
+> The public-facing landing page exposing the parcel tracker and local support directory without requiring any login credentials.
+
+![Public Homepage](screenshots/public-homepage.png)
 
 ---
 
-## ⚙️ Core Architectures & Features
+### Public Parcel Tracker — 3-Step Status Flow
+> Anonymous parcel status lookup using a phone number or email address. The 3-step progress indicator (Waiting → Being Prepared → Ready to Collect) resolves against hashed Firestore document matches to protect recipient identity.
+
+![Public 3-Step Parcel Tracker](screenshots/public-tracker.png)
+
+---
+
+## ⚙️ Core Architecture & Features
 
 *   **Public Tracking Gateway:** Anonymous parcel status lookup by phone/email using hashed document matches from the `/public_status` collection to safeguard recipient identities.
 *   **Partner Agency Portal:** Gated referral submission, local support directory listings, and agency-isolated queue views.
