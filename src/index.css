@@ -1,91 +1,95 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-cream: #FAF8F5;
-  --color-brand-forest: #1E3F20;
-  --color-brand-amber: #E68A00;
-  --color-brand-slateSoft: #E2E8F0;
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Space Mono", monospace;
+  
+  --color-cyber-cyan: #22D3EE;
+  --color-cyber-blue: #3B82F6;
+  --color-cyber-teal: #5EEAD4;
+  --color-cyber-dark: #020617;
+  --color-cyber-panel: #070e1e;
+  --color-cyber-card: #0b1329;
 }
 
-/* Custom UI Overhaul Utilities for Option A (Neon Glassmorphic SaaS) */
-@utility card-glass-cyan {
-  background-color: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(6, 182, 212, 0.25);
-  box-shadow: 0 0 20px rgba(6, 182, 212, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-}
-
-@utility card-glass-purple {
-  background-color: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(168, 85, 247, 0.25);
-  box-shadow: 0 0 20px rgba(168, 85, 247, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-}
-
-@utility card-glass-emerald {
-  background-color: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(16, 185, 129, 0.25);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-}
-
-@utility card-glass-base {
-  background-color: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
-}
-
+/* Custom Cyberpunk Utilities */
 @utility text-glow-cyan {
-  text-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+  text-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
 }
 
-@utility text-glow-emerald {
-  text-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+@utility text-glow-blue {
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
 }
 
-@utility text-glow-purple {
-  text-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+@utility text-glow-teal {
+  text-shadow: 0 0 8px rgba(94, 234, 212, 0.5);
 }
 
 @utility border-glow-cyan {
-  border-color: rgba(6, 182, 212, 0.5);
-  box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.2);
+  border-color: rgba(34, 211, 238, 0.4);
 }
 
 @utility border-glow-emerald {
-  border-color: rgba(16, 185, 129, 0.5);
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+@utility cyber-grid {
+  background-image: radial-gradient(rgba(34, 211, 238, 0.15) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 :root {
   color-scheme: dark;
-  background: #080c14;
+  background-color: #020617;
 }
 
 html,
 body,
 #root {
   min-height: 100%;
-  background: #080c14;
+  background-color: #020617;
 }
 
 body {
   margin: 0;
-  background-color: #080c14;
-  background-image: radial-gradient(circle at 15% 20%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
-                    radial-gradient(circle at 85% 80%, rgba(168, 85, 247, 0.1) 0%, transparent 50%);
-  background-attachment: fixed;
+  font-family: var(--font-sans);
   color: #f1f5f9;
+  background-color: #020617;
+  /* Cyberpunk Dot Grid Background overlay */
+  background-image: radial-gradient(rgba(34, 211, 238, 0.035) 1.2px, transparent 1.2px);
+  background-size: 20px 20px;
+  background-attachment: fixed;
 }
 
+/* Form overrides */
 input,
 textarea,
-select,
-button {
-  font: inherit;
+select {
+  font-family: var(--font-sans);
+}
+
+/* Custom Monospace Labels */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #020617;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
 }

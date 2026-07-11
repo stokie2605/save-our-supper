@@ -11,7 +11,6 @@ import {
   query,
   serverTimestamp,
   setDoc,
-  Timestamp,
   updateDoc,
   where,
 } from 'firebase/firestore';
@@ -23,11 +22,8 @@ import {
   handoverNoteFromDocument,
   hasStaffAccess,
   isCompletedToday,
-  monthKeyFromDate,
-  monthLabelFromDate,
   orderFromDocument,
   publicStatusContent,
-  timestampToMillis,
 } from '../lib/appModel';
 import type { HandoverNote, LiveOrder, OrderEditDraft, OrderStatus, QueueTab, UserProfile } from '../types';
 
@@ -35,16 +31,18 @@ export function LiveOrdersQueue({
   user,
   profile,
   layoutMode = 'grid',
+  searchTerm = '',
 }: {
   user: User;
   profile: UserProfile;
   layoutMode?: 'grid' | 'list';
+  searchTerm?: string;
 }) {
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [handoverTarget, setHandoverTarget] = useState<string | null>(null);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+
   const [queueTab, setQueueTab] = useState<QueueTab>('referrals');
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<OrderEditDraft>({
@@ -52,11 +50,19 @@ export function LiveOrdersQueue({
     recipientPhone: '',
     targetCollectionTime: '',
     dietaryNotes: '',
-  });  const [handoverNotes, setHandoverNotes] = useState<HandoverNote[]>([]);
+  });
+
+  const [handoverNotes, setHandoverNotes] = useState<HandoverNote[]>([]);
   const [handoverNoteText, setHandoverNoteText] = useState('');
   const [postingHandoverNote, setPostingHandoverNote] = useState(false);
+  const [showNoteInput, setShowNoteInput] = useState(false);
+
+  // Mobile navigation inside Volunteer Ops
+  const [mobileTab, setMobileTab] = useState<'tickets' | 'notes'>('tickets');
+
   const role = profile.role;
   const canChangeStatus = hasStaffAccess(role);
+
   useEffect(() => {
     const ordersQuery = profile.role === 'partner' && profile.agencyId
       ? query(collection(db, 'live_orders'), where('agencyId', '==', profile.agencyId))
@@ -80,6 +86,7 @@ export function LiveOrdersQueue({
 
     return unsubscribe;
   }, [profile.agencyId, profile.role]);
+
   useEffect(() => {
     if (!canChangeStatus) {
       queueMicrotask(() => {
@@ -88,7 +95,7 @@ export function LiveOrdersQueue({
       return undefined;
     }
 
-    const notesQuery = query(collection(db, 'handover_notes'), orderBy('createdAt', 'desc'), limit(5));
+    const notesQuery = query(collection(db, 'handover_notes'), orderBy('createdAt', 'desc'), limit(10));
     const unsubscribe = onSnapshot(
       notesQuery,
       (snapshot) => {
@@ -102,68 +109,32 @@ export function LiveOrdersQueue({
 
     return unsubscribe;
   }, [canChangeStatus]);
+
   const activeOrders = orders.filter((order) => order.status === 'New' || order.status === 'Accepted' || order.status === 'Ready for Collection');
   const referralOrders = activeOrders.filter((order) => order.status === 'New' || order.status === 'Accepted');
   const handoverOrders = activeOrders.filter((order) => order.status === 'Ready for Collection');
   const normalizedSearch = searchTerm.trim().toLowerCase();
+  
   const tabOrders = queueTab === 'handovers' ? handoverOrders : referralOrders;
   const visibleActiveOrders = tabOrders.filter((order) => {
     if (!normalizedSearch) return true;
     return `${order.recipientName} ${order.agencyName} ${formatTimestamp(order.createdAt)}`.toLowerCase().includes(normalizedSearch);
   });
+
   const completedToday = orders.filter(isCompletedToday);
-  const partnerSummaries = Object.values(
-    activeOrders.reduce<Record<string, {
-      agencyName: string;
-      activeCount: number;
-      referrals: number;
-      handovers: number;
-      lastSubmitted: Timestamp | null;
-    }>>((summary, order) => {
-      const agencyKey = order.agencyName.trim().toLowerCase() || 'unknown agency';
-      const existing = summary[agencyKey] ?? {
-        agencyName: order.agencyName || 'Unknown agency',
-        activeCount: 0,
-        referrals: 0,
-        handovers: 0,
-        lastSubmitted: null,
-      };
-      existing.activeCount += 1;
-      if (order.status === 'New' || order.status === 'Accepted') existing.referrals += 1;
-      if (order.status === 'Ready for Collection') existing.handovers += 1;
-      if (!existing.lastSubmitted || (order.createdAt && order.createdAt.toMillis() > existing.lastSubmitted.toMillis())) {
-        existing.lastSubmitted = order.createdAt;
-      }
-      summary[agencyKey] = existing;
-      return summary;
-    }, {}),
-  ).filter((partner) => {
-    if (!normalizedSearch) return true;
-    return partner.agencyName.toLowerCase().includes(normalizedSearch);
-  });
-  const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  const currentMonthOrders = orders.filter((order) => timestampToMillis(order.createdAt) >= currentMonthStart);
-  const currentMonthProcessed = currentMonthOrders.length;
-  const currentMonthFamiliesAssisted = currentMonthOrders
-    .filter((order) => order.status === 'archived')
-    .reduce((total, order) => total + order.familySize, 0);
-  const trendMonths = Array.from({ length: 6 }, (_, index) => {
-    const monthDate = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
-    const key = monthKeyFromDate(monthDate);
-    const count = orders.filter((order) => order.createdAt && monthKeyFromDate(order.createdAt.toDate()) === key).length;
-    return { key, label: monthLabelFromDate(monthDate), count };
-  });
-  const maxTrendCount = Math.max(1, ...trendMonths.map((month) => month.count));  const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
+
+  const updateOrderStatus = async (order: LiveOrder, status: OrderStatus) => {
     if (!canChangeStatus) return;
     const isCollectionComplete = status === 'archived';
     const phoneKey = md5PhoneKey(order.recipientPhone);
     const emailKey = order.recipientEmail ? md5EmailKey(order.recipientEmail) : null;
+    
     const lifecycleTimestamps = {
       ...(status === 'Accepted' ? { acceptedAt: serverTimestamp() } : {}),
       ...(status === 'Ready for Collection' ? { readyAt: serverTimestamp() } : {}),
       ...(isCollectionComplete ? { collectedAt: serverTimestamp(), completedAt: serverTimestamp(), completedBy: user.uid } : {}),
     };
+    
     const anonymizedFields = isCollectionComplete
       ? {
           recipientName: anonymizedRecipientName,
@@ -180,7 +151,6 @@ export function LiveOrdersQueue({
         if (phoneKey) {
           await deleteDoc(doc(db, 'public_status', phoneKey));
         }
-
         if (emailKey) {
           await deleteDoc(doc(db, 'public_status', emailKey));
         }
@@ -204,7 +174,6 @@ export function LiveOrdersQueue({
         if (phoneKey) {
           await setDoc(doc(db, 'public_status', phoneKey), publicStatusPayload, { merge: true });
         }
-
         if (emailKey) {
           await setDoc(doc(db, 'public_status', emailKey), publicStatusPayload, { merge: true });
         }
@@ -241,6 +210,7 @@ export function LiveOrdersQueue({
       setBusyOrderId(null);
     }
   };
+
   const postHandoverNote = async () => {
     const text = handoverNoteText.trim();
     if (!text || !canChangeStatus) return;
@@ -253,366 +223,543 @@ export function LiveOrdersQueue({
         createdAt: serverTimestamp(),
       });
       setHandoverNoteText('');
+      setShowNoteInput(false);
     } finally {
       setPostingHandoverNote(false);
     }
-  };  return (
-    <section className="mx-auto max-w-5xl">
-      <div className="card-glass-cyan mb-5 rounded-3xl p-5 text-white">
-        <p className="text-xs font-black uppercase tracking-widest text-emerald-300">Foodbank hub</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight">Live Orders Queue</h2>
-        <p className="mt-2 text-sm text-slate-300">Accept referrals, mark bags ready, then record collection. That is the whole workflow.</p>
-      </div>
-      {canChangeStatus ? (
-        <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-          <section className="card-glass-purple rounded-3xl p-4">
-            <p className="text-xs font-black uppercase tracking-widest text-purple-300">Volunteer Morale Dashboard</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Total Referrals Processed This Month</p>
-                <p className="mt-2 text-4xl font-black text-cyan-100">{currentMonthProcessed}</p>
-              </div>
-              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300">Total Families Assisted</p>
-                <p className="mt-2 text-4xl font-black text-emerald-100">{currentMonthFamiliesAssisted}</p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-2">
-              {trendMonths.map((month) => (
-                <div key={month.key} className="grid grid-cols-[5.5rem_1fr_2rem] items-center gap-2 text-xs font-bold text-slate-300">
-                  <span>{month.label}</span>
-                  <div className="h-3 overflow-hidden rounded-full bg-slate-950/70">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 shadow-[0_0_16px_rgba(6,182,212,0.28)]"
-                      style={{ width: `${Math.max(6, (month.count / maxTrendCount) * 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-right text-slate-400">{month.count}</span>
-                </div>
-              ))}
-            </div>
-          </section>
+  };
 
-          <section className="card-glass-cyan rounded-3xl p-4">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-xs font-black uppercase tracking-widest text-cyan-300">Shift Bulletin & Handover Notes</p>
-                <h3 className="mt-1 text-xl font-black text-slate-100">Latest notes</h3>
-              </div>
-              <p className="text-xs font-bold text-slate-400">Last 5 notes</p>
+  // Helper to categorize notes into shift banners for post-its
+  const getNoteCategory = (text: string) => {
+    const lower = text.toLowerCase();
+    if (lower.includes('pallet') || lower.includes('jack') || lower.includes('equipment')) {
+      return { label: 'Morning Shift', icon: '📌', colorClass: 'border-blue-400/30 bg-cyber-blue/5' };
+    }
+    if (lower.includes('induction') || lower.includes('session') || lower.includes('volunteer')) {
+      return { label: 'Announcement', icon: '📅', colorClass: 'border-cyber-cyan/35 bg-cyber-cyan/5' };
+    }
+    return { label: 'Inventory Alert', icon: '🍴', colorClass: 'border-amber-400/35 bg-amber-500/5 shadow-[3px_4px_0_rgba(0,0,0,0.22)]' };
+  };
+
+  // 1. MOBILE KITCHEN-DISPLAY SCREEN
+  const renderMobileView = () => {
+    return (
+      <div className="md:hidden space-y-4">
+        {/* Segmented top tabs switcher */}
+        <div className="grid grid-cols-2 border border-slate-800 bg-[#070e1e] p-1 rounded-sm">
+          <button
+            onClick={() => setMobileTab('tickets')}
+            className={`py-2 text-xs font-bold uppercase tracking-wider text-center ${
+              mobileTab === 'tickets' ? 'bg-cyber-cyan text-slate-950 rounded-sm' : 'text-slate-400'
+            }`}
+          >
+            Active Tickets
+          </button>
+          <button
+            onClick={() => setMobileTab('notes')}
+            className={`py-2 text-xs font-bold uppercase tracking-wider text-center ${
+              mobileTab === 'notes' ? 'bg-cyber-cyan text-slate-950 rounded-sm' : 'text-slate-400'
+            }`}
+          >
+            Shift Notes
+          </button>
+        </div>
+
+        {/* Status banner */}
+        <div className="border border-cyber-cyan/20 bg-cyber-cyan/5 p-3 flex gap-2 items-center text-xs leading-normal">
+          <span className="text-cyber-cyan text-lg">ℹ</span>
+          <div>
+            <p className="font-bold text-white uppercase font-mono tracking-wider text-[10px]">Operational Status: High Capacity</p>
+            <p className="text-slate-400 mt-0.5">3 emergency vouchers pending in your zone. Prioritize red-labeled tickets.</p>
+          </div>
+        </div>
+
+        {/* Tickets Feed */}
+        {mobileTab === 'tickets' ? (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center px-1">
+              <span className="mono-label text-slate-400">Active Tickets</span>
+              <span className="bg-cyber-cyan/15 text-cyber-cyan border border-cyber-cyan/30 px-2 py-0.5 text-[10px] font-bold font-mono">
+                {visibleActiveOrders.length} Active
+              </span>
             </div>
-            <div className="mt-4 grid gap-2">
-              {handoverNotes.length === 0 ? (
-                <p className="rounded-2xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-sm font-bold text-slate-400">No handover notes posted yet.</p>
-              ) : (
-                handoverNotes.map((note) => (
-                  <div key={note.id} className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2">
-                    <p className="text-sm font-semibold leading-5 text-slate-200">{note.text}</p>
-                    <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-500">{note.createdBy} - {formatTimestamp(note.createdAt)}</p>
+
+            {loading ? (
+              <p className="text-xs text-slate-500 font-mono text-center py-8">Loading...</p>
+            ) : visibleActiveOrders.length === 0 ? (
+              <p className="text-xs text-slate-500 font-mono text-center py-8">No tickets waiting.</p>
+            ) : (
+              visibleActiveOrders.map((order) => {
+                const isUrgentReferral = order.familySize >= 5 || order.dietaryNotes.toLowerCase().includes('shortage') || order.dietaryNotes.toLowerCase().includes('allergy');
+                return (
+                  <div key={order.id} className="border border-slate-800 bg-[#070e1e] p-4 relative rounded-sm">
+                    {/* Urgent indicator stripe */}
+                    {isUrgentReferral && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />}
+                    
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-red-500 font-mono">
+                        {isUrgentReferral ? 'Urgent Referral' : 'Standard Pickup'}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500">#{order.id.slice(-4).toUpperCase()}</span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-white mb-1">Voucher #{order.id.slice(-4).toUpperCase()}</h4>
+                    
+                    <div className="flex items-center gap-1.5 text-xs text-slate-450 mt-2">
+                      <span>📍</span>
+                      <span className="text-cyber-cyan font-bold">{order.agencyName}</span>
+                    </div>
+                    
+                    {order.dietaryNotes && (
+                      <p className="text-xs text-slate-400 mt-2 border-l border-slate-800 pl-2 leading-relaxed">
+                        {order.dietaryNotes}
+                      </p>
+                    )}
+
+                    <div className="mt-4 flex gap-2">
+                      {order.status === 'New' && (
+                        <button
+                          onClick={() => void updateOrderStatus(order, 'Accepted')}
+                          disabled={busyOrderId === order.id}
+                          className="bg-cyber-cyan flex-1 py-2 text-xs font-black uppercase text-slate-950 hover:bg-cyan-200 rounded-sm"
+                        >
+                          Confirm
+                        </button>
+                      )}
+                      {order.status === 'Accepted' && (
+                        <button
+                          onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
+                          disabled={busyOrderId === order.id}
+                          className="bg-cyber-cyan flex-1 py-2 text-xs font-black uppercase text-slate-950 hover:bg-cyan-200 rounded-sm"
+                        >
+                          Mark Ready
+                        </button>
+                      )}
+                      {order.status === 'Ready for Collection' && (
+                        <button
+                          onClick={() => void updateOrderStatus(order, 'archived')}
+                          disabled={busyOrderId === order.id}
+                          className="bg-cyber-cyan flex-1 py-2 text-xs font-black uppercase text-slate-950 hover:bg-cyan-200 rounded-sm"
+                        >
+                          Mark Collected
+                        </button>
+                      )}
+                      <button className="border border-slate-800 text-slate-400 px-3 py-2 text-xs font-bold uppercase hover:text-white rounded-sm">
+                        Route
+                      </button>
+                    </div>
                   </div>
-                ))
-              )}
-            </div>
-            <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
-              <input
-                value={handoverNoteText}
-                onChange={(event) => setHandoverNoteText(event.target.value)}
-                placeholder="Add a short note for the next shift..."
-                className="rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2.5 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
-              />
-              <button
-                type="button"
-                onClick={() => void postHandoverNote()}
-                disabled={postingHandoverNote || !handoverNoteText.trim()}
-                className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wider text-slate-950 shadow-[0_0_18px_rgba(6,182,212,0.22)] disabled:opacity-50"
+                );
+              })
+            )}
+          </div>
+        ) : (
+          /* Shift Notes List */
+          <div className="space-y-3">
+            <div className="flex justify-between items-center px-1">
+              <span className="mono-label text-slate-400">Shift Announcements</span>
+              <button 
+                onClick={() => setShowNoteInput(!showNoteInput)}
+                className="text-[10px] text-cyber-cyan font-bold font-mono border border-cyber-cyan/20 px-2 py-0.5 hover:bg-cyber-cyan/10 animate-pulse"
               >
-                {postingHandoverNote ? 'Posting...' : 'Post Note'}
+                + Add Note
               </button>
             </div>
-          </section>
-        </div>
-      ) : null}      <div className="card-glass-base mb-4 grid gap-3 rounded-3xl p-3 md:grid-cols-[1fr_auto] md:items-center">
-        <div className="grid gap-2 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={() => setQueueTab('referrals')}
-            className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'referrals' ? 'border-glow-cyan bg-cyan-500/10 shadow-sm' : 'border-slate-800 bg-slate-950/40 hover:border-cyan-400/40'
-            }`}
-          >
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Referrals</p>
-            <p className="text-lg font-black text-slate-100">{referralOrders.length} active</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setQueueTab('handovers')}
-            className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'handovers' ? 'border-glow-emerald bg-emerald-500/10 shadow-sm' : 'border-slate-800 bg-slate-950/40 hover:border-emerald-400/40'
-            }`}
-          >
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Ready for Collection</p>
-            <p className="text-lg font-black text-emerald-300">{handoverOrders.length} waiting</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => setQueueTab('partners')}
-            className={`rounded-2xl border px-3 py-2 text-left transition ${
-              queueTab === 'partners' ? 'border-glow-cyan bg-cyan-500/10 shadow-sm' : 'border-slate-800 bg-slate-950/40 hover:border-slate-500'
-            }`}
-          >
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Partners</p>
-            <p className="text-lg font-black text-slate-100">{partnerSummaries.length} active</p>
-          </button>
-        </div>
-        <label className="grid gap-1.5 text-sm font-bold text-slate-300 md:min-w-64">
-          Search
-          <input
-            type="search"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder={queueTab === 'partners' ? 'Search agency...' : 'Name, agency, date...'}
-            className="rounded-2xl border border-slate-800 bg-slate-950/40 px-4 py-3 text-white outline-none focus:border-cyan-500/80 focus:ring-1 focus:ring-cyan-500/20"
-          />
-        </label>
-      </div>
 
-      {loading ? (
-        <div className="card-glass-base rounded-3xl p-8 text-center font-bold text-slate-400">Loading live orders...</div>
-      ) : activeOrders.length === 0 ? (
-        <div className="card-glass-base rounded-3xl border-dashed p-8 text-center">
-          <p className="text-lg font-black text-slate-200">No active referrals waiting.</p>
-          <p className="mt-2 text-sm text-slate-400">New partner requests will appear here automatically.</p>
-        </div>
-      ) : queueTab === 'partners' ? (
-        <div className={layoutMode === 'list' ? "grid gap-3 grid-cols-1" : "grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3"}>
-          {partnerSummaries.map((partner) => (
-            <article key={partner.agencyName} className="card-glass-base rounded-2xl p-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Partner Agency</p>
-              <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-100">{partner.agencyName}</h3>
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div className="rounded-xl bg-blue-500/10 p-2 text-center">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-blue-300">New</p>
-                  <p className="text-lg font-black text-blue-200">{partner.referrals}</p>
-                </div>
-                <div className="rounded-xl bg-emerald-500/10 p-2 text-center">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-emerald-300">Ready</p>
-                  <p className="text-lg font-black text-emerald-100">{partner.handovers}</p>
-                </div>
-                <div className="rounded-xl bg-slate-800 p-2 text-center">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Total</p>
-                  <p className="text-lg font-black text-slate-100">{partner.activeCount}</p>
+            {showNoteInput && (
+              <div className="border border-slate-800 bg-[#070e1e] p-3 space-y-2">
+                <input
+                  value={handoverNoteText}
+                  onChange={(e) => setHandoverNoteText(e.target.value)}
+                  placeholder="Type bulletin update..."
+                  className="w-full border border-slate-800 bg-[#040912] px-3 py-2 text-xs text-white outline-none focus:border-cyber-cyan/50"
+                />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setShowNoteInput(false)} className="text-xs text-slate-500 py-1 px-2 hover:text-white">Cancel</button>
+                  <button onClick={postHandoverNote} disabled={postingHandoverNote} className="bg-cyber-cyan text-slate-950 text-xs font-bold py-1 px-3 rounded-sm">Post</button>
                 </div>
               </div>
-              <p className="mt-3 text-xs font-bold text-slate-400">Last submitted: {formatTimestamp(partner.lastSubmitted)}</p>
-            </article>
-          ))}
-          {partnerSummaries.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-800 bg-slate-900 p-8 text-center md:col-span-2 xl:col-span-3">
-              <p className="text-lg font-black text-slate-200">No matching partners.</p>
-              <p className="mt-2 text-sm text-slate-400">Active agency summaries will appear here.</p>
+            )}
+
+            <div className="grid gap-3">
+              {handoverNotes.map((note) => {
+                const cat = getNoteCategory(note.text);
+                return (
+                  <div key={note.id} className={`border p-3 ${cat.colorClass}`}>
+                    <div className="flex justify-between text-[9px] font-mono text-slate-500 mb-1">
+                      <span>{cat.label}</span>
+                      <span>{cat.icon}</span>
+                    </div>
+                    <p className="text-xs text-slate-200 leading-normal">{note.text}</p>
+                    <p className="text-[9px] text-slate-500 font-mono mt-2 uppercase">
+                      {note.createdBy} · {formatTimestamp(note.createdAt)}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
-          ) : null}
-        </div>
-      ) : (
-        <div className={layoutMode === 'list' ? "grid gap-3 grid-cols-1" : "grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3"}>
-          {visibleActiveOrders.map((order) => {
-            const isReady = order.status === 'Ready for Collection';
-            const isAccepted = order.status === 'Accepted';
-            const isEditing = editingOrderId === order.id;
-            const canEditOrder = hasStaffAccess(role) || order.submittedBy === user.uid;
+          </div>
+        )}
 
-            return (
-            <article
-              key={order.id}
-              className={`rounded-2xl border p-3 shadow-sm ${
-                isReady
-                  ? 'card-glass-emerald border-emerald-400/40'
-                  : isAccepted
-                    ? 'card-glass-cyan border-cyan-400/40'
-                  : 'card-glass-base border-cyan-400/20'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{order.agencyName}</p>
-                  <h3 className="mt-1 break-words text-lg font-black uppercase leading-tight text-slate-100">{order.recipientName}</h3>
-                  <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">Family of {order.familySize}</p>
+        {/* Mobile FAB button */}
+        <button
+          onClick={() => {
+            setMobileTab('notes');
+            setShowNoteInput(true);
+          }}
+          className="fixed bottom-20 right-4 h-12 w-12 rounded-full bg-cyber-cyan text-slate-950 flex items-center justify-center shadow-[0_0_12px_#22D3EE] hover:bg-cyan-200 z-50 text-xl font-bold"
+        >
+          *
+        </button>
+      </div>
+    );
+  };
+
+  // 2. DESKTOP VIEW
+  if (layoutMode === 'list') {
+    // Render compact side rail cards
+    return (
+      <div className="space-y-3">
+        {activeOrders.slice(0, 5).map((order) => {
+          return (
+            <div key={order.id} className="border border-slate-800 bg-[#070e1e] p-3 text-xs flex flex-col justify-between rounded-sm">
+              <div className="flex justify-between items-start">
+                <span className="text-[9px] font-mono text-slate-500 uppercase">#{order.id.slice(-4).toUpperCase()}</span>
+                <span className={`text-[8px] font-bold px-1.5 py-0.5 uppercase tracking-wider font-mono ${
+                  order.status === 'Ready for Collection'
+                    ? 'border border-cyber-teal/30 bg-cyber-teal/5 text-cyber-teal'
+                    : 'border border-cyber-cyan/30 bg-cyber-cyan/5 text-cyber-cyan'
+                }`}>
+                  {order.status}
+                </span>
+              </div>
+              <p className="font-bold text-white mt-1.5">{order.recipientName}</p>
+              <p className="text-[10px] text-slate-450 mt-1 font-mono">{order.agencyName}</p>
+              {order.status === 'Ready for Collection' && (
+                <button
+                  onClick={() => void updateOrderStatus(order, 'archived')}
+                  disabled={busyOrderId === order.id}
+                  className="mt-3 w-full bg-cyber-cyan py-1 text-[10px] font-bold uppercase text-slate-950 hover:bg-cyan-200 rounded-sm"
+                >
+                  Close Case
+                </button>
+              )}
+            </div>
+          );
+        })}
+        {activeOrders.length === 0 && (
+          <p className="text-[10px] text-slate-500 font-mono">No active cases.</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Mobile view router */}
+      {renderMobileView()}
+
+      {/* Desktop view */}
+      <div className="hidden md:grid md:grid-cols-[1fr_22rem] gap-6 items-start">
+        {/* Left Side: Tickets Feed */}
+        <div className="space-y-6">
+          <div className="border border-slate-800 bg-[#070e1e] p-4 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold uppercase tracking-wide text-white">Intake Tickets</h2>
+              <p className="text-xs text-slate-455 mt-0.5">Real-time incoming logistics</p>
+            </div>
+            <span className="flex items-center gap-1.5 text-xs text-cyber-teal font-mono">
+              <span className="h-2 w-2 rounded-full bg-cyber-teal animate-pulse" />
+              Live Feed
+            </span>
+          </div>
+
+          {/* Search filters inside feed */}
+          <div className="flex gap-2 p-1 border-b border-slate-900 bg-[#040912] items-center justify-between text-xs">
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setQueueTab('referrals')}
+                className={`pb-1 font-bold ${queueTab === 'referrals' ? 'text-cyber-cyan border-b border-cyber-cyan' : 'text-slate-500'}`}
+              >
+                Referrals ({referralOrders.length})
+              </button>
+              <button 
+                onClick={() => setQueueTab('handovers')}
+                className={`pb-1 font-bold ${queueTab === 'handovers' ? 'text-cyber-teal border-b border-cyber-teal' : 'text-slate-500'}`}
+              >
+                Ready for Collection ({handoverOrders.length})
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {loading ? (
+              <p className="text-xs text-slate-500 font-mono py-12 text-center">Reading live data stream...</p>
+            ) : visibleActiveOrders.length === 0 ? (
+              <div className="border border-slate-800 bg-[#070e1e] p-8 text-center">
+                <p className="text-xs text-slate-450 font-mono">No active logistics tickets found matching current search queries.</p>
+              </div>
+            ) : (
+              visibleActiveOrders.map((order) => {
+                const isUrgent = order.familySize >= 5;
+                const isReady = order.status === 'Ready for Collection';
+                const isEditing = editingOrderId === order.id;
+
+                return (
+                  <div key={order.id} className="border border-slate-800 bg-[#070e1e] p-5 flex flex-col justify-between min-h-36 relative rounded-sm">
+                    
+                    {isEditing ? (
+                      /* INLINE EDIT FORM */
+                      <div className="mt-2 grid gap-3 text-xs">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <label className="grid gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                            Name
+                            <input
+                              value={editDraft.recipientName}
+                              onChange={(e) => setEditDraft({ ...editDraft, recipientName: e.target.value })}
+                              className="border border-slate-800 bg-[#040912] p-2 text-xs text-white outline-none"
+                            />
+                          </label>
+                          <label className="grid gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                            Phone
+                            <input
+                              type="tel"
+                              value={editDraft.recipientPhone}
+                              onChange={(e) => setEditDraft({ ...editDraft, recipientPhone: e.target.value })}
+                              className="border border-slate-800 bg-[#040912] p-2 text-xs text-white outline-none"
+                            />
+                          </label>
+                        </div>
+                        <label className="grid gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                          Collection Time
+                          <input
+                            value={editDraft.targetCollectionTime}
+                            onChange={(e) => setEditDraft({ ...editDraft, targetCollectionTime: e.target.value })}
+                            className="border border-slate-800 bg-[#040912] p-2 text-xs text-white outline-none"
+                          />
+                        </label>
+                        <label className="grid gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                          Dietary Notes
+                          <textarea
+                            value={editDraft.dietaryNotes}
+                            onChange={(e) => setEditDraft({ ...editDraft, dietaryNotes: e.target.value })}
+                            rows={2}
+                            className="border border-slate-800 bg-[#040912] p-2 text-xs text-white outline-none resize-none"
+                          />
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => void saveOrderEdits(order)}
+                            disabled={busyOrderId === order.id}
+                            className="bg-cyber-cyan text-slate-955 px-4 py-1.5 text-[10px] font-bold uppercase font-mono rounded-sm"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingOrderId(null)}
+                            className="border border-slate-800 text-slate-400 px-4 py-1.5 text-[10px] font-bold uppercase font-mono rounded-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* NORMAL VIEW */
+                      <>
+                        {/* Top ticket bar */}
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono text-slate-450">#TKT-{order.id.slice(-4).toUpperCase()}</span>
+                            <span className={`text-[8px] font-bold px-2 py-0.5 uppercase tracking-widest font-mono ${
+                              isUrgent 
+                                ? 'bg-red-500/25 text-red-500 border border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.1)]' 
+                                : 'bg-slate-800 text-slate-450 border border-slate-700'
+                            }`}>
+                              {isUrgent ? 'Urgent' : 'Standard'}
+                            </span>
+                          </div>
+                          
+                          <div className="flex gap-2">
+                            {canChangeStatus && (
+                              <button
+                                onClick={() => startEditingOrder(order)}
+                                className="text-[9px] font-mono text-slate-500 hover:text-white uppercase"
+                              >
+                                [Edit]
+                              </button>
+                            )}
+                            <span className={`text-[9px] font-mono uppercase tracking-wider font-bold ${
+                              isReady ? 'text-cyber-teal' : 'text-cyber-cyan'
+                            }`}>
+                              {order.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Mid ticket description */}
+                        <div className="mt-3">
+                          <h4 className="text-base font-bold text-white">{order.recipientName}</h4>
+                          <p className="text-xs text-slate-400 leading-relaxed mt-1">{order.dietaryNotes || 'Pantry goods pack referral.'}</p>
+                        </div>
+
+                        {/* Handover mark collected prompt */}
+                        {canChangeStatus && handoverTarget === order.id && (
+                          <div className="mt-4 border border-amber-500/35 bg-amber-500/5 p-3 text-xs">
+                            <p className="font-bold text-white">Mark referral as collected?</p>
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                onClick={() => void updateOrderStatus(order, 'archived')}
+                                disabled={busyOrderId === order.id}
+                                className="bg-cyber-cyan text-slate-950 px-3 py-1 font-bold rounded-sm uppercase font-mono"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setHandoverTarget(null)}
+                                className="border border-slate-800 text-slate-400 px-3 py-1 font-bold rounded-sm uppercase font-mono"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bottom ticket bar */}
+                        <div className="mt-4 pt-3 border-t border-slate-850 flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-xs font-mono text-slate-500">
+                            {/* Avatar */}
+                            <div className="h-5 w-5 rounded-full bg-slate-850 flex items-center justify-center text-[8px] font-bold text-slate-400">
+                              {order.agencyName.slice(0, 1).toUpperCase()}
+                            </div>
+                            <span className="text-cyber-cyan font-bold">{order.agencyName}</span>
+                            <span>·</span>
+                            <span>ETA: {order.targetCollectionTime}</span>
+                          </div>
+
+                          <div className="flex gap-2">
+                            {order.status === 'New' && (
+                              <button
+                                onClick={() => void updateOrderStatus(order, 'Accepted')}
+                                disabled={busyOrderId === order.id}
+                                className="bg-cyber-cyan text-slate-950 text-xs font-bold py-1 px-3 hover:bg-cyan-200 rounded-sm"
+                              >
+                                Accept
+                              </button>
+                            )}
+                            {order.status === 'Accepted' && (
+                              <button
+                                onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
+                                disabled={busyOrderId === order.id}
+                                className="bg-cyber-cyan text-slate-950 text-xs font-bold py-1 px-3 hover:bg-cyan-200 rounded-sm"
+                              >
+                                Mark Ready
+                              </button>
+                            )}
+                            {order.status === 'Ready for Collection' && !handoverTarget && (
+                              <button
+                                onClick={() => setHandoverTarget(order.id)}
+                                className="bg-cyber-cyan text-slate-950 text-xs font-bold py-1 px-3 hover:bg-cyan-200 rounded-sm"
+                              >
+                                Collected
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Collected Today Collapsible Log */}
+          <details className="border border-slate-800 bg-[#070e1e] p-4 rounded-sm">
+            <summary className="cursor-pointer text-xs font-bold font-mono uppercase tracking-widest text-slate-450 hover:text-white select-none">
+              [Collected Today ({completedToday.length})]
+            </summary>
+            <div className="mt-4 space-y-2 text-xs">
+              {completedToday.map((order) => (
+                <div key={order.id} className="border border-slate-900 bg-[#040912] p-2 font-mono flex justify-between text-slate-400">
+                  <span className="text-white font-bold">{order.recipientName}</span>
+                  <span>{order.agencyName} · Collected {formatTimestamp(order.completedAt)}</span>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  {canEditOrder ? (
-                    <button
-                      type="button"
-                      onClick={() => startEditingOrder(order)}
-                      className="rounded-full border border-slate-800 bg-slate-900 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-400"
-                    >
-                      Edit
-                    </button>
-                  ) : null}
-                  <span className={`w-fit rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
-                    isReady ? 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : isAccepted ? 'border border-cyan-400/30 bg-cyan-500/10 text-cyan-300' : 'border border-amber-400/30 bg-amber-500/10 text-amber-300'
-                  }`}>
-                    {isReady ? 'Ready for Collection' : isAccepted ? 'Accepted' : 'Needs acceptance'}
-                  </span>
+              ))}
+              {completedToday.length === 0 && (
+                <p className="text-slate-500 font-mono">No vouchers completed in the last 24 hours.</p>
+              )}
+            </div>
+          </details>
+        </div>
+
+        {/* Right Side: Handover Bulletin */}
+        {canChangeStatus && (
+          <div className="space-y-6">
+            <div className="border border-slate-800 bg-[#070e1e] p-4 rounded-sm">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-white">Handover Bulletin</h3>
+                  <p className="text-[10px] text-slate-450 font-mono mt-0.5">Shift Notes & Announcements</p>
                 </div>
+                <button
+                  onClick={() => setShowNoteInput(!showNoteInput)}
+                  className="bg-cyber-cyan text-slate-950 text-xs font-bold py-1 px-2 hover:bg-cyan-200 rounded-sm"
+                >
+                  + Note
+                </button>
               </div>
 
-              {isEditing ? (
-                <div className="card-glass-base mt-4 grid gap-3 rounded-2xl p-3">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
-                      Name
-                      <input
-                        value={editDraft.recipientName}
-                        onChange={(event) => setEditDraft((draft) => ({ ...draft, recipientName: event.target.value }))}
-                        className="rounded-xl border border-slate-800 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-100"
-                      />
-                    </label>
-                    <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
-                      Phone
-                      <input
-                        type="tel"
-                        value={editDraft.recipientPhone}
-                        onChange={(event) => setEditDraft((draft) => ({ ...draft, recipientPhone: event.target.value }))}
-                        className="rounded-xl border border-slate-800 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-100"
-                      />
-                    </label>
-                  </div>
-                  <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
-                    Collection Time
-                    <input
-                      value={editDraft.targetCollectionTime}
-                      onChange={(event) => setEditDraft((draft) => ({ ...draft, targetCollectionTime: event.target.value }))}
-                      className="rounded-xl border border-slate-800 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-100"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-xs font-black uppercase tracking-wider text-slate-400">
-                    Dietary Notes
-                    <textarea
-                      value={editDraft.dietaryNotes}
-                      onChange={(event) => setEditDraft((draft) => ({ ...draft, dietaryNotes: event.target.value }))}
-                      rows={3}
-                      className="resize-none rounded-xl border border-slate-800 px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-100"
-                    />
-                  </label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <button
-                      type="button"
-                      onClick={() => void saveOrderEdits(order)}
-                      disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
-                    >
-                      Save Changes
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingOrderId(null)}
-                      className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-black text-slate-300"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-3 grid gap-3">
-                  <div className="grid grid-cols-[1fr_auto] gap-2">
-                    <div className="card-glass-base rounded-xl p-2">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Referral Details</p>
-                      <p className="mt-1 text-xs font-bold text-slate-300">Submitted: {formatTimestamp(order.createdAt)}</p>
-                      <a className="mt-1 block break-words text-xs font-black text-emerald-300 underline-offset-2 hover:underline" href={`tel:${order.recipientPhone}`}>
-                        {order.recipientPhone || 'No phone listed'}
-                      </a>
-                    </div>
-                    <div className={`rounded-xl border p-2 text-center ${
-                      isReady ? 'border-emerald-400/40 bg-emerald-500/10' : 'border-amber-400/40 bg-amber-500/10'
-                    }`}>
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Target Collection</p>
-                      <p className="mt-1 max-w-28 break-words text-sm font-black uppercase leading-tight text-slate-100">{order.targetCollectionTime}</p>
-                    </div>
-                  </div>
-                  <div className="card-glass-base rounded-xl p-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Dietary / Access Notes</p>
-                    <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-200">{order.dietaryNotes || 'None listed'}</p>
+              {showNoteInput && (
+                <div className="mt-4 border border-slate-800 bg-[#040912] p-3 space-y-3">
+                  <textarea
+                    rows={3}
+                    value={handoverNoteText}
+                    onChange={(e) => setHandoverNoteText(e.target.value)}
+                    placeholder="Type updates..."
+                    className="w-full border border-slate-800 bg-slate-950 p-2 text-xs text-white outline-none focus:border-cyber-cyan/50 resize-none"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => setShowNoteInput(false)} className="text-xs text-slate-500 py-1 hover:text-white uppercase font-mono">Cancel</button>
+                    <button onClick={postHandoverNote} disabled={postingHandoverNote} className="bg-cyber-cyan text-slate-950 text-xs font-bold py-1 px-3 hover:bg-cyan-200 rounded-sm uppercase font-mono">Post</button>
                   </div>
                 </div>
               )}
 
-              {canChangeStatus && handoverTarget === order.id ? (
-                <div className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3">
-                  <p className="text-sm font-black text-amber-200">Are you sure you want to mark this referral collected?</p>
-                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <button
-                      onClick={() => void updateOrderStatus(order, 'archived')}
-                      disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 px-4 py-2.5 text-sm font-black text-slate-950 shadow-[0_0_18px_rgba(16,185,129,0.22)] disabled:opacity-50"
+              <div className="mt-6 space-y-4">
+                {handoverNotes.slice(0, 4).map((note, index) => {
+                  const cat = getNoteCategory(note.text);
+                  const isRotatedLeft = index % 2 === 0;
+                  return (
+                    <div 
+                      key={note.id} 
+                      className={`border p-4 transition-transform duration-300 ${cat.colorClass} ${
+                        isRotatedLeft ? 'rotate-[-0.5deg]' : 'rotate-[0.5deg]'
+                      }`}
                     >
-                      Mark Collected
-                    </button>
-                    <button
-                      onClick={() => setHandoverTarget(null)}
-                      className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-black text-slate-300"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : canChangeStatus ? (
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                  {order.status === 'New' ? (
-                    <button
-                      onClick={() => void updateOrderStatus(order, 'Accepted')}
-                      disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.22)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50"
-                    >
-                      Accept Referral
-                    </button>
-                  ) : null}
-                  {order.status === 'Accepted' ? (
-                    <button
-                      onClick={() => void updateOrderStatus(order, 'Ready for Collection')}
-                      disabled={busyOrderId === order.id}
-                      className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.22)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50"
-                    >
-                      Mark Ready
-                    </button>
-                  ) : null}
-                  {order.status === 'Ready for Collection' ? (
-                    <button
-                      onClick={() => setHandoverTarget(order.id)}
-                      className="rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 px-4 py-2.5 text-sm font-black uppercase tracking-wide text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.22)] hover:from-cyan-600 hover:to-emerald-600 disabled:opacity-50"
-                    >
-                      Mark Collected
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </article>
-          )})}
-          {visibleActiveOrders.length === 0 ? (
-            <div className="card-glass-base rounded-3xl border-dashed p-8 text-center">
-              <p className="text-lg font-black text-slate-200">No matching active referrals.</p>
-              <p className="mt-2 text-sm text-slate-400">Try another recipient or agency search.</p>
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      <details className="card-glass-base mt-5 rounded-3xl p-4">
-        <summary className="cursor-pointer text-sm font-black uppercase tracking-wider text-slate-300">
-          Collected Today ({completedToday.length})
-        </summary>
-        <div className="mt-4 grid gap-2">
-          {completedToday.length === 0 ? (
-            <p className="text-sm font-semibold text-slate-400">No collections logged in the last 24 hours.</p>
-          ) : (
-            completedToday.map((order) => (
-              <div key={order.id} className="rounded-2xl bg-slate-800/70 px-3 py-2 text-sm">
-                <span className="font-black text-slate-100">{order.recipientName}</span>
-                <span className="text-slate-400"> from {order.agencyName} collected {formatTimestamp(order.completedAt)}</span>
+                      <div className="flex justify-between text-[9px] font-mono text-slate-500 mb-1">
+                        <span className="uppercase font-bold tracking-wider">{cat.label}</span>
+                        <span>{cat.icon}</span>
+                      </div>
+                      <p className="text-xs text-slate-200 leading-relaxed font-sans">{note.text}</p>
+                      <p className="text-[9px] text-slate-500 font-mono mt-3 uppercase tracking-wider">
+                        {note.createdBy} · {formatTimestamp(note.createdAt)}
+                      </p>
+                    </div>
+                  );
+                })}
+                {handoverNotes.length === 0 && (
+                  <p className="text-xs text-slate-500 font-mono py-6 text-center border border-dashed border-slate-900">No shift updates.</p>
+                )}
               </div>
-            ))
-          )}
-        </div>
-      </details>
-    </section>
+
+              <div className="mt-4 pt-3 border-t border-slate-850 flex justify-between items-center text-[10px] font-mono text-slate-500">
+                <span>{handoverNotes.length} Active Notes</span>
+                <a href="#archive" className="hover:text-cyber-cyan transition font-bold uppercase tracking-wider">View Archived &gt;</a>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

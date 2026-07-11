@@ -1,89 +1,86 @@
-import type { ActiveTab, UserRole } from '../types';
+import type { ActiveTab } from '../types';
 
 export function PrimaryNavigation({
   activeTab,
   onChange,
   includeAdmin = false,
-  role = null,
+  onSignOut,
 }: {
   activeTab: ActiveTab;
   onChange: (tab: ActiveTab) => void;
   includeAdmin?: boolean;
-  role?: UserRole | null;
+  onSignOut?: () => void;
 }) {
-  const items: Array<{ tab: ActiveTab; label: string; icon: string; tone: string }> = [
-    { tab: 'queue', label: 'Live Queue', icon: 'Q', tone: 'emerald' },
-    ...(role !== 'partner' ? [{ tab: 'support' as ActiveTab, label: 'Support', icon: 'S', tone: 'blue' }] : []),
+  const items: Array<{ tab: ActiveTab; label: string; icon: string }> = [
+    { tab: 'queue', label: 'Dashboard', icon: '■' },
+    { tab: 'support', label: 'Support', icon: '♥' },
     ...(includeAdmin
       ? [
-          { tab: 'reports' as ActiveTab, label: 'Reports', icon: 'M', tone: 'emerald' },
-          { tab: 'admin' as ActiveTab, label: 'Admin', icon: 'A', tone: 'red' },
+          { tab: 'reports' as ActiveTab, label: 'Referrals', icon: '☷' },
+          { tab: 'admin' as ActiveTab, label: 'Admin', icon: '⚙' },
         ]
       : []),
   ];
 
   return (
     <>
-      <aside className="hidden md:block">
-        <nav className="card-glass-base sticky top-24 rounded-3xl p-3">
-          <p className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Workspace</p>
-          <div className="grid gap-2">
-            {items.map((item) => {
-              const isActive = activeTab === item.tab;
-              return (
-                <button
-                  key={item.tab}
-                  type="button"
-                  onClick={() => onChange(item.tab)}
-                  className={`flex items-center gap-3 rounded-2xl border-l-2 px-3 py-3 text-left text-sm font-black transition ${
-                    isActive
-                      ? 'border-cyan-500 bg-cyan-500/10 text-white shadow-[0_0_18px_rgba(6,182,212,0.18)]'
-                      : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-100'
-                  }`}
-                >
-                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-xs font-black ${
-                    isActive
-                      ? 'bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 shadow-[0_0_16px_rgba(6,182,212,0.28)]'
-                      : 'bg-slate-950/50 text-slate-400'
-                  }`}>
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-      </aside>
+      {/* Desktop Sidebar Navigation Rail */}
+      <aside className="hidden md:block w-full shrink-0">
+        <div className="border border-slate-800 bg-[#070e1e] p-4 rounded-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 border-b border-slate-850 pb-4 mb-4 select-none">
+              <span className="h-6 w-6 rounded-sm bg-cyber-cyan/10 border border-cyber-cyan/30 flex items-center justify-center text-cyber-cyan text-xs font-bold font-mono">
+                ✓
+              </span>
+              <div>
+                <p className="text-[10px] font-bold text-cyber-cyan font-mono uppercase tracking-wider">SOS</p>
+                <p className="text-[9px] font-bold text-slate-500 font-mono uppercase">Crisis Net</p>
+              </div>
+            </div>
 
-      <nav className="card-glass-base fixed bottom-3 left-3 right-3 z-50 rounded-3xl px-4 py-2 backdrop-blur md:hidden">
-        <div className={`mx-auto grid max-w-md gap-2 ${includeAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
-          {items.map((item) => {
-            const isActive = activeTab === item.tab;
-            return (
+            <nav className="space-y-1">
+              {items.map((item) => {
+                const isActive = activeTab === item.tab;
+                return (
+                  <button
+                    key={item.tab}
+                    type="button"
+                    onClick={() => onChange(item.tab)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-bold uppercase tracking-wider text-left transition select-none ${
+                      isActive
+                        ? 'border-l-2 border-cyber-cyan bg-cyber-cyan/5 text-cyber-cyan font-black'
+                        : 'border-l-2 border-transparent text-slate-500 hover:text-white'
+                    }`}
+                  >
+                    <span className="font-mono text-sm">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="mt-8 pt-4 border-t border-slate-850 space-y-1">
+            <button
+              type="button"
+              className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-white text-left font-mono select-none"
+            >
+              <span>⚙</span>
+              <span>Settings</span>
+            </button>
+            {onSignOut && (
               <button
-                key={item.tab}
                 type="button"
-                onClick={() => onChange(item.tab)}
-                className={`flex min-h-14 flex-col items-center justify-center rounded-2xl border-l-2 text-[11px] font-black uppercase tracking-wide transition ${
-                  isActive
-                    ? 'border-cyan-500 bg-cyan-500/10 text-white shadow-[0_0_16px_rgba(6,182,212,0.16)]'
-                    : 'border-transparent text-slate-400'
-                }`}
+                onClick={onSignOut}
+                className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold uppercase tracking-wider text-red-500 hover:text-red-400 text-left font-mono select-none"
               >
-                <span className={`mb-0.5 flex h-6 w-6 items-center justify-center rounded-full text-[10px] ${
-                  isActive
-                    ? 'bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950'
-                    : 'bg-slate-950/50 text-slate-400'
-                }`}>
-                  {item.icon}
-                </span>
-                {item.label}
+                <span>🚪</span>
+                <span>Sign Out</span>
               </button>
-            );
-          })}
+            )}
+          </div>
         </div>
-      </nav>
+      </aside>
     </>
   );
 }
