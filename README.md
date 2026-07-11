@@ -7,7 +7,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-6-3b82f6?style=flat-square&logo=typescript&logoColor=white)
 ![Firestore](https://img.shields.io/badge/Firestore-role_gated-5eead4?style=flat-square&logo=firebase&logoColor=020617)
 
-**Live application:** [save-our-supper.web.app](https://save-our-supper.web.app)
+**Live application:** [save-our-supper.web.app](https://save-our-supper.web.app/)
 
 Save Our Supper replaces fragmented referral emails and paper handovers with one Firebase-backed operational pipeline: agencies submit crisis referrals, households track parcels anonymously, volunteers manage fulfilment, and administrators enforce access and retention policy.
 
