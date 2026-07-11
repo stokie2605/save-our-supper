@@ -1,78 +1,151 @@
-# Save Our Supper — Foodbank Referral Pipeline
+# Save Our Supper — Zero-Paperwork Foodbank Referral Pipeline
 
-> **The 1-Line Mission:** Firebase-backed digital referral and operations dashboard streamlining food parcel workflows and securing client privacy for local charities.
+> A privacy-first referral and fulfilment workspace that connects trusted agencies, foodbank volunteers, and households without paper forms or exposed client records.
 
-🔴 **Live Demo:** [save-our-supper.web.app](https://save-our-supper.web.app)
+[![Live on Firebase](https://img.shields.io/badge/live-Firebase_Hosting-22d3ee?style=flat-square&logo=firebase&logoColor=020617)](https://save-our-supper.web.app)
+![React](https://img.shields.io/badge/React-19-22d3ee?style=flat-square&logo=react&logoColor=020617)
+![TypeScript](https://img.shields.io/badge/TypeScript-6-3b82f6?style=flat-square&logo=typescript&logoColor=white)
+![Firestore](https://img.shields.io/badge/Firestore-role_gated-5eead4?style=flat-square&logo=firebase&logoColor=020617)
 
----
+**Live application:** [save-our-supper.web.app](https://save-our-supper.web.app)
 
-## 🎨 Neo-Obsidian Cyberpunk Design System
-The user interface has been fully migrated to a premium **Neo-Obsidian Cyberpunk** visual specification, featuring:
-*   **Colors**: Deep dark neutral page backgrounds (`#020617`), vibrant Cyan primary (`#22D3EE`), bright Blue secondary (`#3B82F6`), Teal tertiary (`#5EEAD4`), and slate dividing lines.
-*   **Typography**: Clean `Geist` sans-serif for content/controls and `Space Mono` for monospace labels, codes, and tickers.
-*   **Geometry**: flat panels, thin cyber borders, and restrained glows restricted strictly to primary actions and active states.
-*   **Mobile-First Rail Layout**: Unified bottom navigation bar for mobile viewports (`Refer`, `Vouchers`, `Portal`).
+Save Our Supper replaces fragmented referral emails and paper handovers with one Firebase-backed operational pipeline: agencies submit crisis referrals, households track parcels anonymously, volunteers manage fulfilment, and administrators enforce access and retention policy.
 
 ---
 
-## 🎥 UI Showcase & Screenshots
+## Visual system
 
-### 1. Public Zero-Paperwork Gateway
-> Exposes the anonymous parcel tracker and local support directory without requiring user credentials.
-*   **Desktop Layout**: 44%/56% split panel containing the tagline, statistics (`12k+` and `< 15min`), and the anonymous lookup status card.
-*   **Status timeline**: Features step indicators that transition from horizontal (desktop) to vertical (mobile), tracking Waiting (electric blue), Preparing (amber), and Ready (neon green). Includes volunteer assignment notes and the pickup token button.
+The interface uses a **Neo-Obsidian Cyberpunk** system designed for high-density operational work:
 
-<img src="screenshots/public-homepage.png" width="700" alt="Public Homepage" />
-<img src="screenshots/public-tracker.png" width="700" alt="Public Parcel Tracker" />
-
----
-
-### 2. Partner Agency Portal
-> Gated portal for approved referrers to submit client data and check notices.
-*   **3-Step Wizard**: Steps (`Household` → `Immediate Needs` → `Logistics`) containing legal name inputs, case references, adult/children count selectors, and vulnerability scan checklists.
-*   **Operational Rails**: Sidebar menus containingnoticeboard announcements and active client lists.
-
-<img src="screenshots/save-our-supper-desktop.png" width="700" alt="Partner Agency Portal" />
+- **Obsidian foundation:** near-black `#020617` surfaces with a restrained dot-grid field.
+- **Cyan signal colour:** bright cyan actions and active rails, supported by electric blue, teal, amber, and neon green status states.
+- **Typography:** Geist for readable interface copy and Space Mono for labels, tokens, timestamps, and operational metadata.
+- **Flat geometry:** square panels, thin borders, compact rails, and controlled glow instead of generic glass cards.
+- **Responsive operations:** desktop workspaces collapse into mobile-first navigation and segmented workflow views.
 
 ---
 
-### 3. Volunteer Ops Center
-> Kitchen-display terminal for foodbank logistics teams.
-*   **Intake Tickets**: Real-time incoming tickets with priority labels (Urgent, Standard, Completed, Pending Help), ETAs, and status controllers (Accept, Ready, Collected).
-*   **Handover Bulletin**: Sticky-note bulletins for shift handovers (Morning Shift, Announcement, Inventory Alert) that alternate visual rotation for an analog post-it feel.
+## UI showcase
 
-<img src="screenshots/save-our-supper-mobile.png" width="300" alt="Volunteer Ops Center" />
+### Public gateway
+
+The public gateway exposes anonymous parcel tracking and community support without requiring an account.
+
+<p>
+  <img src="screenshots/public-homepage.png" width="700" alt="Neo-Obsidian public gateway with mission copy and anonymous parcel tracker" />
+</p>
+
+<p>
+  <img src="screenshots/public-tracker.png" width="700" alt="Three-stage anonymous parcel status tracker" />
+</p>
+
+The tracker presents the referral lifecycle as **Waiting → Preparing → Ready to Collect**, using hashed phone or email lookup keys rather than exposing referral documents publicly.
+
+### Partner Agency Portal
+
+Approved agency users submit referrals through a focused three-stage wizard: **Household → Immediate Needs → Logistics**.
+
+<p>
+  <img src="screenshots/save-our-supper-desktop.png" width="700" alt="Partner Agency Portal three-step crisis referral wizard" />
+</p>
+
+### Volunteer Ops Center
+
+Foodbank teams receive a kitchen-display-style ticket feed with fulfilment actions, urgency signals, collection states, and shift handover notes.
+
+<p>
+  <img src="screenshots/save-our-supper-mobile.png" width="300" alt="Volunteer Ops Center active ticket feed on a mobile viewport" />
+</p>
 
 ---
 
-### 4. Admin Security Console
-> Infrastructure integrity and access panel for foodbank admins.
-*   **User Role Approvals**: Pending registration approval tables with initials avatars and reject/approve actions.
-*   **GDPR Data Purge**: Compliance threshold sliders, critical threshold warnings, and execute purge buttons.
-*   **System stats**: Statistics widgets monitoring session count, login attempts, and database access loads.
-*   **Expandable Drawer**: Advanced configurations (roles editor, agencies, support links) tucked into a collapsible settings register.
+## Architecture and role gates
+
+The application is a React and TypeScript single-page app deployed to Firebase Hosting, with Firebase Authentication and Cloud Firestore providing identity, realtime state, and policy enforcement.
+
+| Interface | Access | Responsibility |
+| --- | --- | --- |
+| Public Gateway | Anonymous | Hashed parcel-status lookup and local support directory |
+| Partner Portal | `partner` | Agency-scoped referral creation and client progress |
+| Volunteer Ops | `active_volunteer` | Intake acceptance, preparation, handover, and collection |
+| Admin Console | `admin` | User approvals, agency access, operational configuration, and retention controls |
+
+Role checks in the frontend shape the interface, while Firestore rules remain the security boundary. Partner queries are restricted by agency ownership, staff operations require approved roles, and anonymous users can only access purpose-built public status records.
+
+### Core collections
+
+- `users` — authenticated profiles, roles, and agency assignments
+- `live_orders` — active and archived referral workflow records
+- `public_status` — minimal hashed lookup documents for anonymous tracking
+- `handover_notes` — shift communication for approved foodbank staff
+- `agencies` and `config` — controlled operational configuration
 
 ---
 
-## ⚙️ Core Architecture & Features
-*   **Public Tracking Gateway**: Anonymous status lookup using phone/email matching hashed document lookups from the `/public_status` collection to protect identities.
-*   **Role Gates**: Restricts read/write operations by user role (`pending`, `partner`, `active_volunteer`, `admin`) using strict Firestore rules.
-*   **GDPR Purge Workflow**: Anonymises name, phone, and email immediately upon collection. Retains statistical data while purging archived records older than 30 days.
+## GDPR compliance model
+
+Save Our Supper applies data minimisation across the full parcel lifecycle.
+
+1. **Referral:** contact information is stored only for operational fulfilment and anonymous lookup generation.
+2. **Collection:** marking a parcel collected removes the matching public status records and immediately anonymises the recipient name, phone number, email address, and dietary notes.
+3. **Reporting:** non-identifying operational fields remain available for service statistics.
+4. **Thirty-day retention:** archived referrals older than 30 days are deleted by the retention workflow, with an isolated manual purge control available to administrators.
+5. **Role isolation:** personal referral data is protected by Firestore rules and agency or staff role checks.
 
 ---
 
-## 🛠️ Local Development Setup
+## Local setup
 
-1. Configure local environment properties in `.env.local` (see `.env.example`).
-2. Install npm dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-4. Run automated rules tests using the local Firestore Emulator:
-   ```bash
-   npm run test:rules
-   ```
+### Requirements
+
+- Node.js 20 or newer
+- A Firebase project with Authentication and Firestore enabled
+- Firebase CLI for emulator and deployment workflows
+
+### Installation
+
+```bash
+git clone https://github.com/stokie2605/save-our-supper.git
+cd save-our-supper
+npm install
+```
+
+Copy the environment template and provide your Firebase web configuration:
+
+```bash
+copy .env.example .env.local
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+### Verification
+
+```bash
+npm run build
+npm run lint
+npm run test
+npm run test:rules
+```
+
+The Firestore rules suite requires the local Firebase Firestore emulator.
+
+### Firebase Hosting
+
+```bash
+npm run build
+firebase deploy --only hosting
+```
+
+---
+
+## Technology
+
+React 19 · TypeScript · Vite · Tailwind CSS v4 · Firebase Authentication · Cloud Firestore · Firebase Hosting · Vitest
+
+---
+
+Built for privacy-aware community food support in Cheshire East.
