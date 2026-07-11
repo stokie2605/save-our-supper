@@ -4,42 +4,60 @@
 
 🔴 **Live Demo:** [save-our-supper.web.app](https://save-our-supper.web.app)
 
-### ⚡ Engineering Breakdown
-* **The Problem:** Traditional foodbanks rely on slow, paper-based forms and insecure communications, creating tracking delays and raising GDPR exposure for vulnerable recipients.
-* **The Solution:** A secure, role-based React web application integrating Firestore security rules to manage public tracking gateways, partner agency queues, volunteer handovers, and auto-purging data retention rules.
-* **The Tech Stack:** `React` `Firebase` `Firestore Security Rules` `TypeScript`
+---
+
+## 🎨 Neo-Obsidian Cyberpunk Design System
+The user interface has been fully migrated to a premium **Neo-Obsidian Cyberpunk** visual specification, featuring:
+*   **Colors**: Deep dark neutral page backgrounds (`#020617`), vibrant Cyan primary (`#22D3EE`), bright Blue secondary (`#3B82F6`), Teal tertiary (`#5EEAD4`), and slate dividing lines.
+*   **Typography**: Clean `Geist` sans-serif for content/controls and `Space Mono` for monospace labels, codes, and tickers.
+*   **Geometry**: flat panels, thin cyber borders, and restrained glows restricted strictly to primary actions and active states.
+*   **Mobile-First Rail Layout**: Unified bottom navigation bar for mobile viewports (`Refer`, `Vouchers`, `Portal`).
 
 ---
 
-## 🎥 UI Showcase
+## 🎥 UI Showcase & Screenshots
 
-### Public Homepage — Zero-Paperwork Gateway
-> The public-facing landing page exposing the parcel tracker and local support directory without requiring any login credentials.
+### 1. Public Zero-Paperwork Gateway
+> Exposes the anonymous parcel tracker and local support directory without requiring user credentials.
+*   **Desktop Layout**: 44%/56% split panel containing the tagline, statistics (`12k+` and `< 15min`), and the anonymous lookup status card.
+*   **Status timeline**: Features step indicators that transition from horizontal (desktop) to vertical (mobile), tracking Waiting (electric blue), Preparing (amber), and Ready (neon green). Includes volunteer assignment notes and the pickup token button.
 
 ![Public Homepage](screenshots/public-homepage.png)
+![Public Parcel Tracker](screenshots/public-tracker.png)
 
 ---
 
-### Public Parcel Tracker — 3-Step Status Flow
-> Anonymous parcel status lookup using a phone number or email address. The 3-step progress indicator (Waiting → Being Prepared → Ready to Collect) resolves against hashed Firestore document matches to protect recipient identity.
+### 2. Partner Agency Portal
+> Gated portal for approved referrers to submit client data and check notices.
+*   **3-Step Wizard**: Steps (`Household` → `Immediate Needs` → `Logistics`) containing legal name inputs, case references, adult/children count selectors, and vulnerability scan checklists.
+*   **Operational Rails**: Sidebar menus containingnoticeboard announcements and active client lists.
 
-![Public 3-Step Parcel Tracker](screenshots/public-tracker.png)
+![Partner Agency Portal](screenshots/save-our-supper-desktop.png)
+
+---
+
+### 3. Volunteer Ops Center
+> Kitchen-display terminal for foodbank logistics teams.
+*   **Intake Tickets**: Real-time incoming tickets with priority labels (Urgent, Standard, Completed, Pending Help), ETAs, and status controllers (Accept, Ready, Collected).
+*   **Handover Bulletin**: Sticky-note bulletins for shift handovers (Morning Shift, Announcement, Inventory Alert) that alternate visual rotation for an analog post-it feel.
+
+![Volunteer Ops Center](screenshots/save-our-supper-mobile.png)
+
+---
+
+### 4. Admin Security Console
+> Infrastructure integrity and access panel for foodbank admins.
+*   **User Role Approvals**: Pending registration approval tables with initials avatars and reject/approve actions.
+*   **GDPR Data Purge**: Compliance threshold sliders, critical threshold warnings, and execute purge buttons.
+*   **System stats**: Statistics widgets monitoring session count, login attempts, and database access loads.
+*   **Expandable Drawer**: Advanced configurations (roles editor, agencies, support links) tucked into a collapsible settings register.
 
 ---
 
 ## ⚙️ Core Architecture & Features
-
-*   **Public Tracking Gateway:** Anonymous parcel status lookup by phone/email using hashed document matches from the `/public_status` collection to safeguard recipient identities.
-*   **Partner Agency Portal:** Gated referral submission, local support directory listings, and agency-isolated queue views.
-*   **Volunteer Workspace:** Real-time active orders manager, operational handover note bulletin, and key trend statistics logs.
-*   **Admin Control Console:** Comprehensive user role manager (pending/volunteer/partner/admin approvals), agency configuration toggles, and GDPR data retention purgers.
-
----
-
-## 🔒 GDPR & Privacy Security Model
-*   **Immediate Anonymisation:** Marking a parcel collected automatically deletes matching `/public_status` lookups and wipes personal identifiers (name, phone, email) from `/live_orders`.
-*   **Thirty-Day Purge:** An automated scheduler or manual admin trigger removes archived orders older than 30 days while retaining anonymized statistical records.
-*   **Firestore Rules Enforcement:** Restricts read/write operations by user role, UID matching, and document-level agency ownership properties.
+*   **Public Tracking Gateway**: Anonymous status lookup using phone/email matching hashed document lookups from the `/public_status` collection to protect identities.
+*   **Role Gates**: Restricts read/write operations by user role (`pending`, `partner`, `active_volunteer`, `admin`) using strict Firestore rules.
+*   **GDPR Purge Workflow**: Anonymises name, phone, and email immediately upon collection. Retains statistical data while purging archived records older than 30 days.
 
 ---
 
