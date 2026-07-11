@@ -28,10 +28,12 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (theme === 'light') {
-      document.documentElement.classList.add('light-theme');
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
-      document.documentElement.classList.remove('light-theme');
+      document.documentElement.classList.remove('dark');
+      document.documentElement.removeAttribute('data-theme');
     }
   }, [theme]);
 

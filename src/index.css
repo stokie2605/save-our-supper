@@ -4,12 +4,12 @@
   --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "Space Mono", monospace;
   
-  --color-cyber-cyan: #22D3EE;
-  --color-cyber-blue: #3B82F6;
-  --color-cyber-teal: #5EEAD4;
-  --color-cyber-dark: var(--bg-canvas);
-  --color-cyber-panel: var(--bg-panel);
-  --color-cyber-card: var(--bg-card);
+  --color-cyber-cyan: var(--primary);
+  --color-cyber-blue: var(--accent-blue);
+  --color-cyber-teal: #5eead4;
+  --color-cyber-dark: var(--surface-dim);
+  --color-cyber-panel: var(--surface);
+  --color-cyber-card: var(--surface-container);
 }
 
 /* Custom Cyberpunk Utilities */
@@ -41,38 +41,72 @@
 }
 
 :root {
-  color-scheme: dark;
-  --bg-canvas: #020617;
-  --bg-panel: #070e1e;
-  --bg-card: #0b1329;
-  
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --border-muted: #1e293b;
-  --scroll-track: #020617;
-  --scroll-thumb: #1e293b;
-  --grid-opacity: 0.035;
-}
-
-:root.light-theme {
+  /* Default: Serene Support (Light Mode) */
   color-scheme: light;
-  --bg-canvas: #f8fafc;
-  --bg-panel: #ffffff;
-  --bg-card: #f1f5f9;
   
+  --surface: #f7f9fb;
+  --surface-dim: #d8dadc;
+  --surface-bright: #f7f9fb;
+  --surface-container: #f2f4f6;
+  
+  --primary: #10b981; /* Sage Green */
+  --on-primary: #ffffff;
+  
+  --secondary: #0f172a; /* Midnight Navy */
+  --on-secondary: #ffffff;
+  
+  --accent-blue: #3b82f6;
+  --accent-amber: #f59e0b;
+  
+  --border-glow: transparent;
+  --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --button-text: #ffffff;
+
+  /* Helper vars for static overrides */
   --text-main: #0f172a;
   --text-muted: #475569;
   --border-muted: #cbd5e1;
-  --scroll-track: #f8fafc;
+  --scroll-track: #f7f9fb;
   --scroll-thumb: #cbd5e1;
   --grid-opacity: 0.07;
+}
+
+[data-theme='dark'], .dark {
+  /* Neo-Obsidian Cyberpunk (Dark Mode) */
+  color-scheme: dark;
+  
+  --surface: #0c1324; /* Obsidian */
+  --surface-dim: #070d1f;
+  --surface-bright: #33394c;
+  --surface-container: #151b2d;
+  
+  --primary: #22d3ee; /* Neon Cyan */
+  --on-primary: #000000;
+  
+  --secondary: #0c1324;
+  --on-secondary: #22d3ee;
+  
+  --accent-blue: #38bdf8; /* Electric Blue */
+  --accent-amber: #fbbf24;
+  
+  --border-glow: 0 0 8px rgba(34, 211, 238, 0.4);
+  --card-shadow: none;
+  --button-text: #000000;
+
+  /* Helper vars for static overrides */
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border-muted: #1e293b;
+  --scroll-track: #070d1f;
+  --scroll-thumb: #1e293b;
+  --grid-opacity: 0.035;
 }
 
 html,
 body,
 #root {
   min-height: 100%;
-  background-color: var(--bg-canvas);
+  background-color: var(--surface);
   color: var(--text-main);
   transition: background-color 0.2s ease, color 0.2s ease;
 }
@@ -81,7 +115,7 @@ body {
   margin: 0;
   font-family: var(--font-sans);
   color: var(--text-main);
-  background-color: var(--bg-canvas);
+  background-color: var(--surface-dim);
   /* Cyberpunk Dot Grid Background overlay */
   background-image: radial-gradient(rgba(34, 211, 238, var(--grid-opacity)) 1.2px, transparent 1.2px);
   background-size: 20px 20px;
@@ -119,30 +153,50 @@ select {
   background: #334155;
 }
 
-/* Light Theme Overrides for Tailwind Utilities */
-.light-theme .bg-\[\#070e1e\] {
-  background-color: var(--bg-panel) !important;
+/* Light Theme Overrides for static hex colors in component files */
+:root:not(.dark) .bg-\[\#070e1e\],
+:root:not(.dark) .bg-cyber-panel {
+  background-color: var(--surface) !important;
 }
-.light-theme .bg-\[\#040912\] {
-  background-color: var(--bg-card) !important;
+:root:not(.dark) .bg-\[\#040912\],
+:root:not(.dark) .bg-cyber-card {
+  background-color: var(--surface-container) !important;
 }
-.light-theme .bg-\[\#020617\] {
-  background-color: var(--bg-canvas) !important;
+:root:not(.dark) .bg-\[\#020617\],
+:root:not(.dark) .bg-cyber-dark {
+  background-color: var(--surface-dim) !important;
 }
-.light-theme .bg-slate-950,
-.light-theme .bg-slate-900 {
-  background-color: var(--bg-canvas) !important;
+:root:not(.dark) .bg-slate-950,
+:root:not(.dark) .bg-slate-900 {
+  background-color: var(--surface-dim) !important;
 }
-.light-theme .border-slate-800,
-.light-theme .border-slate-850,
-.light-theme .border-slate-900 {
+:root:not(.dark) .border-slate-800,
+:root:not(.dark) .border-slate-850,
+:root:not(.dark) .border-slate-900 {
   border-color: var(--border-muted) !important;
 }
-.light-theme .text-slate-400,
-.light-theme .text-slate-450,
-.light-theme .text-slate-500 {
+:root:not(.dark) .text-slate-100,
+:root:not(.dark) .text-slate-200,
+:root:not(.dark) .text-slate-300 {
+  color: var(--text-main) !important;
+}
+:root:not(.dark) .text-slate-400,
+:root:not(.dark) .text-slate-450,
+:root:not(.dark) .text-slate-555,
+:root:not(.dark) .text-slate-500 {
   color: var(--text-muted) !important;
 }
-.light-theme .text-white {
+:root:not(.dark) .text-white {
   color: var(--text-main) !important;
+}
+
+/* Strip text glows and border glows in light mode for readability */
+:root:not(.dark) .text-glow-cyan,
+:root:not(.dark) .text-glow-blue,
+:root:not(.dark) .text-glow-teal {
+  text-shadow: none !important;
+}
+:root:not(.dark) .border-glow-cyan,
+:root:not(.dark) .border-glow-emerald {
+  box-shadow: none !important;
 }
