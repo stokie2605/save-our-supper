@@ -228,7 +228,7 @@ export function SupportLinks({ publicView = false }: { publicView?: boolean }) {
             className={`rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-wider transition ${
               activeCategory === cat
                 ? 'bg-gradient-to-r from-cyan-500 to-emerald-500 text-slate-950 shadow-[0_0_12px_rgba(6,182,212,0.22)] border border-transparent'
-                : 'border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                : 'border border-slate-800 bg-[var(--bg-sidebar)] text-[var(--text-muted)] hover:text-[var(--text-main)]'
             }`}
           >
             {cat}

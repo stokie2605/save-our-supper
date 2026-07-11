@@ -573,7 +573,7 @@ export function LiveOrdersQueue({
                             <span className={`text-[8px] font-bold px-2 py-0.5 uppercase tracking-widest font-mono ${
                               isUrgent 
                                 ? 'bg-red-500/25 text-red-500 border border-red-500/30 shadow-[0_0_8px_rgba(239,68,68,0.1)]' 
-                                : 'bg-slate-800 text-slate-450 border border-slate-700'
+                                : 'bg-slate-800 text-[#ffffff] border border-slate-700'
                             }`}>
                               {isUrgent ? 'Urgent' : 'Standard'}
                             </span>

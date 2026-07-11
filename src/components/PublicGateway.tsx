@@ -607,26 +607,26 @@ export function PublicGateway({
         <div className="border-t border-slate-805 pt-10">
           <p className="mono-label text-cyber-cyan font-bold mb-4">System Protocol</p>
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="border border-slate-800 bg-[#070e1e]/60 p-5 rounded-sm">
+            <div className="border border-slate-800 bg-[var(--bg-surface)] p-5 rounded-sm">
               <span className="text-lg text-cyber-cyan select-none">👤</span>
-              <h3 className="font-bold text-white mt-3 text-xs uppercase tracking-wider font-mono">No ID Required</h3>
-              <p className="text-xs text-slate-400 leading-relaxed mt-2">
+              <h3 className="font-bold text-[var(--text-main)] mt-3 text-xs uppercase tracking-wider font-mono">No ID Required</h3>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed mt-2">
                 We don't ask for your name or history. Access support based on your immediate situation, guaranteed.
               </p>
             </div>
             
-            <div className="border border-slate-800 bg-[#070e1e]/60 p-5 rounded-sm">
+            <div className="border border-slate-800 bg-[var(--bg-surface)] p-5 rounded-sm">
               <span className="text-lg text-cyber-cyan select-none">⚡</span>
-              <h3 className="font-bold text-white mt-3 text-xs uppercase tracking-wider font-mono">Instant Approval</h3>
-              <p className="text-xs text-slate-400 leading-relaxed mt-2">
+              <h3 className="font-bold text-[var(--text-main)] mt-3 text-xs uppercase tracking-wider font-mono">Instant Approval</h3>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed mt-2">
                 Real-time referral mapping ensures you find the nearest active resource point within minutes of arriving.
               </p>
             </div>
             
-            <div className="border border-slate-800 bg-[#070e1e]/60 p-5 rounded-sm">
+            <div className="border border-slate-800 bg-[var(--bg-surface)] p-5 rounded-sm">
               <span className="text-lg text-cyber-cyan select-none">🔒</span>
-              <h3 className="font-bold text-white mt-3 text-xs uppercase tracking-wider font-mono">Privacy Lock</h3>
-              <p className="text-xs text-slate-400 leading-relaxed mt-2">
+              <h3 className="font-bold text-[var(--text-main)] mt-3 text-xs uppercase tracking-wider font-mono">Privacy Lock</h3>
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed mt-2">
                 Our tracking tokens are one-time use and expire immediately after your support session is completed.
               </p>
             </div>
