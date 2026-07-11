@@ -22,8 +22,8 @@ The user interface has been fully migrated to a premium **Neo-Obsidian Cyberpunk
 *   **Desktop Layout**: 44%/56% split panel containing the tagline, statistics (`12k+` and `< 15min`), and the anonymous lookup status card.
 *   **Status timeline**: Features step indicators that transition from horizontal (desktop) to vertical (mobile), tracking Waiting (electric blue), Preparing (amber), and Ready (neon green). Includes volunteer assignment notes and the pickup token button.
 
-![Public Homepage](screenshots/public-homepage.png)
-![Public Parcel Tracker](screenshots/public-tracker.png)
+<img src="screenshots/public-homepage.png" width="700" alt="Public Homepage" />
+<img src="screenshots/public-tracker.png" width="700" alt="Public Parcel Tracker" />
 
 ---
 
@@ -32,7 +32,7 @@ The user interface has been fully migrated to a premium **Neo-Obsidian Cyberpunk
 *   **3-Step Wizard**: Steps (`Household` → `Immediate Needs` → `Logistics`) containing legal name inputs, case references, adult/children count selectors, and vulnerability scan checklists.
 *   **Operational Rails**: Sidebar menus containingnoticeboard announcements and active client lists.
 
-![Partner Agency Portal](screenshots/save-our-supper-desktop.png)
+<img src="screenshots/save-our-supper-desktop.png" width="700" alt="Partner Agency Portal" />
 
 ---
 
@@ -41,7 +41,7 @@ The user interface has been fully migrated to a premium **Neo-Obsidian Cyberpunk
 *   **Intake Tickets**: Real-time incoming tickets with priority labels (Urgent, Standard, Completed, Pending Help), ETAs, and status controllers (Accept, Ready, Collected).
 *   **Handover Bulletin**: Sticky-note bulletins for shift handovers (Morning Shift, Announcement, Inventory Alert) that alternate visual rotation for an analog post-it feel.
 
-![Volunteer Ops Center](screenshots/save-our-supper-mobile.png)
+<img src="screenshots/save-our-supper-mobile.png" width="300" alt="Volunteer Ops Center" />
 
 ---
 
