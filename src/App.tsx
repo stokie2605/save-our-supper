@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { AppShell } from './components/AppShell';
 import { AdminUserPanel } from './components/AdminUserPanel';
@@ -17,6 +17,24 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('queue');
   const [publicView, setPublicView] = useState<PublicView>('landing');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Theme Switching State (default to dark)
+  const [theme, setTheme] = useState(() => localStorage.getItem('sos-theme') || 'dark');
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('sos-theme', nextTheme);
+  };
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.documentElement.classList.add('light-theme');
+    } else {
+      document.documentElement.classList.remove('light-theme');
+    }
+  }, [theme]);
+
   const { user, profile: authProfile, role, loading, error, isApproved } = useAuthRole();
   const profile: UserProfile | null = authProfile
     ? {
@@ -41,6 +59,8 @@ export default function App() {
       setPublicView={setPublicView}
       searchTerm={searchTerm}
       setSearchTerm={setSearchTerm}
+      theme={theme}
+      toggleTheme={toggleTheme}
     >
       {!user ? <PublicGateway publicView={publicView} setPublicView={setPublicView} /> : null}
       {user && loading ? (

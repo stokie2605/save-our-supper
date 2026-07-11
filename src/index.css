@@ -7,9 +7,9 @@
   --color-cyber-cyan: #22D3EE;
   --color-cyber-blue: #3B82F6;
   --color-cyber-teal: #5EEAD4;
-  --color-cyber-dark: #020617;
-  --color-cyber-panel: #070e1e;
-  --color-cyber-card: #0b1329;
+  --color-cyber-dark: var(--bg-canvas);
+  --color-cyber-panel: var(--bg-panel);
+  --color-cyber-card: var(--bg-card);
 }
 
 /* Custom Cyberpunk Utilities */
@@ -42,23 +42,48 @@
 
 :root {
   color-scheme: dark;
-  background-color: #020617;
+  --bg-canvas: #020617;
+  --bg-panel: #070e1e;
+  --bg-card: #0b1329;
+  
+  --text-main: #f1f5f9;
+  --text-muted: #94a3b8;
+  --border-muted: #1e293b;
+  --scroll-track: #020617;
+  --scroll-thumb: #1e293b;
+  --grid-opacity: 0.035;
+}
+
+:root.light-theme {
+  color-scheme: light;
+  --bg-canvas: #f8fafc;
+  --bg-panel: #ffffff;
+  --bg-card: #f1f5f9;
+  
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-muted: #cbd5e1;
+  --scroll-track: #f8fafc;
+  --scroll-thumb: #cbd5e1;
+  --grid-opacity: 0.07;
 }
 
 html,
 body,
 #root {
   min-height: 100%;
-  background-color: #020617;
+  background-color: var(--bg-canvas);
+  color: var(--text-main);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 body {
   margin: 0;
   font-family: var(--font-sans);
-  color: #f1f5f9;
-  background-color: #020617;
+  color: var(--text-main);
+  background-color: var(--bg-canvas);
   /* Cyberpunk Dot Grid Background overlay */
-  background-image: radial-gradient(rgba(34, 211, 238, 0.035) 1.2px, transparent 1.2px);
+  background-image: radial-gradient(rgba(34, 211, 238, var(--grid-opacity)) 1.2px, transparent 1.2px);
   background-size: 20px 20px;
   background-attachment: fixed;
 }
@@ -84,12 +109,40 @@ select {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #020617;
+  background: var(--scroll-track);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: var(--scroll-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #334155;
+}
+
+/* Light Theme Overrides for Tailwind Utilities */
+.light-theme .bg-\[\#070e1e\] {
+  background-color: var(--bg-panel) !important;
+}
+.light-theme .bg-\[\#040912\] {
+  background-color: var(--bg-card) !important;
+}
+.light-theme .bg-\[\#020617\] {
+  background-color: var(--bg-canvas) !important;
+}
+.light-theme .bg-slate-950,
+.light-theme .bg-slate-900 {
+  background-color: var(--bg-canvas) !important;
+}
+.light-theme .border-slate-800,
+.light-theme .border-slate-850,
+.light-theme .border-slate-900 {
+  border-color: var(--border-muted) !important;
+}
+.light-theme .text-slate-400,
+.light-theme .text-slate-450,
+.light-theme .text-slate-500 {
+  color: var(--text-muted) !important;
+}
+.light-theme .text-white {
+  color: var(--text-main) !important;
 }
