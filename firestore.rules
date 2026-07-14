@@ -185,7 +185,7 @@ service cloud.firestore {
     }
 
     match /live_orders/{orderId} {
-      allow read: if isActiveVolunteer() || isAdmin() || (isPartner() && resource.data.agencyId == currentAgencyId()) || (isDemoVolunteer() && resource.data.agencyId == "demo-agency");
+      allow read: if isAdmin() || (isActiveVolunteer() && resource.data.agencyId == currentAgencyId()) || (isPartner() && resource.data.agencyId == currentAgencyId()) || (isDemoVolunteer() && resource.data.agencyId == "demo-agency");
       allow create: if validLiveOrder(request.resource.data)
         && request.resource.data.status == "New"
         && (
@@ -240,7 +240,7 @@ service cloud.firestore {
     }
 
     match /public_status/{phoneKey} {
-      allow get: if true;
+      allow get: if signedIn();
       allow list: if false;
       allow create, update, delete: if isActiveVolunteer() || isAdmin() || isPartner() || isDemoVolunteer();
     }

@@ -149,3 +149,8 @@ React 19 · TypeScript · Vite · Tailwind CSS v4 · Firebase Authentication · 
 ---
 
 Built for privacy-aware community food support in Cheshire East.
+
+
+## Security & Privacy (RBAC)
+- **Strict Role-Based Access Control:** Rebuilt Firestore Rules to strictly isolate read and write access at the `agencyId` boundary, ensuring zero cross-tenant data leakage.
+- **GDPR Compliance:** Locked down public endpoints and required authentication across the board to prevent unauthorized bulk PII enumeration and ensure vulnerable recipient privacy.
