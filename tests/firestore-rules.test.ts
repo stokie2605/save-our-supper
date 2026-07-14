@@ -164,15 +164,22 @@ describe('Firestore security rules', () => {
 
   describe('Volunteers', () => {
     const volunteerUid = 'volunteer_user';
+    const volunteerAgency = 'volunteer-agency-123';
 
     beforeEach(async () => {
-      await seedUserDocument(volunteerUid, 'active_volunteer');
+      await seedUserDocument(volunteerUid, 'active_volunteer', volunteerAgency);
     });
 
-    it('allows volunteer to read any order', async () => {
-      await seedOrderDocument('order-random', { agencyId: 'some-agency' });
+    it('allows volunteer to read an order from their own agency', async () => {
+      await seedOrderDocument('order-same-agency', { agencyId: volunteerAgency });
       const db = getFirestoreForAuth({ uid: volunteerUid });
-      await expect(getDoc(doc(db, 'live_orders', 'order-random'))).resolves.not.toThrow();
+      await expect(getDoc(doc(db, 'live_orders', 'order-same-agency'))).resolves.not.toThrow();
+    });
+
+    it('blocks volunteer from reading an order from a different agency', async () => {
+      await seedOrderDocument('order-diff-agency', { agencyId: 'other-agency' });
+      const db = getFirestoreForAuth({ uid: volunteerUid });
+      await expect(getDoc(doc(db, 'live_orders', 'order-diff-agency'))).rejects.toThrow();
     });
 
     it('blocks volunteer from deleting orders', async () => {
